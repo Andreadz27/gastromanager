@@ -1,0 +1,44 @@
+{
+  "name": "GastroManager",
+  "short_name": "GastroManager",
+  "description": "Sistema integral de gestión gastronómica",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e293b",
+  "theme_color": "#f97316",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "es",
+  "shortcuts": [
+    {
+      "name": "Punto de Venta",
+      "short_name": "POS",
+      "description": "Abrir caja rápida",
+      "url": "/?view=pos",
+      "icons": [{ "src": "favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Mesas",
+      "short_name": "Mesas",
+      "description": "Ver estado de mesas",
+      "url": "/?view=mesas",
+      "icons": [{ "src": "favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Cocina",
+      "short_name": "Cocina",
+      "description": "Display de cocina",
+      "url": "/cocina-display.html",
+      "icons": [{ "src": "favicon.svg", "sizes": "any" }]
+    }
+  ],
+  "prefer_related_applications": false
+}

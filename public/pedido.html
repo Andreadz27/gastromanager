@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f97316">
+  <title>Pedido Online</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/menu.css">
+  <link rel="stylesheet" href="css/pedido.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="menu-body">
+
+  <!-- Hero -->
+  <header class="menu-hero">
+    <div class="menu-hero-bg"></div>
+    <div class="menu-hero-content">
+      <div class="menu-hero-logo"><i class="fas fa-utensils"></i></div>
+      <h1 id="negocioNombre">Pedido Online</h1>
+      <p id="negocioSub">Arma tu pedido y lo recibimos enseguida</p>
+      <div class="origen-badge-hero" id="origenBadge" style="display:none"></div>
+    </div>
+  </header>
+
+  <!-- Cats sticky -->
+  <nav class="mobile-cat-nav" id="mobileCatNav" aria-label="Categorias">
+    <div class="mobile-cat-scroll" id="mobileCatScroll"></div>
+  </nav>
+
+  <!-- Layout principal -->
+  <main class="pedido-layout">
+    <section class="pedido-carta">
+      <div class="menu-categories" id="menuCategorias" role="tablist"></div>
+      <div class="menu-items" id="menuItems" role="tabpanel"></div>
+    </section>
+    <aside class="pedido-carrito-sidebar" id="carritoSidebar">
+      <div class="carrito-header">
+        <h3><i class="fas fa-shopping-bag"></i> Tu pedido</h3>
+        <span class="carrito-count" id="carritoCount">0 items</span>
+      </div>
+      <div class="carrito-items" id="carritoItems">
+        <div class="carrito-vacio">
+          <i class="fas fa-shopping-bag"></i>
+          <p>Todavia no agregaste nada</p>
+        </div>
+      </div>
+      <div class="carrito-total-row" id="carritoTotalRow" style="display:none">
+        <span>Total estimado</span><strong id="carritoTotal">$0</strong>
+      </div>
+      <button class="btn btn-primary btn-block" id="btnConfirmar"
+              onclick="PedidoOnline.abrirFormulario()" style="display:none">
+        <i class="fas fa-check-circle"></i> Confirmar pedido
+      </button>
+    </aside>
+  </main>
+
+  <!-- Boton flotante carrito (mobile) -->
+  <button class="carrito-flotante" id="carritoFlotante"
+          onclick="PedidoOnline.toggleCarritoMobile()" style="display:none"
+          aria-label="Ver carrito">
+    <i class="fas fa-shopping-bag"></i>
+    <span class="carrito-flotante-count" id="carritoFlotanteCount">0</span>
+  </button>
+
+  <!-- Modal carrito mobile -->
+  <div id="carritoMobileModal" class="carrito-mobile-overlay" style="display:none"
+       role="dialog" aria-modal="true" aria-label="Carrito de pedido">
+    <div class="carrito-mobile-sheet">
+      <div class="carrito-mobile-handle"></div>
+      <div class="carrito-header">
+        <h3><i class="fas fa-shopping-bag"></i> Tu pedido</h3>
+        <button onclick="PedidoOnline.toggleCarritoMobile()" class="btn-cerrar"
+                aria-label="Cerrar carrito">&times;</button>
+      </div>
+      <div class="carrito-items" id="carritoItemsMobile"></div>
+      <div class="carrito-total-row" id="carritoTotalRowMobile" style="display:none">
+        <span>Total estimado</span><strong id="carritoTotalMobile">$0</strong>
+      </div>
+      <button class="btn btn-primary btn-block mt-10" id="btnConfirmarMobile"
+              onclick="PedidoOnline.abrirFormulario()" style="display:none">
+        <i class="fas fa-check-circle"></i> Confirmar pedido
+      </button>
+    </div>
+  </div>
+  <!-- Modal formulario datos cliente -->
+  <div id="formModal" class="pedido-form-overlay" style="display:none"
+       role="dialog" aria-modal="true" aria-label="Datos del pedido">
+    <div class="pedido-form-modal">
+      <div class="pedido-form-header">
+        <h3><i class="fas fa-user"></i> Tus datos</h3>
+        <button onclick="PedidoOnline.cerrarFormulario()" class="btn-cerrar"
+                aria-label="Cerrar">&times;</button>
+      </div>
+      <form id="pedidoForm" onsubmit="PedidoOnline.enviarPedido(event)" novalidate>
+        <div class="form-group">
+          <label for="clienteNombre">Nombre <span aria-hidden="true">*</span></label>
+          <input type="text" id="clienteNombre" placeholder="Tu nombre"
+                 required autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="clienteTelefono">Telefono <span aria-hidden="true">*</span></label>
+          <input type="tel" id="clienteTelefono" placeholder="11 1234-5678"
+                 required autocomplete="tel">
+        </div>
+        <div class="form-group">
+          <label>Como lo queres?</label>
+          <div class="tipo-opciones">
+            <label class="tipo-opcion">
+              <input type="radio" name="tipoPedido" value="takeaway" checked
+                     onchange="PedidoOnline.onTipoChange(this.value)">
+              <span><i class="fas fa-shopping-bag"></i> Retiro en el local</span>
+            </label>
+            <label class="tipo-opcion">
+              <input type="radio" name="tipoPedido" value="delivery"
+                     onchange="PedidoOnline.onTipoChange(this.value)">
+              <span><i class="fas fa-motorcycle"></i> Delivery</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group" id="grupoDireccion" style="display:none">
+          <label for="clienteDireccion">Direccion de entrega <span aria-hidden="true">*</span></label>
+          <input type="text" id="clienteDireccion"
+                 placeholder="Calle, numero, piso/dpto" autocomplete="street-address">
+        </div>
+        <div class="form-group">
+          <label for="clienteNotas">Notas / aclaraciones</label>
+          <textarea id="clienteNotas" rows="2"
+                    placeholder="Sin cebolla, sin sal, etc."></textarea>
+        </div>
+        <div class="form-resumen" id="formResumen"></div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline"
+                  onclick="PedidoOnline.cerrarFormulario()">Volver</button>
+          <button type="submit" class="btn btn-success" id="btnEnviar">
+            <i class="fas fa-paper-plane"></i> Enviar pedido
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Pantalla de confirmacion -->
+  <div id="confirmacionScreen" style="display:none" class="confirmacion-screen">
+    <div class="confirmacion-card">
+      <div class="confirmacion-icon"><i class="fas fa-check-circle"></i></div>
+      <h2>Pedido recibido!</h2>
+      <p id="confirmacionMsg">Tu pedido fue enviado. En breve te contactamos.</p>
+      <div class="confirmacion-numero" id="confirmacionNumero"></div>
+      <a id="confirmacionWA" href="#" class="btn btn-whatsapp mt-10"
+         style="display:none" target="_blank" rel="noopener">
+        <i class="fab fa-whatsapp"></i> Consultar por WhatsApp
+      </a>
+      <button class="btn btn-outline mt-10" onclick="PedidoOnline.nuevoPedido()">
+        <i class="fas fa-redo"></i> Hacer otro pedido
+      </button>
+    </div>
+  </div>
+
+  <script src="js/pedido.js"></script>
+</body>
+</html>

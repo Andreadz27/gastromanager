@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <meta name="description" content="GastroManager - Sistema integral de gestión gastronómica: POS, mesas, inventario, reportes y carta digital QR. Administra tu restaurante eficientemente.">
+  <meta name="theme-color" content="#f97316">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GastroManager">
+  <title>GastroManager - Sistema de Gestión Gastronómica</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="favicon.svg">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/mobile.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <!-- ===== LOGIN SCREEN ===== -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="login-logo">
+        <i class="fas fa-utensils"></i>
+      </div>
+      <h1>GastroManager</h1>
+      <p class="login-tagline">Sistema de Gestión Gastronómica</p>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="loginEmail"><i class="fas fa-envelope"></i> Email</label>
+          <input type="email" id="loginEmail" placeholder="tu@email.com" required>
+        </div>
+        <div class="form-group">
+          <label for="loginPassword"><i class="fas fa-lock"></i> Contraseña</label>
+          <input type="password" id="loginPassword" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">
+          <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+        </button>
+      </form>
+      <div id="loginError" class="login-error" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ===== MAIN APP ===== -->
+  <div id="app" style="display:none;">
+
+    <!-- Topbar móvil (visible solo en ≤1023px) -->
+    <header class="mobile-topbar" id="mobileTopbar">
+      <button class="topbar-hamburger" id="btnHamburger" aria-label="Abrir menú" aria-expanded="false" aria-controls="sidebar">
+        <i class="fas fa-bars"></i>
+      </button>
+      <div class="topbar-brand">
+        <i class="fas fa-utensils"></i>
+        <span id="topbarTitle">GastroManager</span>
+      </div>
+      <div class="topbar-actions">
+        <span class="topbar-realtime-dot offline" id="topbarDot" title="Estado conexión"></span>
+        <button class="topbar-icon-btn" onclick="App.navigateTo('cocina')" title="Cocina" aria-label="Cocina">
+          <i class="fas fa-fire-burner"></i>
+          <span class="topbar-badge" id="topbarBadgeCocina" style="display:none;"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Overlay oscuro para cerrar sidebar en mobile -->
+    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Menú principal">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <i class="fas fa-utensils"></i>
+          <span id="sidebarTitle">GastroManager</span>
+        </div>
+        <button class="sidebar-close-btn" id="btnSidebarClose" aria-label="Cerrar menú">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-view="dashboard">
+          <i class="fas fa-chart-line"></i> Dashboard
+        </a>
+        <a href="#" class="nav-item" data-view="pos" data-modulo="pos">
+          <i class="fas fa-cash-register"></i> Punto de Venta
+        </a>
+        <a href="#" class="nav-item" data-view="mesas" data-modulo="mesas">
+          <i class="fas fa-table"></i> Mesas
+        </a>
+        <a href="#" class="nav-item" data-view="pedidos" data-modulo="pedidos">
+          <i class="fas fa-receipt"></i> Pedidos
+        </a>
+        <a href="#" class="nav-item" data-view="delivery" data-modulo="delivery">
+          <i class="fas fa-motorcycle"></i> Delivery
+          <span class="nav-badge" id="navBadgeDelivery" style="display:none;"></span>
+        </a>
+        <a href="#" class="nav-item" data-view="cocina" data-modulo="cocina">
+          <i class="fas fa-fire-burner"></i> Cocina
+          <span class="nav-badge" id="navBadgeCocina" style="display:none;"></span>
+        </a>
+        <a href="#" class="nav-item admin-only" data-view="productos" data-modulo="productos">
+          <i class="fas fa-hamburger"></i> Productos
+        </a>
+        <a href="#" class="nav-item" data-view="stock" data-modulo="stock">
+          <i class="fas fa-boxes"></i> Inventario
+        </a>
+        <a href="#" class="nav-item" data-view="proveedores" data-modulo="proveedores">
+          <i class="fas fa-truck"></i> Proveedores
+        </a>
+        <a href="#" class="nav-item" data-view="clientes" data-modulo="clientes">
+          <i class="fas fa-users"></i> Clientes
+        </a>
+        <a href="#" class="nav-item" data-view="caja" data-modulo="caja">
+          <i class="fas fa-money-bill-wave"></i> Caja
+        </a>
+        <a href="#" class="nav-item" data-view="reportes" data-modulo="reportes">
+          <i class="fas fa-file-alt"></i> Reportes
+        </a>
+        <a href="#" class="nav-item admin-only" data-view="integraciones">
+          <i class="fas fa-plug"></i> Integraciones
+        </a>
+        <a href="#" class="nav-item admin-only" data-view="usuarios">
+          <i class="fas fa-user-cog"></i> Usuarios
+        </a>
+        <a href="#" class="nav-item admin-only" data-view="config">
+          <i class="fas fa-cog"></i> Configuración
+        </a>
+        <a href="#" class="nav-item" data-view="qr" title="Carta digital QR y pantalla de cocina">
+          <i class="fas fa-qrcode"></i> Menú QR / Display
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="realtime-indicator" id="realtimeIndicator" title="Estado de conexión en tiempo real">
+          <span class="realtime-dot offline" id="realtimeDot"></span>
+          <span class="realtime-label" id="realtimeLabel">Desconectado</span>
+        </div>
+        <div class="user-info">
+          <div class="user-avatar"><i class="fas fa-user"></i></div>
+          <div>
+            <div class="user-name" id="userName">Usuario</div>
+            <div class="user-role" id="userRole">Rol</div>
+          </div>
+        </div>
+        <button class="btn-logout" id="btnLogout"><i class="fas fa-sign-out-alt"></i> Salir</button>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main-content">
+      <div id="view-dashboard" class="view active"></div>
+      <div id="view-pos" class="view"></div>
+      <div id="view-mesas" class="view"></div>
+      <div id="view-pedidos" class="view"></div>
+      <div id="view-delivery" class="view"></div>
+      <div id="view-cocina" class="view"></div>
+      <div id="view-productos" class="view"></div>
+      <div id="view-stock" class="view"></div>
+      <div id="view-proveedores" class="view"></div>
+      <div id="view-clientes" class="view"></div>
+      <div id="view-caja" class="view"></div>
+      <div id="view-reportes"      class="view"></div>
+      <div id="view-integraciones" class="view"></div>
+      <div id="view-usuarios"      class="view"></div>
+      <div id="view-config"        class="view"></div>
+      <div id="view-qr"            class="view"></div>
+    </main>
+
+    <!-- Bottom navigation (solo en ≤767px) -->
+    <nav class="bottom-nav" id="bottomNav" role="navigation" aria-label="Navegación rápida">
+      <a href="#" class="bottom-nav-item active" data-view="dashboard">
+        <i class="fas fa-chart-line"></i>
+        <span>Inicio</span>
+      </a>
+      <a href="#" class="bottom-nav-item" data-view="pos">
+        <i class="fas fa-cash-register"></i>
+        <span>POS</span>
+      </a>
+      <a href="#" class="bottom-nav-item" data-view="mesas">
+        <i class="fas fa-table"></i>
+        <span>Mesas</span>
+      </a>
+      <a href="#" class="bottom-nav-item" data-view="cocina">
+        <i class="fas fa-fire-burner"></i>
+        <span>Cocina</span>
+        <span class="bottom-nav-badge" id="bottomBadgeCocina" style="display:none;"></span>
+      </a>
+      <a href="#" class="bottom-nav-item" data-view="pedidos">
+        <i class="fas fa-receipt"></i>
+        <span>Pedidos</span>
+      </a>
+      <button class="bottom-nav-item bottom-nav-more" id="btnBottomMore" aria-label="Más opciones" aria-expanded="false">
+        <i class="fas fa-ellipsis-h"></i>
+        <span>Más</span>
+      </button>
+    </nav>
+
+  </div><!-- /#app -->
+
+  <!-- Wizard setup multi-negocio -->
+  <div id="wizardSetup" style="display:none;"></div>
+
+  <!-- Toast notifications -->
+  <div id="toastContainer" class="toast-container" role="status" aria-live="polite"></div>
+
+  <!-- Modal container -->
+  <div id="modalContainer"></div>
+
+  <!-- Socket.IO realtime client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/pos.js"></script>
+  <script src="js/productos.js"></script>
+  <script src="js/stock.js"></script>
+  <script src="js/proveedores.js"></script>
+  <script src="js/clientes.js"></script>
+  <script src="js/mesas.js"></script>
+  <script src="js/pedidos.js"></script>
+  <script src="js/delivery.js"></script>
+  <script src="js/cocina.js"></script>
+  <script src="js/caja.js"></script>
+  <script src="js/reportes.js"></script>
+  <script src="js/usuarios.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/integraciones.js"></script>
+  <script src="js/qr.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(r => console.log('SW registrado:', r.scope))
+          .catch(e => console.warn('SW no disponible:', e));
+      });
+    }
+  </script>
+</body>
+</html>

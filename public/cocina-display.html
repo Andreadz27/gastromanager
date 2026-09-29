@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <title>Cocina — GastroManager</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    :root{
+      --accent:#f97316;--ok:#16a34a;--warn:#f59e0b;--danger:#dc2626;
+      --card:#1e293b;--bg:#0f172a;--border:#334155;
+    }
+    body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:#f1f5f9;min-height:100vh;overflow-x:hidden;}
+
+    /* TOPBAR */
+    .topbar{background:#1e293b;border-bottom:2px solid var(--accent);padding:0 20px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+    .tl{display:flex;align-items:center;gap:12px;}
+    .tl i{font-size:22px;color:var(--accent);}
+    .tl-title{font-size:20px;font-weight:800;color:#fff;}
+    .tl-sub{font-size:12px;color:#94a3b8;margin-top:1px;}
+    .tr{display:flex;align-items:center;gap:10px;}
+    .rt{display:flex;align-items:center;gap:6px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:20px;padding:5px 12px;font-size:12px;color:#22c55e;font-weight:600;}
+    .dot{width:8px;height:8px;border-radius:50%;background:#64748b;flex-shrink:0;}
+    .dot.on{background:#22c55e;animation:pulso 2s infinite;box-shadow:0 0 0 3px rgba(34,197,94,.3);}
+    @keyframes pulso{0%{box-shadow:0 0 0 0 rgba(34,197,94,.4);}70%{box-shadow:0 0 0 8px transparent;}100%{box-shadow:0 0 0 0 transparent;}}
+    .cnt{background:var(--accent);color:#fff;font-weight:800;font-size:20px;min-width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 8px;}
+    .tbtn{background:rgba(255,255,255,.08);color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;transition:background .15s;font-family:inherit;}
+    .tbtn:hover{background:rgba(255,255,255,.18);}
+
+    /* GRID */
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding:16px;}
+
+    /* CARD */
+    .card{background:var(--card);border-radius:14px;border:2px solid var(--border);overflow:hidden;display:flex;flex-direction:column;transition:border-color .3s,box-shadow .3s;}
+    .card.warn{border-color:var(--warn);}
+    .card.urg{border-color:var(--danger);box-shadow:0 0 20px rgba(220,38,38,.25);}
+    .c-head{background:#0f172a;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+    .c-num{font-size:18px;font-weight:800;color:var(--accent);}
+    .c-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+    .bdg{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase;}
+    .bdg-b{background:rgba(14,165,233,.18);color:#38bdf8;}
+    .bdg-o{background:rgba(249,115,22,.18);color:#fb923c;}
+    .c-timer{text-align:center;padding:10px 16px;display:flex;align-items:center;justify-content:center;}
+    .t-val{font-size:36px;font-weight:900;line-height:1;}
+    .t-lbl{font-size:12px;color:#94a3b8;margin-top:2px;}
+    .tok .t-val{color:#22c55e;}
+    .twarn .t-val{color:var(--warn);}
+    .turg .t-val{color:var(--danger);animation:blink .8s infinite;}
+    @keyframes blink{0%,100%{opacity:1;}50%{opacity:.4;}}
+    .c-items{padding:10px 16px;flex:1;border-top:1px solid var(--border);}
+    .item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+    .item:last-child{border-bottom:none;}
+    .iq{font-size:22px;font-weight:900;color:var(--accent);min-width:32px;text-align:center;line-height:1.1;flex-shrink:0;}
+    .in{font-size:15px;font-weight:600;color:#f1f5f9;line-height:1.2;}
+    .inote{font-size:12px;color:var(--warn);margin-top:4px;display:flex;gap:5px;}
+    .c-gnote{margin:0 16px 10px;padding:8px 12px;background:rgba(249,115,22,.08);border-left:3px solid var(--accent);border-radius:6px;font-size:12px;color:#fbbf24;display:flex;gap:7px;}
+    .c-foot{padding:12px 16px;border-top:1px solid var(--border);}
+    .btn-ok{width:100%;padding:14px;border:none;border-radius:10px;background:var(--ok);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .2s,transform .1s;font-family:inherit;-webkit-tap-highlight-color:transparent;}
+    .btn-ok:hover{background:#15803d;}
+    .btn-ok:active{background:#166534;transform:scale(.98);}
+
+    /* EMPTY / LOADER */
+    .empty,.loader{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:80px 20px;text-align:center;color:#94a3b8;}
+    .empty i,.loader i{font-size:52px;color:#334155;}
+    .empty h3{font-size:22px;}.empty p{font-size:14px;color:#475569;}
+
+    /* TOAST */
+    .twrap{position:fixed;top:72px;right:16px;z-index:100;display:flex;flex-direction:column;gap:8px;}
+    .toast{background:#1e293b;color:#f1f5f9;border-left:3px solid var(--ok);padding:12px 18px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:slin .25s ease;}
+    @keyframes slin{from{transform:translateX(100%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+
+    /* RESPONSIVE */
+    @media(max-width:600px){
+      .topbar{padding:0 12px;height:52px;}.tl-title{font-size:16px;}.tl-sub{display:none;}
+      .grid{grid-template-columns:1fr;padding:10px;gap:12px;}
+      .rt span:not(.dot){display:none;}
+    }
+    @media(min-width:601px) and (max-width:900px){.grid{grid-template-columns:repeat(2,1fr);}}
+  </style>
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="tl">
+      <i class="fas fa-fire-burner"></i>
+      <div>
+        <div class="tl-title">Cocina</div>
+        <div class="tl-sub" id="subTitle">—</div>
+      </div>
+    </div>
+    <div class="tr">
+      <div class="rt" id="rtBadge">
+        <span class="dot" id="rtDot"></span>
+        <span id="rtText">Conectando…</span>
+      </div>
+      <span class="cnt" id="cntBadge">0</span>
+      <button class="tbtn" onclick="cargar()">
+        <i class="fas fa-sync-alt"></i> Actualizar
+      </button>
+      <button class="tbtn" onclick="window.close()" title="Cerrar">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTENIDO -->
+  <main id="main">
+    <div class="loader">
+      <i class="fas fa-spinner fa-spin fa-2x"></i>
+      <span>Cargando comandas…</span>
+    </div>
+  </main>
+
+  <!-- TOASTS -->
+  <div class="twrap" id="toasts"></div>
+
+  <!-- SOCKET.IO -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+    // Argumento seguro para onclick (literal JS escapado para atributo HTML)
+    function jsArg(v){ return esc(JSON.stringify(v==null?'':v)); }
+
+    function toast(msg, color){
+      color = color || '#16a34a';
+      var w = document.getElementById('toasts');
+      var t = document.createElement('div');
+      t.className = 'toast'; t.style.borderLeftColor = color; t.innerHTML = msg;
+      w.appendChild(t);
+      setTimeout(function(){ t.style.opacity='0'; t.style.transition='opacity 0.4s'; setTimeout(function(){ t.remove(); }, 400); }, 3500);
+    }
+
+    var pedidos = [];
+
+    // Usa la sesión iniciada en la app en este mismo navegador
+    var token = null;
+    try { token = localStorage.getItem('gm_token'); } catch(e) {}
+    function authHeaders(){ return token ? { Authorization: 'Bearer ' + token } : {}; }
+    function pedirLogin(){
+      document.getElementById('main').innerHTML =
+        '<div class="empty"><i class="fas fa-lock"></i><h3>Iniciá sesión</h3>' +
+        '<p>Para ver las comandas, ingresá al sistema en este navegador.</p>' +
+        '<p><a href="/" style="color:inherit;font-weight:700">Ir al inicio de sesión</a></p></div>';
+    }
+
+    async function cargar(){
+      if (!token) return pedirLogin();
+      try {
+        var r = await fetch('/api/cocina/display', { headers: authHeaders() });
+        if (r.status === 401 || r.status === 403) { token = null; return pedirLogin(); }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        pedidos = await r.json();
+        render();
+      } catch(e) {
+        document.getElementById('main').innerHTML =
+          '<div class="empty"><i class="fas fa-exclamation-triangle"></i><h3>Error al cargar</h3><p>' + esc(e.message) + '</p></div>';
+      }
+    }
+
+    async function marcarListo(id, num){
+      try {
+        var r = await fetch('/api/cocina/display/' + id + '/listo', { method: 'POST', headers: authHeaders() });
+        if (r.status === 401 || r.status === 403) { token = null; return pedirLogin(); }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        toast('<i class="fas fa-check"></i> Comanda ' + esc(num) + ' lista');
+        await cargar();
+      } catch(e){
+        toast('<i class="fas fa-times"></i> Error: ' + esc(e.message), '#dc2626');
+      }
+    }
+
+
+    var TIPOS = { salon:'Salón', mostrador:'Mostrador', delivery:'Delivery', takeaway:'Take Away' };
+    function tClase(m){ return m<15?'tok':m<30?'twarn':'turg'; }
+    function cClase(m){ return m<15?'':m<30?'warn':'urg'; }
+
+    function render(){
+      var main = document.getElementById('main');
+      var now  = new Date();
+      document.getElementById('cntBadge').textContent = pedidos.length;
+      document.getElementById('subTitle').textContent =
+        pedidos.length + ' comanda' + (pedidos.length!==1?'s':'') +
+        ' · ' + now.toLocaleTimeString('es-AR');
+
+      if (pedidos.length === 0) {
+        main.innerHTML = '<div class="empty"><i class="fas fa-utensils"></i>' +
+          '<h3>¡Todo al día!</h3><p>No hay comandas pendientes.</p></div>';
+        return;
+      }
+
+      var html = '<div class="grid">';
+      pedidos.forEach(function(p){
+        var min   = p.minutos_transcurridos || 0;
+        var items = (p.items||[]).map(function(i){
+          return '<div class="item"><div class="iq">'+i.cantidad+'</div><div>' +
+            '<div class="in">'+esc(i.nombre_producto)+'</div>' +
+            (i.notas?'<div class="inote"><i class="fas fa-sticky-note"></i>'+esc(i.notas)+'</div>':'')+
+            '</div></div>';
+        }).join('');
+
+        html += '<div class="card '+cClase(min)+'" id="card-'+p.id+'">' +
+          '<div class="c-head">' +
+            '<div class="c-num"><i class="fas fa-receipt"></i> '+esc(p.numero_pedido)+'</div>' +
+            '<div class="c-meta">' +
+              '<span class="bdg bdg-b">'+esc(TIPOS[p.tipo]||p.tipo)+'</span>' +
+              (p.mesa_nombre?'<span class="bdg bdg-o"><i class="fas fa-table"></i> '+esc(p.mesa_nombre)+'</span>':'')+
+            '</div>' +
+          '</div>' +
+          '<div class="c-timer '+tClase(min)+'">' +
+            '<div><div class="t-val">'+min+'<small style="font-size:18px;font-weight:600"> min</small></div>' +
+            '<div class="t-lbl">en cocina</div></div>' +
+          '</div>' +
+          '<div class="c-items">'+items+'</div>' +
+          (p.notas?'<div class="c-gnote"><i class="fas fa-clipboard"></i> '+esc(p.notas)+'</div>':'')+
+          '<div class="c-foot">' +
+            '<button class="btn-ok" onclick="marcarListo('+Number(p.id)+','+jsArg(p.numero_pedido)+')">' +
+            '<i class="fas fa-check-circle"></i> LISTO</button>' +
+          '</div></div>';
+      });
+      html += '</div>';
+      main.innerHTML = html;
+    }
+
+    function initSocket(){
+      try {
+        if (!token) return;
+        var s = io({ transports:['websocket','polling'], auth: { token: token } });
+        s.on('connect', function(){
+          document.getElementById('rtDot').className = 'dot on';
+          document.getElementById('rtText').textContent = 'En tiempo real';
+        });
+        s.on('disconnect', function(){
+          document.getElementById('rtDot').className = 'dot';
+          document.getElementById('rtText').textContent = 'Desconectado';
+        });
+        s.on('cocina:actualizar', cargar);
+        s.on('pedido:nuevo', cargar);
+      } catch(e){ console.warn('Socket.IO no disponible'); }
+    }
+
+    setInterval(cargar, 30000);
+
+    document.addEventListener('DOMContentLoaded', function(){
+      initSocket();
+      cargar();
+    });
+  </script>
+</body>
+</html>
+

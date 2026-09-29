@@ -1,0 +1,25 @@
+# Dependencias
+node_modules/
+
+# Datos del negocio: nunca al repositorio
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/*.bak*
+data/.secret_key
+data/backups/
+database.db
+gastromanager.db
+
+# Configuración local y secretos
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# Respaldos manuales y archivos retirados
+_respaldos/
+_retirado/
+*.bak-*

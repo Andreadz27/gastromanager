@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Carta digital de GastroManager - Explorá nuestro menú con entradas, platos principales, bebidas, postres y más. Pedí directo desde la mesa escaneando el código QR.">
+  <meta name="theme-color" content="#f97316">
+  <title>Carta Digital - GastroManager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/menu.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="menu-body">
+  <!-- Hero / Header -->
+  <header class="menu-hero">
+    <div class="menu-hero-bg"></div>
+    <div class="menu-hero-content">
+      <div class="menu-hero-logo"><i class="fas fa-utensils"></i></div>
+      <h1 id="menuRestNombre">Nuestro Menú</h1>
+      <p id="menuRestSub">Escaneá el código y pedí directo desde la mesa</p>
+    </div>
+  </header>
+
+  <!-- Mobile category nav (sticky bottom on mobile) -->
+  <nav class="mobile-cat-nav" id="mobileCatNav" aria-label="Navegación de categorías">
+    <div class="mobile-cat-scroll" id="mobileCatScroll"></div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="menu-container" id="menuContainer">
+    <div class="menu-categories" id="menuCategorias" role="tablist" aria-label="Categorías del menú"></div>
+    <div class="menu-items" id="menuItems" role="tabpanel"></div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="menu-footer" role="contentinfo">
+    <div class="menu-footer-grid">
+      <div class="menu-footer-brand">
+        <div class="menu-footer-logo"><i class="fas fa-utensils"></i></div>
+        <h3>GastroManager</h3>
+        <p>Sistema integral para tu restaurante: POS, mesas, inventario, reportes y carta digital QR.</p>
+      </div>
+      <nav class="menu-footer-nav" aria-label="Enlaces principales">
+        <h4>Navegación</h4>
+        <ul>
+          <li><a href="/"><i class="fas fa-home"></i> Inicio</a></li>
+          <li><a href="/menu.html"><i class="fas fa-utensils"></i> Carta Digital</a></li>
+          <li><a href="#" data-view="pos"><i class="fas fa-cash-register"></i> Punto de Venta</a></li>
+          <li><a href="#" data-view="mesas"><i class="fas fa-chair"></i> Mesas</a></li>
+        </ul>
+      </nav>
+      <nav class="menu-footer-nav" aria-label="Información">
+        <h4>Información</h4>
+        <ul>
+          <li><a href="#contacto"><i class="fas fa-map-marker-alt"></i> Ubicación</a></li>
+          <li><a href="#horarios"><i class="fas fa-clock"></i> Horarios</a></li>
+          <li><a href="#reservas"><i class="fas fa-calendar-alt"></i> Reservas</a></li>
+          <li><a href="#contacto"><i class="fas fa-phone"></i> Contacto</a></li>
+        </ul>
+      </nav>
+      <div class="menu-footer-contact" id="contacto">
+        <h4>Contacto</h4>
+        <address>
+          <p><i class="fas fa-map-marker-alt"></i> <span id="footerDireccion">Av. Corrientes 1234, CABA</span></p>
+          <p><i class="fas fa-phone"></i> <a href="tel:+541112345678" id="footerTelefono">+54 11 1234-5678</a></p>
+          <p><i class="fas fa-envelope"></i> <a href="mailto:info@gastromanager.com">info@gastromanager.com</a></p>
+        </address>
+      </div>
+    </div>
+    <div class="menu-footer-bottom">
+      <p class="menu-footer-copy">&copy; <span id="footerYear"></span> GastroManager. Todos los derechos reservados.</p>
+      <p class="menu-footer-made">Hecho con <i class="fas fa-heart" style="color:#ef4444"></i> para gastronómicos</p>
+    </div>
+  </footer>
+
+  <script src="js/menu.js"></script>
+</body>
+</html>
