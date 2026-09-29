@@ -18,9 +18,13 @@ function httpReq(token, method, path, body) {
   });
 }
 
+// Credenciales del admin: GM_EMAIL / GM_PASSWORD (la contraseña por defecto
+// admin123 debe cambiarse en el primer ingreso, así que no sirve para los scripts)
 async function login() {
-  const r = await httpReq(null, 'POST', '/api/auth/login',
-    { email: 'admin@gastromanager.com', password: 'admin123' });
+  const email = process.env.GM_EMAIL || 'admin@gastromanager.com';
+  const password = process.env.GM_PASSWORD;
+  if (!password) throw new Error('Definí GM_PASSWORD (y GM_EMAIL si no es el admin por defecto)');
+  const r = await httpReq(null, 'POST', '/api/auth/login', { email, password });
   if (!r.token) throw new Error('Login fallido: ' + JSON.stringify(r));
   return r.token;
 }

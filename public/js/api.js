@@ -154,6 +154,8 @@ const API = {
   cerrarCaja(data) { return this.request('POST', '/caja/cerrar', data); },
   getCajaEstado() { return this.request('GET', '/caja/estado'); },
   getHistorialCaja() { return this.request('GET', '/caja/historial'); },
+  getArqueoCaja(id) { return this.request('GET', `/caja/${id}/arqueo`); },
+  registrarMovimientoCaja(data) { return this.request('POST', '/caja/movimiento', data); },
 // ===== Proveedores =====
   getProveedores() { return this.request('GET', '/proveedores'); },
   createProveedor(data) { return this.request('POST', '/proveedores', data); },

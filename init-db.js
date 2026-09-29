@@ -7,8 +7,8 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-// Asegurar carpeta data
-const dataDir = path.join(__dirname, 'data');
+// Asegurar carpeta data (GM_DATA_DIR permite usar otra carpeta, por ejemplo en los tests)
+const dataDir = process.env.GM_DATA_DIR || path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
@@ -342,10 +342,12 @@ db.serialize(() => {
 
   console.log('✅ Categorías iniciales creadas.');
 
-  // Productos iniciales de ejemplo
-  const stmtProd = db.prepare(`INSERT OR IGNORE INTO productos 
-    (nombre, descripcion, categoria_id, precio_venta, costo, es_plato, tracking_stock, stock_actual, stock_minimo, unidad) 
-    VALUES (?, ?, (SELECT id FROM categorias WHERE nombre = ?), ?, ?, ?, ?, ?, ?, ?)`);
+  // Productos iniciales de ejemplo (solo si no existen: productos.nombre no es UNIQUE
+  // y con INSERT OR IGNORE cada ejecución duplicaba la carta)
+  const stmtProd = db.prepare(`INSERT INTO productos
+    (nombre, descripcion, categoria_id, precio_venta, costo, es_plato, tracking_stock, stock_actual, stock_minimo, unidad)
+    SELECT ?1, ?2, (SELECT id FROM categorias WHERE nombre = ?3), ?4, ?5, ?6, ?7, ?8, ?9, ?10
+    WHERE NOT EXISTS (SELECT 1 FROM productos WHERE nombre = ?1)`);
 
   const productos = [
     ['Ensalada César', 'Lechuga, pollo, croutons, aderezo César', 'Entradas', 4500, 1800, 1, 1, 20, 5, 'plato'],
@@ -403,22 +405,27 @@ db.serialize(() => {
   indices.forEach(sql => db.run(sql));
   console.log('✅ Índices de performance creados.');
 
+  // Datos de ejemplo: solo si la tabla está vacía (sin UNIQUE, INSERT OR IGNORE los duplicaba)
+  // (la unión va en una subconsulta: un WHERE suelto solo filtraría el último SELECT)
+  const siVacia = (tabla, columnas, filas) => db.run(
+    `INSERT INTO ${tabla} (${columnas}) SELECT * FROM (${filas}) WHERE NOT EXISTS (SELECT 1 FROM ${tabla})`);
+
   // Proveedores de ejemplo
-  db.run(`INSERT OR IGNORE INTO proveedores (nombre, cuit, telefono, email) VALUES 
-    ('Distribuidora Central', '30-12345678-9', '011-1234-5678', 'ventas@central.com.ar'),
-    ('Carnes del Norte', '27-87654321-4', '011-8765-4321', 'carnes@norte.com.ar'),
-    ('Bebidas del Sur', '33-11111111-2', '011-1111-2222', 'info@bebidasdelsur.com.ar')`);
+  siVacia('proveedores', 'nombre, cuit, telefono, email', `
+    SELECT 'Distribuidora Central', '30-12345678-9', '011-1234-5678', 'ventas@central.com.ar'
+    UNION ALL SELECT 'Carnes del Norte', '27-87654321-4', '011-8765-4321', 'carnes@norte.com.ar'
+    UNION ALL SELECT 'Bebidas del Sur', '33-11111111-2', '011-1111-2222', 'info@bebidasdelsur.com.ar'`);
 
   // Plataformas de delivery (PedidosYa, Rappi, Uber Eats)
-  db.run(`INSERT OR IGNORE INTO plataformas_delivery (nombre, color, icono, activa, comision, referencia) VALUES
-    ('PedidosYa', '#FBBF24', 'utensils', 0, 25, ''),
-    ('Rappi', '#00BFB3', 'motorcycle', 0, 30, ''),
-    ('Uber Eats', '#06C167', 'carrot', 0, 30, '')`);
+  siVacia('plataformas_delivery', 'nombre, color, icono, activa, comision, referencia', `
+    SELECT 'PedidosYa', '#FBBF24', 'utensils', 0, 25, ''
+    UNION ALL SELECT 'Rappi', '#00BFB3', 'motorcycle', 0, 30, ''
+    UNION ALL SELECT 'Uber Eats', '#06C167', 'carrot', 0, 30, ''`);
 
-  db.run(`INSERT OR IGNORE INTO promociones (nombre, tipo, valor, descripcion) VALUES
-    ('2x1 en postres', 'porcentaje', 50, '50% de descuento en el segundo postre'),
-    ('Combo hamburguesa + gaseosa', 'monto', 1000, 'Descuento de $1000 en el combo'),
-    ('Efectivo', 'porcentaje', 10, '10% de descuento pagando en efectivo')`);
+  siVacia('promociones', 'nombre, tipo, valor, descripcion', `
+    SELECT '2x1 en postres', 'porcentaje', 50, '50% de descuento en el segundo postre'
+    UNION ALL SELECT 'Combo hamburguesa + gaseosa', 'monto', 1000, 'Descuento de $1000 en el combo'
+    UNION ALL SELECT 'Efectivo', 'porcentaje', 10, '10% de descuento pagando en efectivo'`);
 
   console.log('✅ Mesas, proveedores y promociones creados.');
   console.log('');

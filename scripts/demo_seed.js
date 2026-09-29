@@ -28,10 +28,33 @@ async function seed() {
     console.log('[OK] Eliminados ' + viejos.length + ' productos anteriores');
   }
 
-  // 3 — Crear productos
+  // 3 — Crear productos. seed-data usa { precio, categoria, stock }; la API espera
+  // { precio_venta, categoria_id, stock_actual } (antes quedaban en $0 y sin categoría).
+  const CATEGORIAS = { Principales: 'Platos Principales' };
+  const cats = await get(T, '/api/categorias');
+  const idCategoria = async nombreSeed => {
+    const nombre = /^(Vino|Botella vino|Cerveza)/i.test(nombreSeed.producto) ? 'Bebidas Alcohólicas'
+      : (CATEGORIAS[nombreSeed.categoria] || nombreSeed.categoria);
+    let cat = cats.find(c => c.nombre === nombre);
+    if (!cat) {
+      const r = await post(T, '/api/categorias', { nombre, orden: cats.length + 1 });
+      cat = { id: r.id, nombre };
+      cats.push(cat);
+    }
+    return cat.id;
+  };
   const ids = {};
   for (const p of PRODUCTOS) {
-    const r = await post(T, '/api/productos', p);
+    const r = await post(T, '/api/productos', {
+      nombre: p.nombre,
+      descripcion: p.descripcion || '',
+      categoria_id: await idCategoria({ producto: p.nombre, categoria: p.categoria }),
+      precio_venta: p.precio,
+      tracking_stock: 1,
+      stock_actual: p.stock,
+      stock_minimo: Math.ceil(p.stock * 0.2),
+      activo: p.activo
+    });
     if (r && r.id) { ids[p.nombre] = r.id; process.stdout.write('.'); }
     else { process.stdout.write('x'); console.log(' WARN:', p.nombre, JSON.stringify(r)); }
   }

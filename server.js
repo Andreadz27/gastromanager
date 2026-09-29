@@ -24,11 +24,13 @@ const txContexto = new AsyncLocalStorage();
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
+// Carpeta de datos (base, clave de sesión, copias). GM_DATA_DIR permite usar otra (tests).
+const DATA_DIR = process.env.GM_DATA_DIR || path.join(__dirname, 'data');
 // Clave para firmar sesiones: SECRET_KEY del entorno o, si no está, una clave
 // aleatoria propia de esta instalación guardada en data/.secret_key.
 function cargarSecretKey() {
   if (process.env.SECRET_KEY) return process.env.SECRET_KEY;
-  const archivo = path.join(__dirname, 'data', '.secret_key');
+  const archivo = path.join(DATA_DIR, '.secret_key');
   try {
     const guardada = fs.readFileSync(archivo, 'utf8').trim();
     if (guardada.length >= 32) return guardada;
@@ -138,7 +140,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/', apiLimiter);
 
 // Base de datos
-const dbPath = path.join(__dirname, 'data', 'gastromanager.db');
+const dbPath = path.join(DATA_DIR, 'gastromanager.db');
 const db = new sqlite3.Database(dbPath);
 db.configure('busyTimeout', 10000);
 // WAL: las lecturas no se bloquean mientras hay una escritura en curso
@@ -237,6 +239,21 @@ const fechaLocal = (diasAtras = 0) =>
 // Error de validación con código HTTP (se responde tal cual y revierte la transacción)
 const errorHttp = (status, mensaje) => Object.assign(new Error(mensaje), { status });
 
+// UPDATE parcial: solo modifica los campos que vienen en el body (lista blanca "campos").
+// Antes los PUT asignaban NULL a lo que el formulario no enviaba; por ejemplo, editar un
+// proveedor lo dejaba con activo = NULL y desaparecía de la lista.
+async function actualizarParcial(tabla, id, body, campos) {
+  const sets = [], params = [];
+  for (const campo of campos) {
+    if (body[campo] === undefined) continue;
+    sets.push(`${campo} = ?`);
+    params.push(campo === 'activo' ? (body[campo] ? 1 : 0) : body[campo]);
+  }
+  if (!sets.length) throw errorHttp(400, 'No hay datos para actualizar');
+  const { changes } = await run(`UPDATE ${tabla} SET ${sets.join(', ')} WHERE id = ?`, [...params, id]);
+  if (!changes) throw errorHttp(404, 'Registro no encontrado');
+}
+
 // ============ Migraciones de esquema (se ejecutan al iniciar) ============
 async function agregarColumna(tabla, columna, definicion) {
   const cols = await all(`PRAGMA table_info(${tabla})`);
@@ -262,6 +279,12 @@ async function migrarEsquema() {
   await agregarColumna('pedidos', 'origen', "TEXT DEFAULT ''");
   await agregarColumna('pedidos', 'metodo_pago', "TEXT DEFAULT ''");
   await agregarColumna('pedidos', 'mp_payment_id', "TEXT DEFAULT ''");
+  // Arqueo de caja
+  await agregarColumna('caja', 'monto_esperado', 'REAL');
+  await agregarColumna('caja', 'diferencia', 'REAL');
+  await agregarColumna('caja', 'resumen', 'TEXT');
+  await agregarColumna('caja', 'observaciones_cierre', "TEXT DEFAULT ''");
+  await run('CREATE INDEX IF NOT EXISTS idx_caja_estado ON caja(estado)');
   await agregarColumna('productos', 'tn_product_id', 'INTEGER');
   await agregarColumna('productos', 'tn_variant_id', 'INTEGER');
 
@@ -679,9 +702,7 @@ app.post('/api/categorias', autenticar, esAdmin, async (req, res) => {
 
 app.put('/api/categorias/:id', autenticar, esAdmin, async (req, res) => {
   try {
-    const { nombre, descripcion, color, orden, activo } = req.body;
-    await run('UPDATE categorias SET nombre = ?, descripcion = ?, color = ?, orden = ?, activo = ? WHERE id = ?',
-      [nombre, descripcion, color, orden, activo, req.params.id]);
+    await actualizarParcial('categorias', req.params.id, req.body || {}, ['nombre', 'descripcion', 'color', 'orden', 'activo']);
     res.json({ message: 'Categoría actualizada' });
   } catch (err) {
     errorInterno(res, err);
@@ -714,13 +735,53 @@ app.get('/api/productos', autenticar, async (req, res) => {
   }
 });
 
+// Valida y normaliza los datos de un producto. Con "actual" (edición) los campos que
+// no vienen en el body conservan su valor: antes se guardaban como NULL y el producto
+// editado desaparecía del POS (activo = NULL) y perdía el stock.
+async function datosProducto(body, actual = {}) {
+  const valor = (campo, porDefecto) => body[campo] !== undefined ? body[campo] : (actual[campo] !== undefined ? actual[campo] : porDefecto);
+  const numero = (campo, porDefecto) => {
+    const v = valor(campo, porDefecto);
+    const n = Number(v);
+    if (v === null || v === '' || !Number.isFinite(n) || n < 0) throw errorHttp(400, `Valor inválido en ${campo.replace('_', ' ')}`);
+    return n;
+  };
+  const bandera = (campo, porDefecto) => valor(campo, porDefecto) ? 1 : 0;
+
+  const nombre = String(valor('nombre', '') || '').trim();
+  if (!nombre) throw errorHttp(400, 'El nombre es obligatorio');
+  if (valor('precio_venta', undefined) === undefined) throw errorHttp(400, 'El precio de venta es obligatorio');
+
+  let categoriaId = valor('categoria_id', null);
+  if (categoriaId === '' || Number.isNaN(Number(categoriaId))) categoriaId = null;
+  if (categoriaId !== null) {
+    const cat = await get('SELECT id FROM categorias WHERE id = ?', [categoriaId]);
+    if (!cat) throw errorHttp(400, 'La categoría no existe');
+    categoriaId = cat.id;
+  }
+
+  return {
+    nombre,
+    descripcion: String(valor('descripcion', '') || ''),
+    categoria_id: categoriaId,
+    precio_venta: numero('precio_venta'),
+    costo: numero('costo', 0),
+    es_plato: bandera('es_plato', 0),
+    tracking_stock: bandera('tracking_stock', 0),
+    stock_actual: Number(valor('stock_actual', 0)) || 0, // puede quedar negativo por ventas
+    stock_minimo: numero('stock_minimo', 0),
+    unidad: String(valor('unidad', 'unidad') || 'unidad'),
+    activo: bandera('activo', 1)
+  };
+}
+
 app.post('/api/productos', autenticar, esAdmin, async (req, res) => {
   try {
-    const { nombre, descripcion, categoria_id, precio_venta, costo, es_plato, tracking_stock, stock_actual, stock_minimo, unidad } = req.body;
+    const p = await datosProducto(req.body || {});
     const result = await run(
-      `INSERT INTO productos (nombre, descripcion, categoria_id, precio_venta, costo, es_plato, tracking_stock, stock_actual, stock_minimo, unidad) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [nombre, descripcion || '', categoria_id, precio_venta || 0, costo || 0, es_plato || 0, tracking_stock || 0, stock_actual || 0, stock_minimo || 0, unidad || 'unidad']
+      `INSERT INTO productos (nombre, descripcion, categoria_id, precio_venta, costo, es_plato, tracking_stock, stock_actual, stock_minimo, unidad, activo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [p.nombre, p.descripcion, p.categoria_id, p.precio_venta, p.costo, p.es_plato, p.tracking_stock, p.stock_actual, p.stock_minimo, p.unidad, p.activo]
     );
     res.status(201).json({ id: result.id, message: 'Producto creado' });
   } catch (err) {
@@ -730,13 +791,15 @@ app.post('/api/productos', autenticar, esAdmin, async (req, res) => {
 
 app.put('/api/productos/:id', autenticar, esAdmin, async (req, res) => {
   try {
-    const { nombre, descripcion, categoria_id, precio_venta, costo, es_plato, tracking_stock, stock_actual, stock_minimo, unidad, activo } = req.body;
+    const actual = await get('SELECT * FROM productos WHERE id = ?', [req.params.id]);
+    if (!actual) return res.status(404).json({ error: 'Producto no encontrado' });
+    const p = await datosProducto(req.body || {}, actual);
     await run(
-      `UPDATE productos SET 
-       nombre = ?, descripcion = ?, categoria_id = ?, precio_venta = ?, costo = ?, 
+      `UPDATE productos SET
+       nombre = ?, descripcion = ?, categoria_id = ?, precio_venta = ?, costo = ?,
        es_plato = ?, tracking_stock = ?, stock_actual = ?, stock_minimo = ?, unidad = ?, activo = ?
        WHERE id = ?`,
-      [nombre, descripcion, categoria_id, precio_venta, costo, es_plato, tracking_stock, stock_actual, stock_minimo, unidad, activo, req.params.id]
+      [p.nombre, p.descripcion, p.categoria_id, p.precio_venta, p.costo, p.es_plato, p.tracking_stock, p.stock_actual, p.stock_minimo, p.unidad, p.activo, actual.id]
     );
     res.json({ message: 'Producto actualizado' });
   } catch (err) {
@@ -779,9 +842,7 @@ app.post('/api/mesas', autenticar, esAdmin, async (req, res) => {
 
 app.put('/api/mesas/:id', autenticar, esAdmin, async (req, res) => {
   try {
-    const { nombre, capacidad, sector, orden, estado } = req.body;
-    await run('UPDATE mesas SET nombre = ?, capacidad = ?, sector = ?, orden = ?, estado = ? WHERE id = ?',
-      [nombre, capacidad, sector, orden, estado, req.params.id]);
+    await actualizarParcial('mesas', req.params.id, req.body || {}, ['nombre', 'capacidad', 'sector', 'orden', 'estado']);
     res.json({ message: 'Mesa actualizada' });
   } catch (err) {
     errorInterno(res, err);
@@ -928,9 +989,7 @@ app.post('/api/promociones', autenticar, esAdmin, async (req, res) => {
 
 app.put('/api/promociones/:id', autenticar, esAdmin, async (req, res) => {
   try {
-    const { nombre, tipo, valor, descripcion, activo } = req.body;
-    await run('UPDATE promociones SET nombre = ?, tipo = ?, valor = ?, descripcion = ?, activo = ? WHERE id = ?',
-      [nombre, tipo, valor, descripcion, activo === 0 ? 0 : 1, req.params.id]);
+    await actualizarParcial('promociones', req.params.id, req.body || {}, ['nombre', 'tipo', 'valor', 'descripcion', 'activo']);
     res.json({ message: 'Promoción actualizada' });
   } catch (err) {
     errorInterno(res, err);
@@ -1685,22 +1744,84 @@ app.post('/api/caja/abrir', autenticar, async (req, res) => {
   }
 });
 
+const redondear = n => Math.round((Number(n) || 0) * 100) / 100;
+
+// Arqueo: cobros del turno por medio de pago, ingresos/egresos de efectivo y
+// efectivo esperado = inicial + ventas en efectivo + ingresos − egresos
+async function resumenCaja(caja) {
+  const hasta = caja.fecha_cierre || '9999-12-31';
+  const porMetodo = await all(`
+    SELECT metodo, COALESCE(SUM(monto), 0) AS total, COUNT(*) AS cantidad
+    FROM pagos WHERE fecha >= ? AND fecha <= ?
+    GROUP BY metodo ORDER BY total DESC`, [caja.fecha_apertura, hasta]);
+  const movimientos = await all(`
+    SELECT m.id, m.tipo, m.concepto, m.monto, m.fecha, u.nombre AS usuario_nombre
+    FROM movimientos_caja m LEFT JOIN usuarios u ON u.id = m.usuario_id
+    WHERE m.caja_id = ? ORDER BY m.fecha`, [caja.id]);
+  const suma = tipo => redondear(movimientos.filter(m => m.tipo === tipo).reduce((s, m) => s + m.monto, 0));
+  const ventasEfectivo = redondear((porMetodo.find(m => m.metodo === 'efectivo') || {}).total);
+  const ingresos = suma('ingreso'), egresos = suma('egreso');
+  return {
+    monto_inicial: redondear(caja.monto_inicial),
+    por_metodo: porMetodo.map(m => ({ ...m, total: redondear(m.total) })),
+    total_ventas: redondear(porMetodo.reduce((s, m) => s + m.total, 0)),
+    cobros: porMetodo.reduce((s, m) => s + m.cantidad, 0),
+    ventas_efectivo: ventasEfectivo,
+    ingresos, egresos, movimientos,
+    efectivo_esperado: redondear(caja.monto_inicial + ventasEfectivo + ingresos - egresos)
+  };
+}
+
+// Ingreso o egreso de efectivo en la caja abierta (cambio, retiro, pago a proveedor...)
+app.post('/api/caja/movimiento', autenticar, async (req, res) => {
+  try {
+    const { tipo } = req.body || {};
+    const monto = Number(req.body && req.body.monto);
+    const concepto = String((req.body && req.body.concepto) || '').trim();
+    if (!['ingreso', 'egreso'].includes(tipo)) return res.status(400).json({ error: 'Tipo de movimiento inválido' });
+    if (!Number.isFinite(monto) || monto <= 0) return res.status(400).json({ error: 'El monto debe ser mayor a cero' });
+    if (!concepto) return res.status(400).json({ error: 'Indicá el concepto del movimiento' });
+    const id = await transaccion(async () => {
+      const caja = await get("SELECT id FROM caja WHERE estado = 'abierta'");
+      if (!caja) throw errorHttp(400, 'No hay caja abierta');
+      const r = await run('INSERT INTO movimientos_caja (caja_id, tipo, concepto, monto, usuario_id) VALUES (?, ?, ?, ?, ?)',
+        [caja.id, tipo, concepto, redondear(monto), req.usuario.id]);
+      await run('INSERT INTO auditoria (usuario_id, accion, detalle) VALUES (?, ?, ?)',
+        [req.usuario.id, `caja_${tipo}`, `${tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} de caja: ${concepto} (${redondear(monto)})`]);
+      return r.id;
+    });
+    res.status(201).json({ id, message: 'Movimiento registrado' });
+  } catch (err) {
+    errorInterno(res, err);
+  }
+});
+
 app.post('/api/caja/cerrar', autenticar, async (req, res) => {
   try {
-    const { monto_final_real } = req.body;
-    const totalVentas = await transaccion(async () => {
+    const contado = Number(req.body && req.body.monto_final_real);
+    if (!Number.isFinite(contado) || contado < 0)
+      return res.status(400).json({ error: 'Ingresá el efectivo contado en caja' });
+    const resultado = await transaccion(async () => {
       const caja = await get("SELECT * FROM caja WHERE estado = 'abierta'");
       if (!caja) throw errorHttp(400, 'No hay caja abierta');
-      const ventas = await get(`
-        SELECT COALESCE(SUM(p.total), 0) as total_ventas
-        FROM pedidos p
-        WHERE p.estado = 'pagado' AND p.cerrado_en >= ?
-      `, [caja.fecha_apertura]);
-      await run(`UPDATE caja SET estado = 'cerrada', fecha_cierre = CURRENT_TIMESTAMP, monto_final_real = ? WHERE id = ?`,
-        [importe(monto_final_real), caja.id]);
-      return ventas.total_ventas;
+      const resumen = await resumenCaja(caja);
+      const diferencia = redondear(contado - resumen.efectivo_esperado);
+      await run(`UPDATE caja SET estado = 'cerrada', fecha_cierre = CURRENT_TIMESTAMP, monto_final_real = ?,
+                   monto_esperado = ?, diferencia = ?, resumen = ?, observaciones_cierre = ? WHERE id = ?`,
+        [redondear(contado), resumen.efectivo_esperado, diferencia, JSON.stringify(resumen),
+         String((req.body && req.body.observaciones) || ''), caja.id]);
+      await run('INSERT INTO auditoria (usuario_id, accion, detalle) VALUES (?, ?, ?)',
+        [req.usuario.id, 'cerrar_caja', `Caja #${caja.id} cerrada. Esperado ${resumen.efectivo_esperado}, contado ${redondear(contado)}, diferencia ${diferencia}`]);
+      return { resumen, diferencia };
     });
-    res.json({ message: 'Caja cerrada', total_ventas: totalVentas });
+    res.json({
+      message: 'Caja cerrada',
+      total_ventas: resultado.resumen.total_ventas,
+      efectivo_esperado: resultado.resumen.efectivo_esperado,
+      efectivo_contado: redondear(contado),
+      diferencia: resultado.diferencia,
+      resumen: resultado.resumen
+    });
   } catch (err) {
     errorInterno(res, err);
   }
@@ -1709,7 +1830,8 @@ app.post('/api/caja/cerrar', autenticar, async (req, res) => {
 app.get('/api/caja/estado', autenticar, async (req, res) => {
   try {
     const caja = await get(`SELECT c.*, u.nombre as usuario_nombre FROM caja c LEFT JOIN usuarios u ON c.usuario_id = u.id WHERE c.estado = 'abierta'`);
-    res.json(caja || null);
+    if (!caja) return res.json(null);
+    res.json({ ...caja, resumen: await resumenCaja(caja) });
   } catch (err) {
     errorInterno(res, err);
   }
@@ -1718,13 +1840,29 @@ app.get('/api/caja/estado', autenticar, async (req, res) => {
 app.get('/api/caja/historial', autenticar, esAdmin, async (req, res) => {
   try {
     const cajas = await all(`
-      SELECT c.*, u.nombre as usuario_nombre,
-        (SELECT COALESCE(SUM(p.total), 0) FROM pedidos p WHERE p.estado = 'pagado' AND p.cerrado_en >= c.fecha_apertura AND p.cerrado_en <= COALESCE(c.fecha_cierre, CURRENT_TIMESTAMP)) as ventas
+      SELECT c.id, c.fecha_apertura, c.fecha_cierre, c.monto_inicial, c.monto_final_real, c.estado,
+        c.monto_esperado, c.diferencia, c.observaciones, c.observaciones_cierre, u.nombre as usuario_nombre,
+        (SELECT COALESCE(SUM(pg.monto), 0) FROM pagos pg
+          WHERE pg.fecha >= c.fecha_apertura AND pg.fecha <= COALESCE(c.fecha_cierre, '9999-12-31')) as ventas
       FROM caja c
       LEFT JOIN usuarios u ON c.usuario_id = u.id
       ORDER BY c.fecha_apertura DESC
+      LIMIT 200
     `);
     res.json(cajas);
+  } catch (err) {
+    errorInterno(res, err);
+  }
+});
+
+// Detalle del arqueo de una caja (cerrada: el guardado al cerrar; abierta: en vivo)
+app.get('/api/caja/:id/arqueo', autenticar, esAdmin, async (req, res) => {
+  try {
+    const caja = await get(`SELECT c.*, u.nombre as usuario_nombre FROM caja c LEFT JOIN usuarios u ON c.usuario_id = u.id WHERE c.id = ?`, [req.params.id]);
+    if (!caja) return res.status(404).json({ error: 'Caja no encontrada' });
+    let resumen = null;
+    try { resumen = caja.resumen ? JSON.parse(caja.resumen) : null; } catch (e) {}
+    res.json({ ...caja, resumen: resumen || await resumenCaja(caja) });
   } catch (err) {
     errorInterno(res, err);
   }
@@ -1756,9 +1894,7 @@ app.post('/api/proveedores', autenticar, esAdmin, async (req, res) => {
 
 app.put('/api/proveedores/:id', autenticar, esAdmin, async (req, res) => {
   try {
-    const { nombre, cuit, telefono, email, direccion, notas, activo } = req.body;
-    await run('UPDATE proveedores SET nombre = ?, cuit = ?, telefono = ?, email = ?, direccion = ?, notas = ?, activo = ? WHERE id = ?',
-      [nombre, cuit, telefono, email, direccion, notas, activo, req.params.id]);
+    await actualizarParcial('proveedores', req.params.id, req.body || {}, ['nombre', 'cuit', 'telefono', 'email', 'direccion', 'notas', 'activo']);
     res.json({ message: 'Proveedor actualizado' });
   } catch (err) {
     errorInterno(res, err);
@@ -1861,9 +1997,7 @@ app.post('/api/clientes', autenticar, async (req, res) => {
 
 app.put('/api/clientes/:id', autenticar, async (req, res) => {
   try {
-    const { nombre, telefono, email, direccion, puntos, notas } = req.body;
-    await run('UPDATE clientes SET nombre = ?, telefono = ?, email = ?, direccion = ?, puntos = ?, notas = ? WHERE id = ?',
-      [nombre, telefono, email, direccion, puntos || 0, notas, req.params.id]);
+    await actualizarParcial('clientes', req.params.id, req.body || {}, ['nombre', 'telefono', 'email', 'direccion', 'puntos', 'notas']);
     res.json({ message: 'Cliente actualizado' });
   } catch (err) {
     errorInterno(res, err);
@@ -2753,7 +2887,7 @@ app.post('/api/tiendanube/webhook', async (req, res) => {
 // Con BACKUP_COPIA_DIR (ej. una carpeta de Google Drive / OneDrive sincronizada) se guarda
 // además un duplicado fuera de la carpeta del sistema.
 // Restaurar: detener el servidor, reemplazar data/gastromanager.db por la copia y volver a iniciarlo.
-const DIR_BACKUPS = path.join(__dirname, 'data', 'backups');
+const DIR_BACKUPS = path.join(DATA_DIR, 'backups');
 const BACKUPS_CONSERVAR = Math.max(1, parseInt(process.env.BACKUPS_CONSERVAR, 10) || 30);
 const NOMBRE_BACKUP = /^gastromanager_\d{4}-\d{2}-\d{2}_\d{6}\.db$/;
 
