@@ -1,0 +1,77 @@
+# GastroManager
+
+Sistema de gestión gastronómica: POS, mesas, comandas de cocina, delivery, stock, caja con arqueo, reportes y
+facturación electrónica (AFIP/ARCA), con integraciones de Mercado Pago y Tienda Nube.
+
+## Requisitos
+
+- Node.js 20 o superior
+- Windows, Linux o macOS (la base es SQLite, no requiere servidor de base de datos)
+
+## Instalación
+
+```bash
+npm install
+npm run init-db     # crea data/gastromanager.db con datos iniciales
+npm start           # http://localhost:3000
+```
+
+Usuario inicial: `admin@gastromanager.com` / `admin123`. El sistema obliga a cambiar la contraseña en el primer ingreso.
+
+En producción se usa PM2 (`ecosystem.config.js`):
+
+```bash
+pm2 start ecosystem.config.js --env production
+pm2 save
+```
+
+## Configuración (variables de entorno)
+
+| Variable | Para qué sirve | Por defecto |
+|---|---|---|
+| `PORT` | Puerto HTTP | `3000` |
+| `GM_DATA_DIR` | Carpeta de datos (base, clave de sesión, copias) | `./data` |
+| `SECRET_KEY` | Clave para firmar sesiones | Se genera sola en `data/.secret_key` |
+| `ZONA_HORARIA` | Zona horaria del negocio para reportes | `America/Argentina/Buenos_Aires` |
+| `BASE_URL` | URL pública HTTPS (necesaria para webhooks de Mercado Pago y Tienda Nube) | — |
+| `CORS_ORIGINS` | Orígenes permitidos, separados por coma | `*` |
+| `TRUST_PROXY` | Proxies de confianza (nginx, cloudflared) | `loopback` |
+| `BACKUPS_CONSERVAR` | Cantidad de copias automáticas a conservar | `30` |
+| `BACKUP_COPIA_DIR` | Carpeta extra para duplicar cada copia (ej. Google Drive / OneDrive) | — |
+
+## Copias de seguridad
+
+- Copia automática al iniciar y cada 24 horas en `data/backups/`.
+- Desde **Configuración → Copias de seguridad** se crea una copia manual y se descarga.
+- **Restaurar:** detener el servidor, reemplazar `data/gastromanager.db` por la copia (y borrar
+  `gastromanager.db-wal` y `gastromanager.db-shm` si existen) y volver a iniciarlo.
+- La base usa modo WAL: no copiar `gastromanager.db` a mano con el servidor en marcha; usar las copias del sistema.
+
+## Estructura
+
+```
+server.js              Punto de entrada: migra la base, Socket.IO y servidor HTTP
+init-db.js             Crea la base con datos iniciales (idempotente)
+src/
+  app.js               Express: seguridad (helmet/CSP, CORS), estáticos, rutas y 404
+  config.js            Variables de entorno, clave de sesión
+  db.js                SQLite (WAL), run/get/all y transacciones
+  migraciones.js       Cambios de esquema que se aplican al iniciar
+  auth.js              Sesiones JWT, roles
+  realtime.js          Socket.IO (eventos emitidos después de cada COMMIT)
+  tiempo.js            Zona horaria del negocio
+  util.js              Errores HTTP y helpers
+  rutas/               Un módulo por área (pedidos, caja, delivery, integraciones...)
+  servicios/           Lógica compartida (cobros, integraciones, copias de seguridad)
+public/                Frontend (HTML/CSS/JS sin build)
+scripts/               Scripts de datos de demostración y mantenimiento
+test/                  Tests de integración (npm test)
+```
+
+## Tests
+
+```bash
+npm test
+```
+
+Cada archivo de test levanta el servidor real sobre una base nueva en una carpeta temporal (no toca `data/`).
