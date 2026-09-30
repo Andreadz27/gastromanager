@@ -11,10 +11,18 @@ const MenuPublico={
       const[data,cfg]=await Promise.all([fetch('/api/publico/menu').then(r=>{if(!r.ok)throw new Error(r.status);return r.json();}),fetch('/api/publico/info').then(r=>r.json()).catch(()=>null)]);
       this.categorias=data.categorias||[];this.productos=data.productos||[];
       if(cfg&&cfg.nombre){
-        const h=document.getElementById('menuRestNombre'),sb=document.getElementById('menuRestSub'),fd=document.getElementById('footerDireccion'),ft=document.getElementById('footerTelefono');
-        if(h)h.textContent=cfg.nombre;if(sb)sb.textContent=cfg.descripcion||'';
-        if(fd&&cfg.descripcion)fd.textContent=cfg.descripcion.replace('Dirección: ','');
-        if(ft&&cfg.telefono){ft.textContent=cfg.telefono;ft.href='tel:'+cfg.telefono;}
+        const $=id=>document.getElementById(id);
+        const mostrar=(fila,visible)=>{const f=$(fila);if(f)f.hidden=!visible;};
+        $('menuRestNombre').textContent=cfg.nombre;$('menuRestSub').textContent=cfg.descripcion||'';
+        $('footerNombre').textContent=cfg.nombre;$('footerCopyNombre').textContent=cfg.nombre;
+        document.title='Carta - '+cfg.nombre;
+        // Solo se muestran los datos de contacto que el negocio cargó
+        const direccion=(cfg.descripcion||'').replace('Dirección: ','');
+        $('footerDireccion').textContent=direccion;mostrar('footerDireccionFila',!!direccion);
+        if(cfg.telefono){$('footerTelefono').textContent=cfg.telefono;$('footerTelefono').href='tel:'+cfg.telefono.replace(/[^\d+]/g,'');}
+        mostrar('footerTelefonoFila',!!cfg.telefono);
+        if(cfg.email){$('footerEmail').textContent=cfg.email;$('footerEmail').href='mailto:'+cfg.email;}
+        mostrar('footerEmailFila',!!cfg.email);
       }
       this.paintCategorias();this.paintItems();
     }catch(err){

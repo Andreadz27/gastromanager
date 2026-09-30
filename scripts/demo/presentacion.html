@@ -1,0 +1,431 @@
+<title>GastroManager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: página de producto; el video es la pieza central y el recorrido de un pedido se cuenta con comandas térmicas */
+:root {
+  --canvas: #f3f5f9;
+  --paper: #ffffff;
+  --ink: #0f172a;
+  --ink-2: #475569;
+  --linea: #dbe2ec;
+  --brasa: #d9530a;
+  --brasa-suave: #fff0e5;
+  --ok: #15803d;
+  --sombra: 0 1px 2px rgba(15, 23, 42, .06), 0 12px 32px rgba(15, 23, 42, .08);
+  --display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --texto: 'Figtree', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #0b1120; --paper: #121b2e; --ink: #e8edf5; --ink-2: #9aa7ba; --linea: #25324a;
+    --brasa: #fb8a3c; --brasa-suave: #2a1a10; --ok: #4ade80; --sombra: 0 12px 32px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --canvas: #0b1120; --paper: #121b2e; --ink: #e8edf5; --ink-2: #9aa7ba; --linea: #25324a;
+  --brasa: #fb8a3c; --brasa-suave: #2a1a10; --ok: #4ade80; --sombra: 0 12px 32px rgba(0, 0, 0, .35);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--canvas); color: var(--ink); font: 400 17px/1.6 var(--texto); padding-inline: 20px; }
+.envoltura { max-width: 1120px; margin-inline: auto; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.08; text-wrap: balance; margin: 0; letter-spacing: -.02em; }
+h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 800; }
+h3 { font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+p { margin: 0; }
+a { color: var(--brasa); }
+:focus-visible { outline: 3px solid var(--brasa); outline-offset: 3px; border-radius: 6px; }
+.etiqueta { font: 600 13px/1 var(--texto); letter-spacing: .08em; text-transform: uppercase; color: var(--brasa); }
+.intro { color: var(--ink-2); max-width: 62ch; font-size: 18px; }
+section { padding-block: 72px; display: grid; gap: 32px; }
+section > header { display: grid; gap: 12px; }
+
+/* Barra superior */
+.barra { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 18px; flex-wrap: wrap; }
+.marca { display: flex; align-items: center; gap: 10px; font: 800 22px/1 var(--display); color: var(--ink); text-decoration: none; letter-spacing: -.02em; }
+.marca svg { width: 30px; height: 30px; }
+.barra nav { display: flex; gap: 22px; flex-wrap: wrap; }
+.barra nav a { color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 15px; }
+.barra nav a:hover { color: var(--ink); }
+
+/* Portada */
+.portada { padding-block: 40px 24px; display: grid; gap: 28px; }
+.portada h1 { font-size: clamp(38px, 6.2vw, 72px); font-weight: 800; max-width: 17ch; }
+.portada h1 em { font-style: normal; color: var(--brasa); }
+.portada .intro { font-size: 20px; }
+.acciones { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.boton { display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 999px; font: 600 16px/1 var(--texto);
+  text-decoration: none; border: 1px solid transparent; cursor: pointer; }
+.boton.primario { background: var(--brasa); color: #fff; }
+.boton.primario:hover { filter: brightness(1.08); }
+.boton.secundario { border-color: var(--linea); color: var(--ink); background: var(--paper); }
+.sellos { display: flex; gap: 10px 22px; flex-wrap: wrap; color: var(--ink-2); font-size: 15px; }
+.sellos span::before { content: "✓"; color: var(--ok); font-weight: 700; margin-right: 7px; }
+
+/* Video con capítulos */
+.pantalla { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+.pantalla figure { margin: 0; background: #0f172a; border-radius: 16px; padding: 10px; box-shadow: var(--sombra); }
+.pantalla video { display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: 9px; background: #0f172a; }
+.capitulos { background: var(--paper); border: 1px solid var(--linea); border-radius: 16px; padding: 18px; display: grid; gap: 4px; }
+.capitulos h3 { font-size: 16px; margin-bottom: 8px; }
+.capitulos ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.capitulos button { width: 100%; display: grid; grid-template-columns: 44px 1fr; gap: 8px; text-align: left; background: none; border: 0;
+  padding: 7px 8px; border-radius: 8px; color: var(--ink); font: 500 14.5px/1.3 var(--texto); cursor: pointer; }
+.capitulos button:hover, .capitulos button[aria-current="true"] { background: var(--brasa-suave); }
+.capitulos button[aria-current="true"] { color: var(--brasa); }
+.capitulos time { font: 600 13px/1.3 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* Comandas térmicas */
+.recorrido { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; align-items: start; }
+.paso { display: grid; gap: 16px; }
+.paso header { display: grid; gap: 6px; }
+.paso header .etiqueta { color: var(--ink-2); }
+.paso header p { color: var(--ink-2); }
+.comanda { background: #fffefb; color: #1c1917; font: 400 14px/1.55 var(--mono); padding: 18px 18px 26px; position: relative;
+  box-shadow: var(--sombra); transform: rotate(var(--giro, 0deg));
+  -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - 10px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 16px 10px repeat-x;
+          mask: linear-gradient(#000 0 0) top / 100% calc(100% - 10px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 16px 10px repeat-x; }
+.comanda .titulo { text-align: center; font-weight: 600; font-size: 22px; letter-spacing: .06em; }
+.comanda .grande { text-align: center; font-weight: 600; font-size: 18px; }
+.comanda .centro { text-align: center; }
+.comanda hr { border: 0; border-top: 1px dashed #a8a29e; margin: 8px 0; }
+.comanda .fila { display: flex; justify-content: space-between; gap: 12px; }
+.comanda .item { font-weight: 600; }
+.comanda .nota { padding-left: 2ch; }
+.comanda .total { font-weight: 600; font-size: 17px; }
+.dos-comandas { display: grid; gap: 14px; }
+
+/* Módulos */
+.modulos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--linea); }
+.modulo { padding: 22px 22px 22px 0; border-bottom: 1px solid var(--linea); display: grid; gap: 6px; align-content: start; }
+.modulo:nth-child(3n+2), .modulo:nth-child(3n) { padding-left: 22px; border-left: 1px solid var(--linea); }
+.modulo p { color: var(--ink-2); font-size: 15.5px; }
+
+/* Galería */
+.galeria { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.galeria button { display: grid; gap: 10px; padding: 0; border: 0; background: none; text-align: left; cursor: zoom-in; color: var(--ink); font: 500 15px/1.35 var(--texto); }
+.galeria img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border-radius: 10px; border: 1px solid var(--linea); background: var(--paper); transition: transform .2s; }
+.galeria button:hover img { transform: translateY(-3px); }
+.galeria .celular img { object-fit: contain; background: linear-gradient(135deg, #fb923c33, #ec489933); }
+dialog { border: 0; padding: 0; background: none; max-width: min(1200px, 94vw); }
+dialog::backdrop { background: rgba(8, 12, 22, .82); }
+dialog figure { margin: 0; display: grid; gap: 12px; }
+dialog img { max-width: 100%; max-height: 80vh; border-radius: 10px; display: block; margin-inline: auto; }
+dialog figcaption { color: #e8edf5; text-align: center; font-weight: 500; }
+.visor-controles { display: flex; justify-content: center; gap: 10px; }
+.visor-controles button { background: #1e293b; color: #fff; border: 1px solid #334155; border-radius: 999px; padding: 9px 18px; font: 600 14px var(--texto); cursor: pointer; }
+
+/* Roles */
+.tabla { overflow-x: auto; background: var(--paper); border: 1px solid var(--linea); border-radius: 14px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 15.5px; }
+th, td { text-align: left; padding: 14px 18px; border-bottom: 1px solid var(--linea); vertical-align: top; }
+th { font: 600 13px/1.2 var(--texto); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 700; white-space: nowrap; }
+td:last-child { color: var(--ink-2); }
+
+/* Preguntas */
+.preguntas { display: grid; gap: 10px; max-width: 820px; }
+details { background: var(--paper); border: 1px solid var(--linea); border-radius: 12px; padding: 16px 20px; }
+summary { font-weight: 600; cursor: pointer; list-style-position: outside; }
+details p { color: var(--ink-2); margin-top: 10px; }
+
+/* Cierre */
+.cierre { background: var(--ink); color: var(--canvas); border-radius: 22px; padding: 48px clamp(22px, 5vw, 56px); display: grid; gap: 18px; margin-bottom: 56px; }
+.cierre h2 { max-width: 20ch; }
+.cierre p { color: color-mix(in srgb, var(--canvas) 75%, transparent); max-width: 60ch; }
+.cierre .boton.primario { justify-self: start; }
+footer.pie { padding-block: 0 40px; color: var(--ink-2); font-size: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+@media (max-width: 900px) {
+  .pantalla { grid-template-columns: 1fr; }
+  .recorrido, .galeria { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .modulos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .modulo:nth-child(n) { padding: 20px 18px 20px 0; border-left: 0; }
+  .modulo:nth-child(2n) { padding-left: 18px; border-left: 1px solid var(--linea); }
+}
+@media (max-width: 560px) {
+  section { padding-block: 52px; }
+  .recorrido, .galeria, .modulos { grid-template-columns: 1fr; }
+  .modulo:nth-child(n) { padding: 18px 0; border-left: 0; }
+  .barra nav { display: none; }
+  .comanda { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="envoltura">
+  <div class="barra">
+    <a class="marca" href="#inicio">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#d9530a"/><path d="M11 7v8a3 3 0 0 0 2 2.8V25h2v-7.2A3 3 0 0 0 17 15V7h-1.5v6h-1V7h-1.5v6h-1V7zm10 0c-1.7 0-3 2.2-3 5.5 0 2.3.8 3.8 2 4.3V25h2V7z" fill="#fff"/></svg>
+      GastroManager
+    </a>
+    <nav aria-label="Secciones">
+      <a href="#recorrido">Recorrido</a>
+      <a href="#modulos">Módulos</a>
+      <a href="#pantallas">Pantallas</a>
+      <a href="#preguntas">Preguntas</a>
+    </nav>
+  </div>
+
+  <header class="portada" id="inicio">
+    <span class="etiqueta">Sistema de gestión gastronómica</span>
+    <h1>Tu restaurante, de la comanda <em>al cierre de caja.</em></h1>
+    <p class="intro">Punto de venta, mesas, cocina, delivery, caja y facturación electrónica en un solo sistema. Mirá cómo funciona un día en La Buena Mesa, un restaurante de ejemplo con datos reales de una semana de trabajo.</p>
+    <div class="acciones">
+      <a class="boton primario" href="#recorrido">Ver el recorrido</a>
+      <a class="boton secundario" href="#contacto">Pedir una demo en vivo</a>
+    </div>
+    <div class="sellos">
+      <span>Funciona en PC, tablet y celular</span>
+      <span>Factura A, B y C con AFIP</span>
+      <span>PedidosYa, Rappi y WhatsApp</span>
+    </div>
+  </header>
+
+  <section id="recorrido" aria-labelledby="t-recorrido">
+    <header>
+      <span class="etiqueta">Recorrido en video · <span id="duracion">2 min</span></span>
+      <h2 id="t-recorrido">Un turno completo, en dos minutos y medio</h2>
+    </header>
+    <div class="pantalla">
+      <figure>
+        <video id="video" controls playsinline preload="metadata" poster="media/portada.jpg">
+          <source src="media/recorrido.mp4" type="video/mp4">
+          Tu navegador no puede reproducir el video.
+        </video>
+      </figure>
+      <div class="capitulos">
+        <h3>Qué vas a ver</h3>
+        <ol id="capitulos"></ol>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-pedido">
+    <header>
+      <span class="etiqueta">Cómo viaja un pedido</span>
+      <h2 id="t-pedido">Del salón a la cocina y de vuelta a la caja</h2>
+      <p class="intro">Estas son las comandas que imprime el sistema para el pedido de la mesa 3 que aparece en el video.</p>
+    </header>
+    <div class="recorrido">
+      <div class="paso">
+        <header>
+          <span class="etiqueta">1 · Salón</span>
+          <h3>El mozo toma el pedido</h3>
+          <p>Desde el punto de venta o una tablet, con las notas para cocina.</p>
+        </header>
+        <div class="comanda" style="--giro:-1.2deg">
+          <div class="titulo">COMANDA</div>
+          <div class="grande">MESA 3</div>
+          <div class="centro">[Cocina]</div>
+          <div class="fila"><span>P-20260930-00275</span><span>21:34</span></div>
+          <div>Atiende: Lucas</div>
+          <hr>
+          <div class="item">2 x Bife de chorizo</div>
+          <div class="nota">&gt;&gt; Uno jugoso y otro a punto</div>
+          <div class="item">1 x Risotto de hongos</div>
+          <div class="item">1 x Provoleta parrilla</div>
+          <hr>
+        </div>
+      </div>
+      <div class="paso">
+        <header>
+          <span class="etiqueta">2 · Estaciones</span>
+          <h3>Cada estación recibe lo suyo</h3>
+          <p>Los platos salen en la cocina y las bebidas en la barra, al instante.</p>
+        </header>
+        <div class="comanda" style="--giro:.8deg">
+          <div class="titulo">COMANDA</div>
+          <div class="grande">MESA 3</div>
+          <div class="centro">[Barra]</div>
+          <div class="fila"><span>P-20260930-00275</span><span>21:34</span></div>
+          <div>Atiende: Lucas</div>
+          <hr>
+          <div class="item">1 x Botella vino tinto</div>
+          <hr>
+          <div class="centro">Los platos salieron en Cocina</div>
+        </div>
+      </div>
+      <div class="paso">
+        <header>
+          <span class="etiqueta">3 · Caja</span>
+          <h3>Se cobra y la caja cuadra</h3>
+          <p>Con vuelto, factura electrónica y el cobro sumado al arqueo del turno.</p>
+        </header>
+        <div class="comanda" style="--giro:1deg">
+          <div class="titulo">LA BUENA MESA</div>
+          <div class="centro">Av. Corrientes 1234, CABA</div>
+          <div class="centro">CUIT: 30-71234567-8</div>
+          <hr>
+          <div class="fila"><span>2 x Bife de chorizo</span><span>$ 19.600</span></div>
+          <div class="fila"><span>1 x Risotto de hongos</span><span>$ 7.800</span></div>
+          <div class="fila"><span>1 x Provoleta parrilla</span><span>$ 3.100</span></div>
+          <div class="fila"><span>1 x Botella vino tinto</span><span>$ 7.500</span></div>
+          <hr>
+          <div class="fila total"><span>TOTAL</span><span>$ 38.000</span></div>
+          <div class="fila"><span>Pago Efectivo</span><span>$ 40.000</span></div>
+          <div class="fila"><span>Vuelto</span><span>$ 2.000</span></div>
+          <hr>
+          <div class="centro">Factura B 0001-00000275</div>
+          <div class="centro">¡Gracias por su visita!</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="modulos" aria-labelledby="t-modulos">
+    <header>
+      <span class="etiqueta">Módulos</span>
+      <h2 id="t-modulos">Todo lo que necesita un local gastronómico</h2>
+      <p class="intro">Se adapta al tipo de negocio: restaurante, bar, cafetería, rotisería, heladería o kiosco. Activás solo los módulos que usás.</p>
+    </header>
+    <div class="modulos">
+      <div class="modulo"><h3>Punto de venta</h3><p>Pedidos en segundos desde PC, tablet o celular, con descuentos, propinas y notas para cocina.</p></div>
+      <div class="modulo"><h3>Mesas y reservas</h3><p>Mapa del salón por sectores, mesas libres, ocupadas y reservadas, y reservas del día.</p></div>
+      <div class="modulo"><h3>Cocina en tiempo real</h3><p>Comandas en pantalla con el tiempo de espera en colores, y pantalla dedicada para tablet o TV.</p></div>
+      <div class="modulo"><h3>Delivery</h3><p>Pedidos de PedidosYa, Rappi y de tu carta por WhatsApp en una sola lista, con cadete y estado.</p></div>
+      <div class="modulo"><h3>Caja y arqueo</h3><p>Cobros por medio de pago, ingresos y retiros, efectivo esperado y diferencias de cada cierre.</p></div>
+      <div class="modulo"><h3>Facturación electrónica</h3><p>Factura A, B y C con CAE de AFIP (ARCA) desde el pedido cobrado.</p></div>
+      <div class="modulo"><h3>Stock e inventario</h3><p>Cada venta descuenta del stock y el sistema avisa qué reponer antes de que falte.</p></div>
+      <div class="modulo"><h3>Reportes</h3><p>Ventas por día, horas pico, productos más vendidos y rentabilidad por plato. Exportás a Excel.</p></div>
+      <div class="modulo"><h3>Carta QR y pedidos online</h3><p>Carta digital para el celular del cliente y pedidos para llevar o delivery sin comisiones.</p></div>
+      <div class="modulo"><h3>Mercado Pago y Tienda Nube</h3><p>Links de pago que cierran el pedido solos y sincronización de productos con tu tienda.</p></div>
+      <div class="modulo"><h3>Impresoras térmicas</h3><p>Comandas y tickets en impresoras de 58 u 80 mm, de red o USB, separadas por estación.</p></div>
+      <div class="modulo"><h3>Roles y copias de seguridad</h3><p>Cinco roles con permisos distintos y copias automáticas de tus datos todos los días.</p></div>
+    </div>
+  </section>
+
+  <section id="pantallas" aria-labelledby="t-pantallas">
+    <header>
+      <span class="etiqueta">Pantallas</span>
+      <h2 id="t-pantallas">Así se ve el sistema</h2>
+      <p class="intro">Capturas reales de la demo. Tocá cualquiera para verla en grande.</p>
+    </header>
+    <div class="galeria" id="galeria"></div>
+  </section>
+
+  <section aria-labelledby="t-roles">
+    <header>
+      <span class="etiqueta">Roles</span>
+      <h2 id="t-roles">Cada uno ve lo que le corresponde</h2>
+      <p class="intro">Los permisos se controlan en cada acción. Menos errores, menos cancelaciones sin control y más tranquilidad cuando no estás en el local.</p>
+    </header>
+    <div class="tabla">
+      <table>
+        <thead><tr><th>Rol</th><th>Puede</th><th>No puede</th></tr></thead>
+        <tbody>
+          <tr><td>Administrador</td><td>Todo el sistema, usuarios, configuración, integraciones y copias de seguridad</td><td>—</td></tr>
+          <tr><td>Encargado</td><td>Toda la operación, la carta y los precios, el historial de caja y la rentabilidad</td><td>Usuarios, configuración e integraciones</td></tr>
+          <tr><td>Cajero</td><td>Tomar pedidos, cobrar, descuentos, caja, delivery, clientes y stock</td><td>Editar la carta o ver costos</td></tr>
+          <tr><td>Mozo</td><td>Tomar pedidos, agregar ítems, mesas, reservas y precuenta</td><td>Cobrar, hacer descuentos, cancelar o ver ventas</td></tr>
+          <tr><td>Cocina</td><td>Pantalla de cocina y consulta de stock</td><td>Todo lo demás</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="preguntas" aria-labelledby="t-preguntas">
+    <header>
+      <span class="etiqueta">Preguntas frecuentes</span>
+      <h2 id="t-preguntas">Lo que suelen preguntar</h2>
+    </header>
+    <div class="preguntas">
+      <details><summary>¿Necesito internet para usarlo?</summary><p>El sistema funciona en la red del local: si se corta internet, seguís tomando pedidos, cocinando y cobrando. La carta online, el delivery de las apps, Mercado Pago y la factura electrónica sí necesitan conexión.</p></details>
+      <details><summary>¿Emite factura electrónica?</summary><p>Sí. Factura A, B y C con CAE de AFIP (ARCA), para responsables inscriptos y monotributistas, desde el pedido cobrado.</p></details>
+      <details><summary>¿En qué equipos funciona?</summary><p>En cualquier PC, notebook, tablet o celular con navegador. No hay que instalar nada en cada equipo: los mozos pueden usar su tablet o su celular.</p></details>
+      <details><summary>¿Qué impresoras puedo usar?</summary><p>Impresoras térmicas de 58 u 80 mm compatibles con ESC/POS (Epson, Xprinter, 3nStar, Gadnic, Hasar y similares), por red o USB. Podés separar la cocina y la barra.</p></details>
+      <details><summary>¿Mis datos están seguros?</summary><p>Cada persona entra con su usuario y su rol, el sistema pide cambiar las contraseñas iniciales y hace una copia de seguridad automática todos los días, que podés descargar cuando quieras.</p></details>
+      <details><summary>¿Cómo lo pruebo?</summary><p>Coordinamos una demo en vivo con los usuarios de cada rol (administrador, cajero, mozo y cocina) para que lo uses como si fuera tu local.</p></details>
+    </div>
+  </section>
+
+  <section class="cierre" id="contacto" aria-labelledby="t-cierre">
+    <h2 id="t-cierre">Probalo con los datos de tu local</h2>
+    <p>Te mostramos el sistema en vivo, cargamos tu carta y armamos las mesas de tu salón para que veas cómo funcionaría tu día a día.</p>
+    <a class="boton primario" href="#recorrido">Volver a ver el recorrido</a>
+  </section>
+
+  <footer class="pie">
+    <span>GastroManager · Sistema de gestión gastronómica</span>
+    <span>Datos de ejemplo: La Buena Mesa es un restaurante ficticio.</span>
+  </footer>
+</div>
+
+<dialog id="visor" aria-label="Captura ampliada">
+  <figure>
+    <img id="visorImg" alt="">
+    <figcaption id="visorTexto"></figcaption>
+    <div class="visor-controles">
+      <button type="button" id="visorAnterior">Anterior</button>
+      <button type="button" id="visorCerrar">Cerrar</button>
+      <button type="button" id="visorSiguiente">Siguiente</button>
+    </div>
+  </figure>
+</dialog>
+
+<script>
+const CAPITULOS = /*CAPITULOS*/[];
+const CAPTURAS = /*CAPTURAS*/[];
+
+// Capítulos: tocar uno lleva el video a ese momento
+const video = document.getElementById('video');
+const lista = document.getElementById('capitulos');
+const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+CAPITULOS.forEach((c, i) => {
+  const li = document.createElement('li');
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.innerHTML = `<time></time><span></span>`;
+  b.querySelector('time').textContent = mmss(c.segundo);
+  b.querySelector('span').textContent = c.titulo;
+  b.addEventListener('click', () => { video.currentTime = c.segundo; video.play(); });
+  li.appendChild(b);
+  lista.appendChild(li);
+});
+const botones = [...lista.querySelectorAll('button')];
+video.addEventListener('timeupdate', () => {
+  let actual = -1;
+  CAPITULOS.forEach((c, i) => { if (video.currentTime >= c.segundo) actual = i; });
+  botones.forEach((b, i) => b.setAttribute('aria-current', i === actual ? 'true' : 'false'));
+});
+video.addEventListener('loadedmetadata', () => {
+  if (isFinite(video.duration)) document.getElementById('duracion').textContent = mmss(video.duration) + ' min';
+});
+
+// Galería con visor
+const galeria = document.getElementById('galeria');
+CAPTURAS.forEach((c, i) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  if (c.celular) b.classList.add('celular');
+  const img = document.createElement('img');
+  img.src = c.archivo; img.alt = c.titulo; img.decoding = 'async';
+  const t = document.createElement('span'); t.textContent = c.titulo;
+  b.append(img, t);
+  b.addEventListener('click', () => abrir(i));
+  galeria.appendChild(b);
+});
+const visor = document.getElementById('visor');
+let indice = 0;
+function abrir(i) {
+  indice = (i + CAPTURAS.length) % CAPTURAS.length;
+  document.getElementById('visorImg').src = CAPTURAS[indice].archivo;
+  document.getElementById('visorImg').alt = CAPTURAS[indice].titulo;
+  document.getElementById('visorTexto').textContent = CAPTURAS[indice].titulo;
+  if (!visor.open) visor.showModal();
+}
+document.getElementById('visorAnterior').addEventListener('click', () => abrir(indice - 1));
+document.getElementById('visorSiguiente').addEventListener('click', () => abrir(indice + 1));
+document.getElementById('visorCerrar').addEventListener('click', () => visor.close());
+visor.addEventListener('click', e => { if (e.target === visor) visor.close(); });
+visor.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') abrir(indice + 1);
+  if (e.key === 'ArrowLeft') abrir(indice - 1);
+});
+</script>

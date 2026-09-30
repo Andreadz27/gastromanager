@@ -10,9 +10,11 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' }
 });
+// Límite general por IP (cada terminal del local tiene la suya). 500 cada 15 min se quedaba
+// corto en hora pico: cada pedido refresca dashboard, cocina y mesas en todas las pantallas.
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  max: Number(process.env.GM_API_LIMITE) || 3000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiadas peticiones. Intenta más tarde.' }

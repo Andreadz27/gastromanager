@@ -23,3 +23,7 @@ logs/
 _respaldos/
 _retirado/
 *.bak-*
+
+# Demo generada (npm run demo / demo:video / demo:presentacion)
+demo/datos/
+demo/salida/

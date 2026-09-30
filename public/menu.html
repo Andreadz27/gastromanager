@@ -17,8 +17,8 @@
     <div class="menu-hero-bg"></div>
     <div class="menu-hero-content">
       <div class="menu-hero-logo"><i class="fas fa-utensils"></i></div>
-      <h1 id="menuRestNombre">Nuestro Menú</h1>
-      <p id="menuRestSub">Escaneá el código y pedí directo desde la mesa</p>
+      <h1 id="menuRestNombre">Carta digital</h1>
+      <p id="menuRestSub"></p>
     </div>
   </header>
 
@@ -36,41 +36,31 @@
   <!-- Footer -->
   <footer class="menu-footer" role="contentinfo">
     <div class="menu-footer-grid">
+      <!-- Datos del restaurante: se completan desde la configuración del negocio -->
       <div class="menu-footer-brand">
         <div class="menu-footer-logo"><i class="fas fa-utensils"></i></div>
-        <h3>GastroManager</h3>
-        <p>Sistema integral para tu restaurante: POS, mesas, inventario, reportes y carta digital QR.</p>
+        <h3 id="footerNombre"></h3>
+        <p>Gracias por visitarnos. Consultá a tu mozo por los platos del día.</p>
       </div>
-      <nav class="menu-footer-nav" aria-label="Enlaces principales">
-        <h4>Navegación</h4>
+      <nav class="menu-footer-nav" aria-label="Enlaces">
+        <h4>Pedidos</h4>
         <ul>
-          <li><a href="/"><i class="fas fa-home"></i> Inicio</a></li>
-          <li><a href="/menu.html"><i class="fas fa-utensils"></i> Carta Digital</a></li>
-          <li><a href="#" data-view="pos"><i class="fas fa-cash-register"></i> Punto de Venta</a></li>
-          <li><a href="#" data-view="mesas"><i class="fas fa-chair"></i> Mesas</a></li>
-        </ul>
-      </nav>
-      <nav class="menu-footer-nav" aria-label="Información">
-        <h4>Información</h4>
-        <ul>
-          <li><a href="#contacto"><i class="fas fa-map-marker-alt"></i> Ubicación</a></li>
-          <li><a href="#horarios"><i class="fas fa-clock"></i> Horarios</a></li>
-          <li><a href="#reservas"><i class="fas fa-calendar-alt"></i> Reservas</a></li>
-          <li><a href="#contacto"><i class="fas fa-phone"></i> Contacto</a></li>
+          <li><a href="#menuContainer"><i class="fas fa-utensils"></i> Ver la carta</a></li>
+          <li><a href="/pedido.html"><i class="fas fa-motorcycle"></i> Pedir para llevar o delivery</a></li>
         </ul>
       </nav>
       <div class="menu-footer-contact" id="contacto">
         <h4>Contacto</h4>
         <address>
-          <p><i class="fas fa-map-marker-alt"></i> <span id="footerDireccion">Av. Corrientes 1234, CABA</span></p>
-          <p><i class="fas fa-phone"></i> <a href="tel:+541112345678" id="footerTelefono">+54 11 1234-5678</a></p>
-          <p><i class="fas fa-envelope"></i> <a href="mailto:info@gastromanager.com">info@gastromanager.com</a></p>
+          <p id="footerDireccionFila" hidden><i class="fas fa-map-marker-alt"></i> <span id="footerDireccion"></span></p>
+          <p id="footerTelefonoFila" hidden><i class="fas fa-phone"></i> <a id="footerTelefono"></a></p>
+          <p id="footerEmailFila" hidden><i class="fas fa-envelope"></i> <a id="footerEmail"></a></p>
         </address>
       </div>
     </div>
     <div class="menu-footer-bottom">
-      <p class="menu-footer-copy">&copy; <span id="footerYear"></span> GastroManager. Todos los derechos reservados.</p>
-      <p class="menu-footer-made">Hecho con <i class="fas fa-heart" style="color:#ef4444"></i> para gastronómicos</p>
+      <p class="menu-footer-copy">&copy; <span id="footerYear"></span> <span id="footerCopyNombre"></span></p>
+      <p class="menu-footer-made">Carta digital con GastroManager</p>
     </div>
   </footer>
 

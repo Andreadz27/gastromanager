@@ -83,7 +83,7 @@ const Dashboard = {
 
     const ventasHoy = d ? d.ventas_hoy : (ins && ins.metricas ? ins.metricas.ventas_hoy : 0);
     const pedidosHoy = d ? d.pedidos_hoy : (ins && ins.metricas ? ins.metricas.pedidos_hoy : 0);
-    const ticketPromedio = d ? d.ticket_promedio : 0;
+    const ticketPromedio = d ? Math.round(d.ticket_promedio) : 0; // un promedio no necesita centavos
 
     const difPct = ins && ins.metricas ? ins.metricas.diferencia_pct : 0;
     const difClass = difPct >= 0 ? 'text-success' : 'text-danger';

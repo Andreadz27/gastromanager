@@ -11,7 +11,9 @@ module.exports = function registrarRutas(app) {
 app.get('/api/publico/menu', async (req, res) => {
   try {
     const categorias = await all(`
-      SELECT c.id, c.nombre FROM categorias c ORDER BY c.nombre ASC
+      SELECT c.id, c.nombre FROM categorias c
+      WHERE c.activo = 1 AND EXISTS (SELECT 1 FROM productos p WHERE p.categoria_id = c.id AND p.activo = 1)
+      ORDER BY c.orden, c.nombre
     `);
     const productos = await all(`
       SELECT p.id, p.nombre, p.descripcion, p.precio_venta, p.categoria_id,
@@ -28,12 +30,13 @@ app.get('/api/publico/menu', async (req, res) => {
 
 app.get('/api/publico/info', async (req, res) => {
   try {
-    const config = await get('SELECT nombre_negocio, direccion, telefono FROM configuracion WHERE id = 1');
+    const config = await get('SELECT nombre_negocio, direccion, telefono, email FROM configuracion WHERE id = 1');
     const base = (process.env.BASE_URL || `http://localhost:${PORT}`).replace(/\/$/,'');
     res.json({
       nombre: config?.nombre_negocio || 'GastroManager',
       descripcion: config?.direccion ? `Dirección: ${config.direccion}` : '',
       telefono: config?.telefono || '',
+      email: config?.email || '',
       links: {
         carta:     `${base}/menu.html`,
         whatsapp:  `${base}/pedido.html?origen=whatsapp`,

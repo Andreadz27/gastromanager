@@ -9,7 +9,10 @@
     "init-db": "node init-db.js",
     "test": "node --test --test-timeout=60000 \"test/*.test.js\"",
     "test:e2e": "node --test --test-timeout=300000 --test-concurrency=1 \"test/e2e/*.test.js\"",
-    "test:todo": "npm test && npm run test:e2e"
+    "test:todo": "npm test && npm run test:e2e",
+    "demo": "node scripts/demo/iniciar-demo.js",
+    "demo:video": "node scripts/demo/grabar-video.js",
+    "demo:presentacion": "node scripts/demo/armar-presentacion.js"
   },
   "engines": {
     "node": ">=20"
