@@ -200,13 +200,8 @@ async editar(id) {
 
   async ocuparMesaReservada(mesaId) {
     try {
-      await API.updateMesa(mesaId, {
-        nombre: this.mesas.find(m => m.id === mesaId).nombre,
-        capacidad: this.mesas.find(m => m.id === mesaId).capacidad,
-        sector: this.mesas.find(m => m.id === mesaId).sector,
-        orden: this.mesas.find(m => m.id === mesaId).orden,
-        estado: 'ocupada'
-      });
+      // Endpoint solo de estado: lo puede usar el mozo (editar la mesa es solo del admin)
+      await API.cambiarEstadoMesa(mesaId, 'ocupada');
       App.showToast('Mesa marcada como ocupada', 'success');
       this.mesasPreseleccionada = mesaId;
       POS.mesaPreseleccionada = mesaId;

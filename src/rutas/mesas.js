@@ -1,6 +1,6 @@
 'use strict';
 const {
-  run, get, all, actualizarParcial, errorInterno, autenticar, esAdmin
+  run, get, all, actualizarParcial, errorInterno, autenticar, esAdmin, emitEvento
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -33,6 +33,21 @@ app.put('/api/mesas/:id', autenticar, esAdmin, async (req, res) => {
   try {
     await actualizarParcial('mesas', req.params.id, req.body || {}, ['nombre', 'capacidad', 'sector', 'orden', 'estado']);
     res.json({ message: 'Mesa actualizada' });
+  } catch (err) {
+    errorInterno(res, err);
+  }
+});
+
+// Cambiar solo el estado de una mesa (ej. el mozo sienta a un cliente con reserva).
+// Lo puede hacer cualquier usuario; editar nombre, capacidad o sector sigue siendo solo del admin.
+const ESTADOS_MESA = ['libre', 'ocupada', 'reservada'];
+app.put('/api/mesas/:id/estado', autenticar, async (req, res) => {
+  try {
+    const estado = req.body && req.body.estado;
+    if (!ESTADOS_MESA.includes(estado)) return res.status(400).json({ error: 'Estado de mesa inválido' });
+    await actualizarParcial('mesas', req.params.id, { estado }, ['estado']);
+    emitEvento('mesas:actualizar', { mesa_id: Number(req.params.id), estado });
+    res.json({ message: 'Estado de la mesa actualizado' });
   } catch (err) {
     errorInterno(res, err);
   }

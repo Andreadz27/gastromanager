@@ -79,6 +79,11 @@ const App = {
         if (App.currentView === 'cocina') Cocina.refresh();
       });
 
+      // Cambio de estado de una mesa en otra terminal
+      this.socket.on('mesas:actualizar', () => {
+        if (App.currentView === 'mesas') Mesas.render();
+      });
+
       // Dashboard global refresh
       this.socket.on('dashboard:actualizar', () => {
         if (App.currentView === 'dashboard') Dashboard.render();

@@ -44,6 +44,16 @@ test('editar un proveedor no lo oculta', async () => {
   assert.ok(lista.some(p => p.id === r.id && p.nombre === 'Verdulería Test SRL'));
 });
 
+test('un vendedor puede cambiar el estado de una mesa, pero no editarla', async () => {
+  const [st] = await s.llamar('PUT', '/api/mesas/1/estado', { estado: 'ocupada' }, s.tokenVendedor);
+  assert.equal(st, 200);
+  assert.equal((await s.q('SELECT estado FROM mesas WHERE id = 1'))[0].estado, 'ocupada');
+  assert.equal((await s.llamar('PUT', '/api/mesas/1/estado', { estado: 'rota' }, s.tokenVendedor))[0], 400);
+  assert.equal((await s.llamar('PUT', '/api/mesas/99999/estado', { estado: 'libre' }, s.tokenVendedor))[0], 404);
+  assert.equal((await s.llamar('PUT', '/api/mesas/1', { nombre: 'Mesa VIP' }, s.tokenVendedor))[0], 403);
+  assert.equal((await s.llamar('PUT', '/api/mesas/1/estado', { estado: 'libre' }))[0], 401);
+});
+
 test('actualización parcial: 404 si no existe, 400 si no hay datos', async () => {
   assert.equal((await s.llamar('PUT', '/api/clientes/99999', { nombre: 'x' }, s.tokenAdmin))[0], 404);
   assert.equal((await s.llamar('PUT', '/api/categorias/1', {}, s.tokenAdmin))[0], 400);

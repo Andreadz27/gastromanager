@@ -94,6 +94,7 @@ const API = {
   getMesas() { return this.request('GET', '/mesas'); },
   createMesa(data) { return this.request('POST', '/mesas', data); },
   updateMesa(id, data) { return this.request('PUT', `/mesas/${id}`, data); },
+  cambiarEstadoMesa(id, estado) { return this.request('PUT', `/mesas/${id}/estado`, { estado }); },
   deleteMesa(id) { return this.request('DELETE', `/mesas/${id}`); },
 
   // ===== Reservas =====
