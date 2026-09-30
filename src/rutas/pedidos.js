@@ -75,8 +75,9 @@ app.get('/api/pedidos', autenticar, requiere('pedidos.ver'), async (req, res) =>
     const params = [];
     
     if (estado && estado !== 'todos') {
+      // El frontend pide "abiertos" (pestaña y mesas); el estado guardado es "abierto"
       sql += ' WHERE p.estado = ?';
-      params.push(estado);
+      params.push(estado === 'abiertos' ? 'abierto' : estado);
     } else if (estado === 'todos') {
       // sin filtro
     } else {

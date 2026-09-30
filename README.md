@@ -99,7 +99,23 @@ test/                  Tests de integración (npm test)
 ## Tests
 
 ```bash
-npm test
+npm test          # API, flujos, integraciones simuladas y chequeos de código (~10 s)
+npm run test:e2e  # en un navegador real: Edge en Windows, Chrome en Linux/Mac (~20 s)
+npm run test:todo # ambos
 ```
 
 Cada archivo de test levanta el servidor real sobre una base nueva en una carpeta temporal (no toca `data/`).
+Mercado Pago, Tienda Nube y las impresoras se prueban contra servidores simulados; AFIP solo en sus validaciones.
+
+| Archivo | Qué valida |
+|---|---|
+| `flujos.test.js` | Un turno completo (caja, mesa, cocina, cobro, reportes), reservas, carta online, delivery, ABM y configuración |
+| `pedidos.test.js` | Precios desde la base, transacciones, concurrencia, cobros sin duplicar, stock |
+| `caja.test.js` | Arqueo: ventas por medio de pago, movimientos, efectivo esperado y diferencias |
+| `roles.test.js` | Qué puede y qué no puede hacer cada rol |
+| `seguridad.test.js` | Sesiones, límites de login, Socket.IO, secretos, webhooks, CSP |
+| `integraciones.test.js` | Mercado Pago (link y webhook) y Tienda Nube (sync y webhook) contra APIs simuladas |
+| `impresion.test.js` | Comandas por estación, agregados, anulaciones, tickets y cajón (impresoras simuladas) |
+| `productos.test.js`, `fechas-backups.test.js` | Validaciones, ediciones parciales, zona horaria y copias de seguridad |
+| `estructura.test.js` | Imports faltantes, rutas sin sesión, credenciales en el frontend |
+| `e2e/navegador.test.js` | Login, cambio de contraseña, menú por rol, venta completa por pantalla, XSS, impresoras |

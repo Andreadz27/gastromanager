@@ -1,6 +1,6 @@
 'use strict';
 const {
-  path, Afip, run, get, all, transaccion, LOCAL, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, importe, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, comandaAutomatica, requiere
+  path, Afip, run, get, all, transaccion, LOCAL, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, importe, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -79,20 +79,12 @@ app.post('/api/integraciones/test/:tipo', autenticar, esAdmin, async (req, res) 
     const cfg = await getIntCfg(tipo);
     if (tipo === 'mercadopago') {
       if (!cfg.access_token) return res.json({ ok: false, message: 'No hay Access Token configurado.' });
-      const https = require('https');
-      const token = cfg.modo === 'produccion' ? cfg.access_token : (cfg.access_token_test || cfg.access_token);
-      const result = await new Promise((resolve) => {
-        const opts = { hostname: 'api.mercadopago.com', path: '/v1/payment_methods', method: 'GET',
-          headers: { Authorization: `Bearer ${token}` } };
-        const r = https.request(opts, (resp) => {
-          resp.on('data', () => {});
-          resp.on('end', () => resolve({ status: resp.statusCode }));
-        });
-        r.on('error', (e) => resolve({ status: 0, error: e.message }));
-        r.end();
-      });
-      if (result.status === 200) return res.json({ ok: true, message: 'Conexión con Mercado Pago exitosa.' });
-      return res.json({ ok: false, message: `Error ${result.status}: token inválido o sin permisos.` });
+      try {
+        await mpRequest(cfg, 'GET', '/v1/payment_methods');
+        return res.json({ ok: true, message: 'Conexión con Mercado Pago exitosa.' });
+      } catch (e) {
+        return res.json({ ok: false, message: `${e.message}. Revisá que el token sea válido.` });
+      }
     }
     if (tipo === 'afip') {
       if (!cfg.cuit) return res.json({ ok: false, message: 'Falta el CUIT.' });
@@ -118,19 +110,12 @@ app.post('/api/integraciones/test/:tipo', autenticar, esAdmin, async (req, res) 
     }
     if (tipo === 'tiendanube') {
       if (!cfg.store_id || !cfg.access_token) return res.json({ ok: false, message: 'Faltan el ID de tienda o el token.' });
-      const https = require('https');
-      const result = await new Promise((resolve) => {
-        const opts = { hostname: 'api.tiendanube.com', path: `/v1/${cfg.store_id}/products?per_page=1`, method: 'GET',
-          headers: { Authentication: `bearer ${cfg.access_token}`, 'User-Agent': 'GastroManager/2.0' } };
-        const r = https.request(opts, (resp) => {
-          resp.on('data', () => {});
-          resp.on('end', () => resolve({ status: resp.statusCode }));
-        });
-        r.on('error', (e) => resolve({ status: 0, error: e.message }));
-        r.end();
-      });
-      if (result.status === 200) return res.json({ ok: true, message: 'Conexión con Tienda Nube exitosa.' });
-      return res.json({ ok: false, message: `Error ${result.status}: token o ID de tienda inválidos.` });
+      try {
+        await tnRequest(cfg, 'GET', '/products?per_page=1');
+        return res.json({ ok: true, message: 'Conexión con Tienda Nube exitosa.' });
+      } catch (e) {
+        return res.json({ ok: false, message: `${e.message}. Revisá el ID de tienda y el token.` });
+      }
     }
     res.json({ ok: false, message: 'Tipo de integración desconocido.' });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -311,7 +296,7 @@ app.post('/api/integraciones/tiendanube/sync-productos', autenticar, esAdmin, as
           try {
             await tnRequest(cfg, 'PUT', `/products/${p.tn_product_id}`,
               { name: { es: p.nombre }, description: { es: p.descripcion || '' } });
-            await esperar(500);
+            await esperar(PAUSA_TN_MS);
             await tnRequest(cfg, 'PUT', `/products/${p.tn_product_id}/variants/${p.tn_variant_id}`, variante);
             actualizado = true;
             actualizados++;
@@ -332,7 +317,7 @@ app.post('/api/integraciones/tiendanube/sync-productos', autenticar, esAdmin, as
       } catch (e) {
         errores.push(`${p.nombre}: ${e.message}`);
       }
-      await esperar(500);
+      await esperar(PAUSA_TN_MS);
     }
 
     const sincronizados = creados + actualizados;

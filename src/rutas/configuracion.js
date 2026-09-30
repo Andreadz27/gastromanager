@@ -1,6 +1,6 @@
 'use strict';
 const {
-  run, get, errorInterno, autenticar, esAdmin, emitEvento
+  run, get, errorHttp, errorInterno, autenticar, esAdmin, emitEvento, actualizarParcial
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -35,20 +35,14 @@ app.get('/api/config', autenticar, async (req, res) => {
 
 app.put('/api/config', autenticar, esAdmin, async (req, res) => {
   try {
-    const { nombre_negocio, direccion, telefono, email, cuit, tasa_iva, moneda, activar_impresion,
-            tipo_negocio, modulos_activos, terminologia, setup_completado } = req.body;
-    const modulosJson     = modulos_activos != null ? JSON.stringify(Array.isArray(modulos_activos) ? modulos_activos : []) : null;
-    const terminologiaJson = terminologia != null ? JSON.stringify(typeof terminologia === 'object' ? terminologia : {}) : null;
-    await run(`UPDATE configuracion SET
-      nombre_negocio = ?, direccion = ?, telefono = ?, email = ?, cuit = ?,
-      tasa_iva = ?, moneda = ?, activar_impresion = ?,
-      tipo_negocio     = COALESCE(?, tipo_negocio),
-      modulos_activos  = COALESCE(?, modulos_activos),
-      terminologia     = COALESCE(?, terminologia),
-      setup_completado = COALESCE(?, setup_completado)
-      WHERE id = 1`,
-      [nombre_negocio, direccion, telefono, email, cuit, tasa_iva, moneda, activar_impresion,
-       tipo_negocio||null, modulosJson, terminologiaJson, setup_completado!=null?setup_completado:null]);
+    // Actualización parcial: el asistente de primer ingreso solo envía tipo de negocio y módulos.
+    // Antes se escribían todos los campos y nombre_negocio quedaba en NULL (la base lo rechazaba).
+    const b = { ...(req.body || {}) };
+    if (b.modulos_activos !== undefined) b.modulos_activos = JSON.stringify(Array.isArray(b.modulos_activos) ? b.modulos_activos : []);
+    if (b.terminologia !== undefined) b.terminologia = JSON.stringify(b.terminologia && typeof b.terminologia === 'object' ? b.terminologia : {});
+    if (b.nombre_negocio !== undefined && !String(b.nombre_negocio).trim()) throw errorHttp(400, 'El nombre del negocio es obligatorio');
+    await actualizarParcial('configuracion', 1, b, ['nombre_negocio', 'direccion', 'telefono', 'email', 'cuit', 'tasa_iva',
+      'moneda', 'activar_impresion', 'tipo_negocio', 'modulos_activos', 'terminologia', 'setup_completado']);
     const config = await get('SELECT * FROM configuracion WHERE id = 1');
     if (config) {
       try { config.modulos_activos = JSON.parse(config.modulos_activos || '[]'); } catch(e) { config.modulos_activos = []; }
