@@ -1,13 +1,13 @@
 'use strict';
 const {
-  run, all, actualizarParcial, errorInterno, autenticar, esAdmin
+  run, all, actualizarParcial, errorInterno, autenticar, requiere
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
 
 // ============ PROVEEDORES ============
 
-app.get('/api/proveedores', autenticar, async (req, res) => {
+app.get('/api/proveedores', autenticar, requiere('stock.ver'), async (req, res) => {
   try {
     const proveedores = await all('SELECT * FROM proveedores WHERE activo = 1 ORDER BY nombre');
     res.json(proveedores);
@@ -16,7 +16,7 @@ app.get('/api/proveedores', autenticar, async (req, res) => {
   }
 });
 
-app.post('/api/proveedores', autenticar, esAdmin, async (req, res) => {
+app.post('/api/proveedores', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     const { nombre, cuit, telefono, email, direccion, notas } = req.body;
     const result = await run(
@@ -29,7 +29,7 @@ app.post('/api/proveedores', autenticar, esAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/proveedores/:id', autenticar, esAdmin, async (req, res) => {
+app.put('/api/proveedores/:id', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     await actualizarParcial('proveedores', req.params.id, req.body || {}, ['nombre', 'cuit', 'telefono', 'email', 'direccion', 'notas', 'activo']);
     res.json({ message: 'Proveedor actualizado' });
@@ -38,7 +38,7 @@ app.put('/api/proveedores/:id', autenticar, esAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/proveedores/:id', autenticar, esAdmin, async (req, res) => {
+app.delete('/api/proveedores/:id', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     await run('UPDATE proveedores SET activo = 0 WHERE id = ?', [req.params.id]);
     res.json({ message: 'Proveedor desactivado' });

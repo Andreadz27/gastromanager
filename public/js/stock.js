@@ -34,13 +34,13 @@ const Stock = {
         <td class="font-bold">${p.stock_actual} ${esc(p.unidad || '')}</td>
         <td>${p.stock_minimo} ${esc(p.unidad || '')}</td>
         <td>${this.nivelBadge(p.nivel)}</td>
-        <td>
+        <td>${App.puede('stock.mover') ? `
           <button class="btn btn-success btn-sm" onclick="Stock.movimiento(${p.id}, 'entrada')">
             <i class="fas fa-arrow-up"></i> Entrada
           </button>
           <button class="btn btn-warning btn-sm" onclick="Stock.movimiento(${p.id}, 'salida')">
             <i class="fas fa-arrow-down"></i> Salida
-          </button>
+          </button>` : ''}
         </td>
       </tr>
     `).join('');
@@ -51,9 +51,9 @@ const Stock = {
           <h2><i class="fas fa-boxes"></i> Inventario</h2>
           <p>Control de stock y movimientos</p>
         </div>
-        <button class="btn btn-primary" onclick="Stock.movimiento()">
+        ${App.puede('stock.mover') ? `<button class="btn btn-primary" onclick="Stock.movimiento()">
           <i class="fas fa-exchange-alt"></i> Registrar movimiento
-        </button>
+        </button>` : ''}
       </div>
 
       <div class="card mb-20">

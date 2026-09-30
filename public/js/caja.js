@@ -26,7 +26,7 @@ const Caja = {
   },
 
   esAdmin() {
-    return App.usuario && App.usuario.rol === 'admin';
+    return App.puede('caja.historial');
   },
 
   nombreMetodo(m) {

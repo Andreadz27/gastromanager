@@ -1,13 +1,13 @@
 'use strict';
 const {
-  run, get, all, actualizarParcial, errorInterno, autenticar, esAdmin, emitEvento
+  run, get, all, actualizarParcial, errorInterno, autenticar, emitEvento, requiere
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
 
 // ============ MESAS ============
 
-app.get('/api/mesas', autenticar, async (req, res) => {
+app.get('/api/mesas', autenticar, requiere('pedidos.ver'), async (req, res) => {
   try {
     const mesas = await all('SELECT * FROM mesas ORDER BY sector, orden');
     res.json(mesas);
@@ -16,7 +16,7 @@ app.get('/api/mesas', autenticar, async (req, res) => {
   }
 });
 
-app.post('/api/mesas', autenticar, esAdmin, async (req, res) => {
+app.post('/api/mesas', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     const { nombre, capacidad, sector, orden } = req.body;
     const result = await run(
@@ -29,7 +29,7 @@ app.post('/api/mesas', autenticar, esAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/mesas/:id', autenticar, esAdmin, async (req, res) => {
+app.put('/api/mesas/:id', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     await actualizarParcial('mesas', req.params.id, req.body || {}, ['nombre', 'capacidad', 'sector', 'orden', 'estado']);
     res.json({ message: 'Mesa actualizada' });
@@ -41,7 +41,7 @@ app.put('/api/mesas/:id', autenticar, esAdmin, async (req, res) => {
 // Cambiar solo el estado de una mesa (ej. el mozo sienta a un cliente con reserva).
 // Lo puede hacer cualquier usuario; editar nombre, capacidad o sector sigue siendo solo del admin.
 const ESTADOS_MESA = ['libre', 'ocupada', 'reservada'];
-app.put('/api/mesas/:id/estado', autenticar, async (req, res) => {
+app.put('/api/mesas/:id/estado', autenticar, requiere('pedidos.tomar'), async (req, res) => {
   try {
     const estado = req.body && req.body.estado;
     if (!ESTADOS_MESA.includes(estado)) return res.status(400).json({ error: 'Estado de mesa inválido' });
@@ -53,7 +53,7 @@ app.put('/api/mesas/:id/estado', autenticar, async (req, res) => {
   }
 });
 
-app.delete('/api/mesas/:id', autenticar, esAdmin, async (req, res) => {
+app.delete('/api/mesas/:id', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     await run('DELETE FROM mesas WHERE id = ?', [req.params.id]);
     res.json({ message: 'Mesa eliminada' });
@@ -64,7 +64,7 @@ app.delete('/api/mesas/:id', autenticar, esAdmin, async (req, res) => {
 
 // ============ RESERVAS DE MESAS ============
 
-app.get('/api/reservas', autenticar, async (req, res) => {
+app.get('/api/reservas', autenticar, requiere('pedidos.ver'), async (req, res) => {
   try {
     const { fecha } = req.query;
     let sql = `SELECT r.*, m.nombre as mesa_nombre, u.nombre as usuario_nombre
@@ -84,7 +84,7 @@ app.get('/api/reservas', autenticar, async (req, res) => {
   }
 });
 
-app.post('/api/reservas', autenticar, async (req, res) => {
+app.post('/api/reservas', autenticar, requiere('pedidos.tomar'), async (req, res) => {
   try {
     const { mesa_id, cliente, telefono, fecha, hora, personas, notas } = req.body;
     const result = await run(
@@ -108,7 +108,7 @@ app.post('/api/reservas', autenticar, async (req, res) => {
   }
 });
 
-app.put('/api/reservas/:id', autenticar, async (req, res) => {
+app.put('/api/reservas/:id', autenticar, requiere('pedidos.tomar'), async (req, res) => {
   try {
     const reservaActual = await get('SELECT * FROM reservas WHERE id = ?', [req.params.id]);
     if (!reservaActual) return res.status(404).json({ error: 'Reserva no encontrada' });
@@ -147,7 +147,7 @@ app.put('/api/reservas/:id', autenticar, async (req, res) => {
   }
 });
 
-app.delete('/api/reservas/:id', autenticar, async (req, res) => {
+app.delete('/api/reservas/:id', autenticar, requiere('pedidos.tomar'), async (req, res) => {
   try {
     const reserva = await get('SELECT mesa_id FROM reservas WHERE id = ?', [req.params.id]);
     await run('DELETE FROM reservas WHERE id = ?', [req.params.id]);

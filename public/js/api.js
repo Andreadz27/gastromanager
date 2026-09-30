@@ -77,6 +77,7 @@ const API = {
   createUsuario(data) { return this.request('POST', '/usuarios', data); },
   updateUsuario(id, data) { return this.request('PUT', `/usuarios/${id}`, data); },
   deleteUsuario(id) { return this.request('DELETE', `/usuarios/${id}`); },
+  getRoles() { return this.request('GET', '/roles'); },
 
   // ===== Categor\u00edas =====
   getCategorias() { return this.request('GET', '/categorias'); },

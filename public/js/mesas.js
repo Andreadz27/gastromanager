@@ -18,7 +18,7 @@ const Mesas = {
   },
 
   paint(view) {
-    const esAdmin = App.usuario && App.usuario.rol === 'admin';
+    const esAdmin = App.puede('catalogo'); // crear, editar y borrar mesas
 
     const cards = this.mesas.map(m => {
       const estadoClass = m.estado === 'libre' ? 'mesa-card libre'

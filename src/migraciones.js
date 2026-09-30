@@ -33,6 +33,9 @@ async function migrarEsquema() {
   await agregarColumna('caja', 'resumen', 'TEXT');
   await agregarColumna('caja', 'observaciones_cierre', "TEXT DEFAULT ''");
   await run('CREATE INDEX IF NOT EXISTS idx_caja_estado ON caja(estado)');
+  // Roles: el antiguo "vendedor" pasa a "cajero" (mismos permisos)
+  await run("UPDATE usuarios SET rol = 'cajero' WHERE rol = 'vendedor'");
+
   // Impresoras térmicas (comandas por estación y tickets) y registro de impresiones
   await run(`CREATE TABLE IF NOT EXISTS impresoras (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

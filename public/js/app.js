@@ -224,12 +224,10 @@ const App = {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
     document.getElementById('userName').textContent = this.usuario.nombre;
-    document.getElementById('userRole').textContent = this.usuario.rol === 'admin' ? 'Administrador' : 'Vendedor';
+    document.getElementById('userRole').textContent = this.usuario.rol_nombre || this.usuario.rol;
 
-    // Ocultar opciones de admin si no es admin
-    if (this.usuario.rol !== 'admin') {
-      document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-    }
+    // Mostrar solo las secciones permitidas para el rol
+    this.aplicarPermisos();
 
     // Iniciar conexión Socket.IO realtime
     this.initSocket();
@@ -237,7 +235,7 @@ const App = {
     // Cargar módulos activos y verificar setup
     this.cargarModulos();
 
-    this.navigateTo('dashboard');
+    this.navigateTo(this.vistaInicial());
 
     // Deep link: si la URL tiene ?view=X, navegar a esa vista
     const urlParams = new URLSearchParams(window.location.search);
@@ -256,7 +254,7 @@ const App = {
         ? config.modulos_activos : null;
       if (modulos) this.aplicarModulos(modulos);
       // Mostrar wizard si admin y setup no completado
-      if (this.usuario.rol === 'admin' && !config.setup_completado) {
+      if (this.puede('admin') && !config.setup_completado) {
         this.mostrarWizardSetup();
       }
     } catch (e) { /* silencioso */ }
@@ -267,10 +265,37 @@ const App = {
       const m = el.dataset.modulo;
       el.style.display = modulos.includes(m) ? '' : 'none';
     });
-    // Los módulos no deben volver a mostrar opciones de administrador
-    if (this.usuario && this.usuario.rol !== 'admin') {
-      document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-    }
+    // Los módulos no deben volver a mostrar secciones que el rol no tiene permitidas
+    this.aplicarPermisos();
+  },
+
+  // ===== Permisos por rol =====
+  // Permiso necesario para cada sección (el servidor igual controla cada acción)
+  VISTA_PERMISO: {
+    dashboard: 'reportes', pos: 'pedidos.tomar', mesas: 'pedidos.ver', pedidos: 'pedidos.ver',
+    delivery: 'delivery', cocina: 'cocina', productos: 'catalogo', stock: 'stock.ver',
+    proveedores: 'stock.ver', clientes: 'clientes', caja: 'caja.operar', reportes: 'reportes',
+    integraciones: 'admin', usuarios: 'admin', config: 'admin', qr: 'catalogo'
+  },
+
+  puede(permiso) {
+    return !!(this.usuario && Array.isArray(this.usuario.permisos) && this.usuario.permisos.includes(permiso));
+  },
+
+  puedeVer(vista) {
+    const permiso = this.VISTA_PERMISO[vista];
+    return !permiso || this.puede(permiso);
+  },
+
+  aplicarPermisos() {
+    document.querySelectorAll('[data-view]').forEach(el => {
+      if (!this.puedeVer(el.dataset.view)) el.style.display = 'none';
+    });
+  },
+
+  // Primera sección permitida: dashboard para quien ve ventas, mesas para el mozo, cocina para cocina
+  vistaInicial() {
+    return ['dashboard', 'mesas', 'pos', 'cocina', 'pedidos', 'caja', 'stock'].find(v => this.puedeVer(v)) || 'cocina';
   },
 
   async mostrarWizardSetup() {
@@ -334,6 +359,8 @@ const App = {
   },
 
   navigateTo(view) {
+    // Una sección no permitida (enlace directo, botón de otra vista) lleva a la inicial del rol
+    if (!this.puedeVer(view)) view = this.vistaInicial();
     this.currentView = view;
 
     // Cerrar sidebar en mobile al navegar

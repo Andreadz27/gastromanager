@@ -94,9 +94,9 @@ const POS = {
           </div>
           <div class="pos-cart-footer">
             <div class="pos-cart-actions">
-              <button class="pos-action-btn" onclick="POS.promocionModal()">
+              ${App.puede('pedidos.descuento') ? `<button class="pos-action-btn" onclick="POS.promocionModal()">
                 <i class="fas fa-percent"></i> Descuento <span class="pos-action-badge">${this.descuento > 0 ? 'ON' : ''}</span>
-              </button>
+              </button>` : ''}
               <button class="pos-action-btn" onclick="POS.propinaModal()">
                 <i class="fas fa-hand-holding-usd"></i> Propina <span class="pos-action-badge">${this.propina > 0 ? 'ON' : ''}</span>
               </button>
@@ -335,9 +335,9 @@ setCategoria(id) {
     if (footer) {
       footer.innerHTML = `
         <div class="pos-cart-actions">
-          <button class="pos-action-btn" onclick="POS.promocionModal()">
+          ${App.puede('pedidos.descuento') ? `<button class="pos-action-btn" onclick="POS.promocionModal()">
             <i class="fas fa-percent"></i> Descuento <span class="pos-action-badge">${this.descuento > 0 ? 'ON' : ''}</span>
-          </button>
+          </button>` : ''}
           <button class="pos-action-btn" onclick="POS.propinaModal()">
             <i class="fas fa-hand-holding-usd"></i> Propina <span class="pos-action-badge">${this.propina > 0 ? 'ON' : ''}</span>
           </button>

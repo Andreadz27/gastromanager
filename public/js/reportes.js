@@ -12,7 +12,7 @@ const Reportes = {
   hasta: '',
 
   esAdmin() {
-    return App.usuario && App.usuario.rol === 'admin';
+    return App.puede('admin');
   },
 
   async render() {
@@ -51,10 +51,11 @@ const Reportes = {
         <button class="btn ${this.tab === 'ventas' ? 'btn-primary' : 'btn-outline'}" onclick="Reportes.setTab('ventas')">
           <i class="fas fa-file-invoice-dollar"></i> Ventas
         </button>
-        ${esAdmin ? `
+        ${App.puede('reportes.costos') ? `
         <button class="btn ${this.tab === 'rentabilidad' ? 'btn-primary' : 'btn-outline'}" onclick="Reportes.setTab('rentabilidad')">
           <i class="fas fa-chart-pie"></i> Rentabilidad
-        </button>
+        </button>` : ''}
+        ${esAdmin ? `
         <button class="btn ${this.tab === 'auditoria' ? 'btn-primary' : 'btn-outline'}" onclick="Reportes.setTab('auditoria')">
           <i class="fas fa-clipboard-list"></i> Auditoría
         </button>

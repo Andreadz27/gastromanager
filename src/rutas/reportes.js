@@ -1,13 +1,13 @@
 'use strict';
 const {
-  get, all, LOCAL, fechaLocal, errorInterno, autenticar, esAdmin
+  get, all, LOCAL, fechaLocal, errorInterno, autenticar, esAdmin, requiere
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
 
 // ============ REPORTES / ANALITICAS ============
 
-app.get('/api/reportes/dashboard', autenticar, async (req, res) => {
+app.get('/api/reportes/dashboard', autenticar, requiere('reportes'), async (req, res) => {
   try {
     const hoy = fechaLocal();
     
@@ -102,7 +102,7 @@ app.get('/api/reportes/dashboard', autenticar, async (req, res) => {
   }
 });
 
-app.get('/api/reportes/ventas', autenticar, async (req, res) => {
+app.get('/api/reportes/ventas', autenticar, requiere('reportes'), async (req, res) => {
   try {
     const { desde, hasta } = req.query;
     let sql = `SELECT p.*, m.nombre as mesa_nombre, u.nombre as usuario_nombre
@@ -131,7 +131,7 @@ app.get('/api/reportes/ventas', autenticar, async (req, res) => {
   }
 });
 
-app.get('/api/reportes/rentabilidad', autenticar, esAdmin, async (req, res) => {
+app.get('/api/reportes/rentabilidad', autenticar, requiere('reportes.costos'), async (req, res) => {
   try {
     const rentabilidad = await all(`
       SELECT p.nombre, p.precio_venta, p.costo,
@@ -168,7 +168,7 @@ app.get('/api/auditoria', autenticar, esAdmin, async (req, res) => {
 
 // ============ INSIGHTS / INTELIGENCIA DE NEGOCIO ============
 
-app.get('/api/insights', autenticar, async (req, res) => {
+app.get('/api/insights', autenticar, requiere('reportes'), async (req, res) => {
   try {
     const hoy = fechaLocal();
 

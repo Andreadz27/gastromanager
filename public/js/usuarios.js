@@ -5,12 +5,15 @@
 
 const Usuarios = {
   usuarios: [],
+  roles: [],
+
+  COLOR_ROL: { admin: 'badge-red', encargado: 'badge-orange', cajero: 'badge-blue', mozo: 'badge-green', cocina: 'badge-gray' },
 
   async render() {
     const view = document.getElementById('view-usuarios');
     view.innerHTML = '<div class="text-center mt-20"><i class="fas fa-spinner fa-spin fa-3x"></i></div>';
     try {
-      this.usuarios = await API.getUsuarios();
+      [this.usuarios, this.roles] = await Promise.all([API.getUsuarios(), API.getRoles()]);
       this.paint(view);
     } catch (err) {
       view.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Error: ${esc(err.message)}</p></div>`;
@@ -22,7 +25,7 @@ const Usuarios = {
       <tr>
         <td class="font-bold">${esc(u.nombre)}</td>
         <td>${esc(u.email)}</td>
-        <td>${u.rol === 'admin' ? '<span class="badge badge-red">Administrador</span>' : '<span class="badge badge-blue">Vendedor</span>'}</td>
+        <td><span class="badge ${this.COLOR_ROL[u.rol] || 'badge-gray'}">${esc(u.rol_nombre || u.rol)}</span></td>
         <td>${u.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-gray">Inactivo</span>'}</td>
         <td>
           <button class="btn btn-outline btn-sm" onclick="Usuarios.editar(${u.id})"><i class="fas fa-edit"></i></button>
@@ -88,9 +91,8 @@ const Usuarios = {
         <div class="grid grid-2">
           <div class="form-group">
             <label>Rol</label>
-            <select id="usuRol">
-              <option value="vendedor" ${u && u.rol === 'vendedor' ? 'selected' : ''}>Vendedor</option>
-              <option value="admin" ${u && u.rol === 'admin' ? 'selected' : ''}>Administrador</option>
+            <select id="usuRol" onchange="Usuarios.mostrarPermisos()">
+              ${this.roles.map(r => `<option value="${esc(r.id)}" ${(u ? u.rol : 'cajero') === r.id ? 'selected' : ''}>${esc(r.nombre)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -101,12 +103,23 @@ const Usuarios = {
             </select>
           </div>
         </div>
+        <div class="card sub-card" id="usuPermisos"></div>
         <div class="modal-footer">
           <button type="button" class="btn btn-danger" onclick="App.closeModal()">Cancelar</button>
           <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Guardar</button>
         </div>
       </form>
     `, { title: u ? `Editar ${u.nombre}` : 'Nuevo usuario' });
+    this.mostrarPermisos();
+  },
+
+  // Lista de lo que puede hacer el rol elegido
+  mostrarPermisos() {
+    const cont = document.getElementById('usuPermisos');
+    const rol = this.roles.find(r => r.id === document.getElementById('usuRol').value);
+    if (!cont || !rol) return;
+    cont.innerHTML = `<strong>Un ${esc(rol.nombre.toLowerCase())} puede:</strong>
+      <ul class="mt-10">${rol.permisos.map(p => `<li>${esc(p.descripcion)}</li>`).join('')}</ul>`;
   },
 
   async guardar(e, id) {

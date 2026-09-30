@@ -1,7 +1,6 @@
 'use strict';
 const {
-  crypto, PORT, run, get, all, transaccion, LOCAL, fechaLocal, slugificar, parseCfgPlataforma, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, urlPublica,
-  comandaAutomatica
+  crypto, PORT, run, get, all, transaccion, LOCAL, fechaLocal, slugificar, parseCfgPlataforma, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, urlPublica, comandaAutomatica, requiere
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -73,7 +72,7 @@ app.delete('/api/delivery/plataformas/:id', autenticar, esAdmin, async (req, res
 });
 
 // Listar pedidos de delivery (según plataforma activa en ese momento)
-app.get('/api/delivery/pedidos', autenticar, async (req, res) => {
+app.get('/api/delivery/pedidos', autenticar, requiere('delivery'), async (req, res) => {
   try {
     const { estado, fecha } = req.query;
     let sql = `
@@ -106,7 +105,7 @@ app.get('/api/delivery/pedidos', autenticar, async (req, res) => {
 });
 
 // Actualizar estado de envío de un pedido delivery
-app.put('/api/delivery/pedidos/:id/estado', autenticar, async (req, res) => {
+app.put('/api/delivery/pedidos/:id/estado', autenticar, requiere('delivery'), async (req, res) => {
   try {
     const { estado_envio, cadete } = req.body;
     const entrega = await get('SELECT id FROM entregas WHERE pedido_id = ?', [req.params.id]);
@@ -122,7 +121,7 @@ app.put('/api/delivery/pedidos/:id/estado', autenticar, async (req, res) => {
 });
 
 // Resumen de delivery para el dashboard
-app.get('/api/delivery/resumen', autenticar, async (req, res) => {
+app.get('/api/delivery/resumen', autenticar, requiere('delivery'), async (req, res) => {
   try {
     const hoy = fechaLocal();
     const porPlataforma = await all(`

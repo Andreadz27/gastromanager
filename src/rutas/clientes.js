@@ -1,13 +1,13 @@
 'use strict';
 const {
-  run, all, actualizarParcial, errorInterno, autenticar
+  run, all, actualizarParcial, errorInterno, autenticar, requiere
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
 
 // ============ CLIENTES ============
 
-app.get('/api/clientes', autenticar, async (req, res) => {
+app.get('/api/clientes', autenticar, requiere('clientes'), async (req, res) => {
   try {
     const clientes = await all('SELECT * FROM clientes ORDER BY nombre');
     res.json(clientes);
@@ -16,7 +16,7 @@ app.get('/api/clientes', autenticar, async (req, res) => {
   }
 });
 
-app.post('/api/clientes', autenticar, async (req, res) => {
+app.post('/api/clientes', autenticar, requiere('clientes'), async (req, res) => {
   try {
     const { nombre, telefono, email, direccion, notas } = req.body;
     const result = await run(
@@ -29,7 +29,7 @@ app.post('/api/clientes', autenticar, async (req, res) => {
   }
 });
 
-app.put('/api/clientes/:id', autenticar, async (req, res) => {
+app.put('/api/clientes/:id', autenticar, requiere('clientes'), async (req, res) => {
   try {
     await actualizarParcial('clientes', req.params.id, req.body || {}, ['nombre', 'telefono', 'email', 'direccion', 'puntos', 'notas']);
     res.json({ message: 'Cliente actualizado' });
@@ -38,7 +38,7 @@ app.put('/api/clientes/:id', autenticar, async (req, res) => {
   }
 });
 
-app.delete('/api/clientes/:id', autenticar, async (req, res) => {
+app.delete('/api/clientes/:id', autenticar, requiere('clientes'), async (req, res) => {
   try {
     await run('DELETE FROM clientes WHERE id = ?', [req.params.id]);
     res.json({ message: 'Cliente eliminado' });

@@ -1,18 +1,20 @@
 'use strict';
 const {
-  run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, METODOS_PAGO,
-  comandaAutomatica, ticketAlCobrar
+  run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, METODOS_PAGO, comandaAutomatica, ticketAlCobrar, requiere, tienePermiso
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
 
 // ============ PEDIDOS ============
 
-app.post('/api/pedidos', autenticar, async (req, res) => {
+app.post('/api/pedidos', autenticar, requiere('pedidos.tomar'), async (req, res) => {
   try {
     const { tipo, mesa_id, cliente, notas, descuento, propina, plataforma, codigo_externo, direccion, telefono, costo_envio } = req.body;
     const descuentoVal = importe(descuento);
     const propinaVal = importe(propina);
+    // El descuento también se controla al crear el pedido (si no, un mozo podría enviarlo acá)
+    if (descuentoVal > 0 && !tienePermiso(req.usuario, 'pedidos.descuento'))
+      return res.status(403).json({ error: 'Tu usuario no puede aplicar descuentos' });
 
     const resultado = await transaccion(async () => {
       const items = await resolverItems(req.body.items);
@@ -63,7 +65,7 @@ app.post('/api/pedidos', autenticar, async (req, res) => {
   }
 });
 
-app.get('/api/pedidos', autenticar, async (req, res) => {
+app.get('/api/pedidos', autenticar, requiere('pedidos.ver'), async (req, res) => {
   try {
     const { estado, fecha } = req.query;
     let sql = `SELECT p.*, m.nombre as mesa_nombre, u.nombre as usuario_nombre 
@@ -96,7 +98,7 @@ app.get('/api/pedidos', autenticar, async (req, res) => {
 });
 
 // ===== COCINA: display de cocina (usa la sesión iniciada en ese navegador) =====
-app.get('/api/cocina/display', autenticar, async (req, res) => {
+app.get('/api/cocina/display', autenticar, requiere('cocina'), async (req, res) => {
   try {
     const pedidos = await all(`
       SELECT p.id, p.numero_pedido, p.tipo, p.mesa_id, m.nombre as mesa_nombre, p.notas,
@@ -121,7 +123,7 @@ app.get('/api/cocina/display', autenticar, async (req, res) => {
 });
 
 // ===== COCINA: marcar listo desde el display =====
-app.post('/api/cocina/display/:id/listo', autenticar, async (req, res) => {
+app.post('/api/cocina/display/:id/listo', autenticar, requiere('cocina'), async (req, res) => {
   try {
     const pedido = await get('SELECT id, numero_pedido FROM pedidos WHERE id = ? AND estado = ?', [req.params.id, 'abierto']);
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado o ya cerrado' });
@@ -134,7 +136,7 @@ app.post('/api/cocina/display/:id/listo', autenticar, async (req, res) => {
 });
 
 // ===== COCINA: marcar listo desde vista interna (autenticado) =====
-app.put('/api/cocina/:id/listo', autenticar, async (req, res) => {
+app.put('/api/cocina/:id/listo', autenticar, requiere('cocina'), async (req, res) => {
   try {
     const pedido = await get('SELECT id, numero_pedido FROM pedidos WHERE id = ? AND estado = ?', [req.params.id, 'abierto']);
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado o ya procesado' });
@@ -147,7 +149,7 @@ app.put('/api/cocina/:id/listo', autenticar, async (req, res) => {
 });
 
 // ===== COCINA: comandas en curso (tiempo real) =====
-app.get('/api/cocina', autenticar, async (req, res) => {
+app.get('/api/cocina', autenticar, requiere('cocina'), async (req, res) => {
   try {
     const pedidos = await all(`
       SELECT p.id, p.numero_pedido, p.tipo, p.mesa_id, m.nombre as mesa_nombre, p.notas,
@@ -173,7 +175,7 @@ app.get('/api/cocina', autenticar, async (req, res) => {
   }
 });
 
-app.get('/api/pedidos/:id', autenticar, async (req, res) => {
+app.get('/api/pedidos/:id', autenticar, requiere('pedidos.ver'), async (req, res) => {
   try {
     const pedido = await get(`SELECT p.*, m.nombre as mesa_nombre, u.nombre as usuario_nombre
                               FROM pedidos p
@@ -193,7 +195,7 @@ app.get('/api/pedidos/:id', autenticar, async (req, res) => {
   }
 });
 
-app.post('/api/pedidos/:id/items', autenticar, async (req, res) => {
+app.post('/api/pedidos/:id/items', autenticar, requiere('pedidos.tomar'), async (req, res) => {
   try {
     const itemId = await transaccion(async () => {
       const pedido = await get('SELECT id, estado FROM pedidos WHERE id = ?', [req.params.id]);
@@ -217,7 +219,7 @@ app.post('/api/pedidos/:id/items', autenticar, async (req, res) => {
   }
 });
 
-app.put('/api/pedidos/:id/descuento', autenticar, async (req, res) => {
+app.put('/api/pedidos/:id/descuento', autenticar, requiere('pedidos.descuento'), async (req, res) => {
   try {
     const total = await transaccion(async () => {
       const pedido = await get('SELECT * FROM pedidos WHERE id = ?', [req.params.id]);
@@ -232,7 +234,7 @@ app.put('/api/pedidos/:id/descuento', autenticar, async (req, res) => {
   }
 });
 
-app.post('/api/pedidos/:id/pagar', autenticar, async (req, res) => {
+app.post('/api/pedidos/:id/pagar', autenticar, requiere('pedidos.cobrar'), async (req, res) => {
   try {
     const { metodo, referencia } = req.body;
     const pedido = await get('SELECT * FROM pedidos WHERE id = ?', [req.params.id]);
@@ -257,7 +259,7 @@ app.post('/api/pedidos/:id/pagar', autenticar, async (req, res) => {
   }
 });
 
-app.put('/api/pedidos/:id/cancelar', autenticar, async (req, res) => {
+app.put('/api/pedidos/:id/cancelar', autenticar, requiere('pedidos.cancelar'), async (req, res) => {
   try {
     await transaccion(async () => {
       const pedido = await get('SELECT * FROM pedidos WHERE id = ?', [req.params.id]);

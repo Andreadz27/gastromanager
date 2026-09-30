@@ -13,6 +13,7 @@ module.exports = {
   ...require('./tiempo'),
   ...require('./util'),
   ...require('./auth'),
+  ...require('./permisos'),
   ...require('./limites'),
   ...require('./realtime'),
   ...require('./servicios/pedidos'),

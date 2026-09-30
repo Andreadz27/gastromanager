@@ -18,7 +18,7 @@ const Proveedores = {
   },
 
   esAdmin() {
-    return App.usuario && App.usuario.rol === 'admin';
+    return App.puede('catalogo');
   },
 
   paint(view) {

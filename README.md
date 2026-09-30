@@ -39,6 +39,19 @@ pm2 save
 | `BACKUPS_CONSERVAR` | Cantidad de copias automáticas a conservar | `30` |
 | `BACKUP_COPIA_DIR` | Carpeta extra para duplicar cada copia (ej. Google Drive / OneDrive) | — |
 
+## Roles de usuario
+
+| Rol | Puede |
+|---|---|
+| Administrador | Todo, incluidos usuarios, configuración, integraciones, impresoras y copias de seguridad |
+| Encargado | Toda la operación, carta (productos, mesas, promociones, proveedores), historial de caja y rentabilidad |
+| Cajero | Tomar pedidos, cobrar, descuentos, cancelar, caja, delivery, clientes, stock y reportes de ventas |
+| Mozo | Tomar pedidos, agregar ítems, mesas, reservas y precuenta (no cobra, no descuenta, no cancela, no ve ventas) |
+| Cocina | Pantalla de cocina y consulta de stock |
+
+Los permisos se controlan en el servidor en cada acción (`src/permisos.js`); el menú muestra solo lo permitido.
+Siempre tiene que quedar al menos un administrador activo.
+
 ## Impresoras térmicas (comandas y tickets)
 
 Se configuran en **Configuración → Impresoras térmicas**. Papel de 58 u 80 mm, comandos ESC/POS

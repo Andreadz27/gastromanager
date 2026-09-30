@@ -1,13 +1,13 @@
 'use strict';
 const {
-  run, get, all, transaccion, errorHttp, errorInterno, autenticar, emitEvento
+  run, get, all, transaccion, errorHttp, errorInterno, autenticar, emitEvento, requiere
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
 
 // ============ STOCK Y MOVIMIENTOS ============
 
-app.get('/api/stock', autenticar, async (req, res) => {
+app.get('/api/stock', autenticar, requiere('stock.ver'), async (req, res) => {
   try {
     const stock = await all(`
       SELECT p.id, p.nombre, p.stock_actual, p.stock_minimo, p.unidad, c.nombre as categoria_nombre,
@@ -25,7 +25,7 @@ app.get('/api/stock', autenticar, async (req, res) => {
   }
 });
 
-app.get('/api/stock/movimientos', autenticar, async (req, res) => {
+app.get('/api/stock/movimientos', autenticar, requiere('stock.ver'), async (req, res) => {
   try {
     const movimientos = await all(`
       SELECT ms.*, p.nombre as producto_nombre, u.nombre as usuario_nombre
@@ -41,7 +41,7 @@ app.get('/api/stock/movimientos', autenticar, async (req, res) => {
   }
 });
 
-app.post('/api/stock/movimiento', autenticar, async (req, res) => {
+app.post('/api/stock/movimiento', autenticar, requiere('stock.mover'), async (req, res) => {
   try {
     const { producto_id, tipo, motivo } = req.body;
     // Se convierte a número: "5" + 3 concatenaba texto y corrompía el stock

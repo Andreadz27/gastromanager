@@ -1,6 +1,6 @@
 'use strict';
 const {
-  run, get, all, errorHttp, actualizarParcial, errorInterno, autenticar, esAdmin
+  run, get, all, errorHttp, actualizarParcial, errorInterno, autenticar, requiere
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -16,7 +16,7 @@ app.get('/api/categorias', autenticar, async (req, res) => {
   }
 });
 
-app.post('/api/categorias', autenticar, esAdmin, async (req, res) => {
+app.post('/api/categorias', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     const { nombre, descripcion, color, orden } = req.body;
     const result = await run(
@@ -29,7 +29,7 @@ app.post('/api/categorias', autenticar, esAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/categorias/:id', autenticar, esAdmin, async (req, res) => {
+app.put('/api/categorias/:id', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     await actualizarParcial('categorias', req.params.id, req.body || {}, ['nombre', 'descripcion', 'color', 'orden', 'activo']);
     res.json({ message: 'Categoría actualizada' });
@@ -38,7 +38,7 @@ app.put('/api/categorias/:id', autenticar, esAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/categorias/:id', autenticar, esAdmin, async (req, res) => {
+app.delete('/api/categorias/:id', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     await run('UPDATE categorias SET activo = 0 WHERE id = ?', [req.params.id]);
     res.json({ message: 'Categoría desactivada' });
@@ -104,7 +104,7 @@ async function datosProducto(body, actual = {}) {
   };
 }
 
-app.post('/api/productos', autenticar, esAdmin, async (req, res) => {
+app.post('/api/productos', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     const p = await datosProducto(req.body || {});
     const result = await run(
@@ -118,7 +118,7 @@ app.post('/api/productos', autenticar, esAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/productos/:id', autenticar, esAdmin, async (req, res) => {
+app.put('/api/productos/:id', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     const actual = await get('SELECT * FROM productos WHERE id = ?', [req.params.id]);
     if (!actual) return res.status(404).json({ error: 'Producto no encontrado' });
@@ -136,7 +136,7 @@ app.put('/api/productos/:id', autenticar, esAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/productos/:id', autenticar, esAdmin, async (req, res) => {
+app.delete('/api/productos/:id', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     await run('UPDATE productos SET activo = 0 WHERE id = ?', [req.params.id]);
     res.json({ message: 'Producto desactivado' });

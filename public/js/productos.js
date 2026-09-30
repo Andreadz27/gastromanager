@@ -21,7 +21,7 @@ const Productos = {
   },
 
   esAdmin() {
-    return App.usuario && App.usuario.rol === 'admin';
+    return App.puede('catalogo');
   },
 
   catNombre(id) {

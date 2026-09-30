@@ -162,19 +162,20 @@ const Pedidos = {
 
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="App.closeModal()">Cerrar</button>
-        <button class="btn btn-primary" onclick="Pedidos.imprimirTicket(${p.id})"><i class="fas fa-print"></i> ${p.estado === 'pagado' ? 'Imprimir ticket' : 'Precuenta'}</button>
-        ${p.estado !== 'cancelado' ? `<button class="btn btn-outline" onclick="Pedidos.reimprimirComanda(${p.id})"><i class="fas fa-utensils"></i> Reimprimir comanda</button>` : ''}
+        ${App.puede('pedidos.tomar') ? `<button class="btn btn-primary" onclick="Pedidos.imprimirTicket(${p.id})"><i class="fas fa-print"></i> ${p.estado === 'pagado' ? 'Imprimir ticket' : 'Precuenta'}</button>` : ''}
+        ${p.estado !== 'cancelado' && App.puede('pedidos.tomar') ? `<button class="btn btn-outline" onclick="Pedidos.reimprimirComanda(${p.id})"><i class="fas fa-utensils"></i> Reimprimir comanda</button>` : ''}
         ${
           esAbierto ? `
-          <button class="btn btn-primary" onclick="Pedidos.agregarItem(${p.id})"><i class="fas fa-plus"></i> Item</button>
-          <button class="btn btn-warning" onclick="Pedidos.aplicarDescuentoModal(${p.id})"><i class="fas fa-percent"></i> Descuento</button>
-          <button class="btn btn-danger" onclick="Pedidos.cancelar(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>
+          ${App.puede('pedidos.tomar') ? `<button class="btn btn-primary" onclick="Pedidos.agregarItem(${p.id})"><i class="fas fa-plus"></i> Item</button>` : ''}
+          ${App.puede('pedidos.descuento') ? `<button class="btn btn-warning" onclick="Pedidos.aplicarDescuentoModal(${p.id})"><i class="fas fa-percent"></i> Descuento</button>` : ''}
+          ${App.puede('pedidos.cancelar') ? `<button class="btn btn-danger" onclick="Pedidos.cancelar(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>` : ''}
+          ${App.puede('pedidos.cobrar') ? `
           <button class="btn btn-outline" onclick="Pedidos.linkMercadoPago(${p.id})"><i class="fas fa-link"></i> Link Mercado Pago</button>
-          <button class="btn btn-success" onclick="Pedidos.mostrarPagar(${p.id})"><i class="fas fa-dollar-sign"></i> Cobrar</button>
+          <button class="btn btn-success" onclick="Pedidos.mostrarPagar(${p.id})"><i class="fas fa-dollar-sign"></i> Cobrar</button>` : ''}
           ` : ''
         }
         ${
-          p.estado === 'pagado' && !(p.comprobantes && p.comprobantes.length)
+          p.estado === 'pagado' && !(p.comprobantes && p.comprobantes.length) && App.puede('pedidos.cobrar')
             ? `<button class="btn btn-primary" onclick="Integraciones.abrirModalFacturar(${p.id}, ${Number(p.total) || 0})"><i class="fas fa-file-invoice"></i> Facturar AFIP</button>`
             : ''
         }

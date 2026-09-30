@@ -1,6 +1,6 @@
 'use strict';
 const {
-  run, all, actualizarParcial, errorInterno, autenticar, esAdmin
+  run, all, actualizarParcial, errorInterno, autenticar, requiere
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -16,7 +16,7 @@ app.get('/api/promociones', autenticar, async (req, res) => {
   }
 });
 
-app.post('/api/promociones', autenticar, esAdmin, async (req, res) => {
+app.post('/api/promociones', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     const { nombre, tipo, valor, descripcion } = req.body;
     const result = await run(
@@ -29,7 +29,7 @@ app.post('/api/promociones', autenticar, esAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/promociones/:id', autenticar, esAdmin, async (req, res) => {
+app.put('/api/promociones/:id', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     await actualizarParcial('promociones', req.params.id, req.body || {}, ['nombre', 'tipo', 'valor', 'descripcion', 'activo']);
     res.json({ message: 'Promoción actualizada' });
@@ -38,7 +38,7 @@ app.put('/api/promociones/:id', autenticar, esAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/promociones/:id', autenticar, esAdmin, async (req, res) => {
+app.delete('/api/promociones/:id', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     await run('UPDATE promociones SET activo = 0 WHERE id = ?', [req.params.id]);
     res.json({ message: 'Promoción desactivada' });

@@ -1,8 +1,6 @@
 'use strict';
 const {
-  run, get, all, errorHttp, errorInterno, autenticar, esAdmin, getIntCfg, setIntCfg,
-  listarImpresorasSistema, leerImpresora, opcionesImpresion, OPCIONES_POR_DEFECTO,
-  imprimirComanda, imprimirTicket, imprimirPrueba
+  run, get, all, errorHttp, errorInterno, autenticar, esAdmin, getIntCfg, setIntCfg, listarImpresorasSistema, leerImpresora, opcionesImpresion, OPCIONES_POR_DEFECTO, imprimirComanda, imprimirTicket, imprimirPrueba, requiere
 } = require('../contexto');
 
 // Valida los datos de una impresora (en edición, lo que no viene conserva su valor)
@@ -124,7 +122,7 @@ app.get('/api/impresiones', autenticar, esAdmin, async (req, res) => {
 // ============ IMPRIMIR (cualquier usuario) ============
 
 // Reimprimir la comanda completa de un pedido
-app.post('/api/pedidos/:id/imprimir/comanda', autenticar, async (req, res) => {
+app.post('/api/pedidos/:id/imprimir/comanda', autenticar, requiere('pedidos.tomar'), async (req, res) => {
   try {
     const pedido = await get('SELECT id FROM pedidos WHERE id = ?', [req.params.id]);
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
@@ -135,7 +133,7 @@ app.post('/api/pedidos/:id/imprimir/comanda', autenticar, async (req, res) => {
 });
 
 // Imprimir el ticket del cliente (precuenta si está abierto, comprobante si está cobrado)
-app.post('/api/pedidos/:id/imprimir/ticket', autenticar, async (req, res) => {
+app.post('/api/pedidos/:id/imprimir/ticket', autenticar, requiere('pedidos.tomar'), async (req, res) => {
   try {
     const pedido = await get('SELECT id FROM pedidos WHERE id = ?', [req.params.id]);
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });

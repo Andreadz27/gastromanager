@@ -1,13 +1,13 @@
 'use strict';
 const {
-  run, get, all, transaccion, errorHttp, errorInterno, autenticar, esAdmin, importe
+  run, get, all, transaccion, errorHttp, errorInterno, autenticar, importe, requiere
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
 
 // ============ CAJA ============
 
-app.post('/api/caja/abrir', autenticar, async (req, res) => {
+app.post('/api/caja/abrir', autenticar, requiere('caja.operar'), async (req, res) => {
   try {
     const { monto_inicial, observaciones } = req.body;
     // En una transacción: dos aperturas simultáneas no pueden crear dos cajas abiertas
@@ -55,7 +55,7 @@ async function resumenCaja(caja) {
 }
 
 // Ingreso o egreso de efectivo en la caja abierta (cambio, retiro, pago a proveedor...)
-app.post('/api/caja/movimiento', autenticar, async (req, res) => {
+app.post('/api/caja/movimiento', autenticar, requiere('caja.operar'), async (req, res) => {
   try {
     const { tipo } = req.body || {};
     const monto = Number(req.body && req.body.monto);
@@ -78,7 +78,7 @@ app.post('/api/caja/movimiento', autenticar, async (req, res) => {
   }
 });
 
-app.post('/api/caja/cerrar', autenticar, async (req, res) => {
+app.post('/api/caja/cerrar', autenticar, requiere('caja.operar'), async (req, res) => {
   try {
     const contado = Number(req.body && req.body.monto_final_real);
     if (!Number.isFinite(contado) || contado < 0)
@@ -109,7 +109,7 @@ app.post('/api/caja/cerrar', autenticar, async (req, res) => {
   }
 });
 
-app.get('/api/caja/estado', autenticar, async (req, res) => {
+app.get('/api/caja/estado', autenticar, requiere('caja.operar'), async (req, res) => {
   try {
     const caja = await get(`SELECT c.*, u.nombre as usuario_nombre FROM caja c LEFT JOIN usuarios u ON c.usuario_id = u.id WHERE c.estado = 'abierta'`);
     if (!caja) return res.json(null);
@@ -119,7 +119,7 @@ app.get('/api/caja/estado', autenticar, async (req, res) => {
   }
 });
 
-app.get('/api/caja/historial', autenticar, esAdmin, async (req, res) => {
+app.get('/api/caja/historial', autenticar, requiere('caja.historial'), async (req, res) => {
   try {
     const cajas = await all(`
       SELECT c.id, c.fecha_apertura, c.fecha_cierre, c.monto_inicial, c.monto_final_real, c.estado,
@@ -138,7 +138,7 @@ app.get('/api/caja/historial', autenticar, esAdmin, async (req, res) => {
 });
 
 // Detalle del arqueo de una caja (cerrada: el guardado al cerrar; abierta: en vivo)
-app.get('/api/caja/:id/arqueo', autenticar, esAdmin, async (req, res) => {
+app.get('/api/caja/:id/arqueo', autenticar, requiere('caja.historial'), async (req, res) => {
   try {
     const caja = await get(`SELECT c.*, u.nombre as usuario_nombre FROM caja c LEFT JOIN usuarios u ON c.usuario_id = u.id WHERE c.id = ?`, [req.params.id]);
     if (!caja) return res.status(404).json({ error: 'Caja no encontrada' });

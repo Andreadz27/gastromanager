@@ -1,7 +1,6 @@
 'use strict';
 const {
-  path, Afip, run, get, all, transaccion, LOCAL, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, importe, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest,
-  comandaAutomatica
+  path, Afip, run, get, all, transaccion, LOCAL, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, importe, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, comandaAutomatica, requiere
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -138,7 +137,7 @@ app.post('/api/integraciones/test/:tipo', autenticar, esAdmin, async (req, res) 
 });
 
 // GET /api/integraciones/afip/comprobantes
-app.get('/api/integraciones/afip/comprobantes', autenticar, async (req, res) => {
+app.get('/api/integraciones/afip/comprobantes', autenticar, requiere('pedidos.cobrar'), async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 10, 50);
     const rows = await all(
@@ -151,7 +150,7 @@ app.get('/api/integraciones/afip/comprobantes', autenticar, async (req, res) => 
 const facturandoPedidos = new Set();
 
 // POST /api/integraciones/afip/facturar
-app.post('/api/integraciones/afip/facturar', autenticar, async (req, res) => {
+app.post('/api/integraciones/afip/facturar', autenticar, requiere('pedidos.cobrar'), async (req, res) => {
   const pedido_id = parseInt(req.body.pedido_id, 10);
   const tipo_comprobante = parseInt(req.body.tipo_comprobante, 10);
   // CUIT del receptor: obligatorio para Factura A
@@ -289,7 +288,7 @@ app.post('/api/integraciones/afip/facturar', autenticar, async (req, res) => {
 });
 
 // POST /api/integraciones/tiendanube/sync-productos
-app.post('/api/integraciones/tiendanube/sync-productos', autenticar, async (req, res) => {
+app.post('/api/integraciones/tiendanube/sync-productos', autenticar, esAdmin, async (req, res) => {
   try {
     const cfg = await getIntCfg('tiendanube');
     if (!cfg.store_id || !cfg.access_token)
@@ -352,7 +351,7 @@ app.post('/api/integraciones/tiendanube/sync-productos', autenticar, async (req,
 // POST /api/integraciones/mercadopago/link/:pedidoId
 // Crea un link de pago (Checkout Pro) para un pedido abierto. El pago aprobado
 // llega por /api/mp/notificacion y cierra el pedido automáticamente.
-app.post('/api/integraciones/mercadopago/link/:pedidoId', autenticar, async (req, res) => {
+app.post('/api/integraciones/mercadopago/link/:pedidoId', autenticar, requiere('pedidos.cobrar'), async (req, res) => {
   try {
     const cfg = await getIntCfg('mercadopago');
     if (!cfg.activa || !cfg.access_token)

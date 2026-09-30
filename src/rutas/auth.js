@@ -1,6 +1,6 @@
 'use strict';
 const {
-  bcrypt, run, get, errorInterno, autenticar, firmarToken, loginLimiter
+  bcrypt, run, get, errorInterno, autenticar, firmarToken, loginLimiter, datosSesion, ROLES, PERMISOS
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -38,7 +38,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
     await run('INSERT INTO auditoria (usuario_id, accion, detalle) VALUES (?, ?, ?)',
       [usuario.id, 'login', 'Inicio de sesión']);
     res.json({ token, usuario: {
-      id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol,
+      ...datosSesion(usuario),
       debe_cambiar_password: usuario.debe_cambiar_password ? 1 : 0
     } });
   } catch (err) {
@@ -50,10 +50,17 @@ app.get('/api/auth/me', autenticar, async (req, res) => {
   try {
     const usuario = await get('SELECT id, nombre, email, rol, activo, debe_cambiar_password FROM usuarios WHERE id = ? AND activo = 1', [req.usuario.id]);
     if (!usuario) return res.status(401).json({ error: 'Usuario inactivo' });
-    res.json(usuario);
+    res.json({ ...datosSesion(usuario), activo: usuario.activo, debe_cambiar_password: usuario.debe_cambiar_password });
   } catch (err) {
     errorInterno(res, err);
   }
+});
+
+// Roles disponibles y sus permisos (para la pantalla de usuarios)
+app.get('/api/roles', autenticar, (req, res) => {
+  res.json(Object.entries(ROLES).map(([id, r]) => ({
+    id, nombre: r.nombre, permisos: r.permisos.map(p => ({ id: p, descripcion: PERMISOS[p] }))
+  })));
 });
 
 // Cambio de contraseña del propio usuario (obligatorio en el primer ingreso)
