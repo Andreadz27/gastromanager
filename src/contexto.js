@@ -18,4 +18,5 @@ module.exports = {
   ...require('./servicios/pedidos'),
   ...require('./servicios/integraciones'),
   ...require('./servicios/backups'),
+  ...require('./servicios/impresion'),
 };

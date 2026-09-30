@@ -39,6 +39,21 @@ pm2 save
 | `BACKUPS_CONSERVAR` | Cantidad de copias automáticas a conservar | `30` |
 | `BACKUP_COPIA_DIR` | Carpeta extra para duplicar cada copia (ej. Google Drive / OneDrive) | — |
 
+## Impresoras térmicas (comandas y tickets)
+
+Se configuran en **Configuración → Impresoras térmicas**. Papel de 58 u 80 mm, comandos ESC/POS
+(Epson TM y compatibles: Xprinter, 3nStar, Gadnic, Hasar, etc.).
+
+- **Red (Ethernet/WiFi):** IP de la impresora, puerto 9100 por defecto (`192.168.0.50` o `192.168.0.50:9100`).
+  Conviene fijarle la IP en el router para que no cambie.
+- **USB:** la impresora tiene que estar instalada en Windows en la computadora donde corre el servidor
+  (con el driver del fabricante o como "Generic / Text Only"). Se imprime en modo RAW. En Linux/Mac se usa `lp`.
+- **Estaciones:** cada impresora de comandas puede filtrar por categorías (ej. Barra = Bebidas, Cocina = el resto).
+- **Automático:** con "Impresión automática de comandas" activada, al crear un pedido sale la COMANDA; al agregar
+  ítems, un AGREGADO; al cancelar, un ANULADO. Opcional: ticket al cobrar y apertura del cajón en pagos en efectivo.
+- Si una impresora falla, aparece un aviso en todas las pantallas y queda en el registro; desde el pedido se puede
+  reimprimir la comanda o el ticket. Sin impresoras configuradas se usa la impresión del navegador.
+
 ## Copias de seguridad
 
 - Copia automática al iniciar y cada 24 horas en `data/backups/`.

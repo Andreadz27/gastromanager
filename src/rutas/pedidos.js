@@ -1,6 +1,7 @@
 'use strict';
 const {
-  run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, METODOS_PAGO
+  run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, METODOS_PAGO,
+  comandaAutomatica, ticketAlCobrar
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -54,7 +55,9 @@ app.post('/api/pedidos', autenticar, async (req, res) => {
       return { id: pedidoId, numero_pedido: numero, subtotal, total };
     });
 
-    res.status(201).json(resultado);
+    // Comanda a las impresoras térmicas (si no hay, el POS usa la impresión del navegador)
+    const impresionComanda = await comandaAutomatica(resultado.id).catch(() => false);
+    res.status(201).json({ ...resultado, impresion_comanda: impresionComanda });
   } catch (err) {
     errorInterno(res, err);
   }
@@ -207,6 +210,7 @@ app.post('/api/pedidos/:id/items', autenticar, async (req, res) => {
       emitEvento('dashboard:actualizar', { motivo: 'pedido_actualizado' });
       return result.id;
     });
+    await comandaAutomatica(Number(req.params.id), { itemIds: [itemId], titulo: 'AGREGADO' }).catch(() => false);
     res.status(201).json({ id: itemId, message: 'Item agregado' });
   } catch (err) {
     errorInterno(res, err);
@@ -245,7 +249,9 @@ app.post('/api/pedidos/:id/pagar', autenticar, async (req, res) => {
 
     const ok = await registrarPago(pedido, { metodo, monto: total, referencia: String(referencia || ''), usuarioId: req.usuario.id });
     if (!ok) return res.status(409).json({ error: 'El pedido ya fue cobrado' });
-    res.json({ message: 'Pago registrado y pedido cerrado', vuelto: Math.round((recibido - total) * 100) / 100 });
+    const vuelto = Math.round((recibido - total) * 100) / 100;
+    const impresionTicket = await ticketAlCobrar(pedido.id, { metodo, vuelto }).catch(() => false);
+    res.json({ message: 'Pago registrado y pedido cerrado', vuelto, impresion_ticket: impresionTicket });
   } catch (err) {
     errorInterno(res, err);
   }
@@ -270,6 +276,8 @@ app.put('/api/pedidos/:id/cancelar', autenticar, async (req, res) => {
       emitEvento('delivery:actualizar', { pedido_id: pedido.id, accion: 'cancelado' });
       emitEvento('dashboard:actualizar', { motivo: 'pedido_cancelado' });
     });
+    // Avisar a cocina/barra que no preparen el pedido
+    await comandaAutomatica(Number(req.params.id), { titulo: 'ANULADO' }).catch(() => false);
     res.json({ message: 'Pedido cancelado' });
   } catch (err) {
     errorInterno(res, err);

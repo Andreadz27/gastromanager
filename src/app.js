@@ -62,7 +62,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/api/', apiLimiter);
 
 // Rutas de la API (una por módulo)
-for (const modulo of ["auth","publico","configuracion","usuarios","catalogo","mesas","promociones","pedidos","delivery","caja","proveedores","stock","clientes","reportes","integraciones","backups"]) {
+for (const modulo of ["auth","publico","configuracion","usuarios","catalogo","mesas","promociones","pedidos","delivery","caja","proveedores","stock","clientes","reportes","integraciones","backups","impresion"]) {
   require('./rutas/' + modulo)(app);
 }
 

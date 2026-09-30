@@ -504,8 +504,9 @@ checkout() {
       App.closeModal();
       App.showToast(`Pedido ${pedido.numero_pedido} creado`, 'success');
 
-      // Imprimir ticket de cocina/comanda si la impresión está activada
-      const cfg = await API.getConfig().catch(() => null);
+      // Si el servidor mandó la comanda a una impresora térmica no hace falta nada más.
+      // Sin impresoras configuradas, se usa la impresión del navegador (si está activada).
+      const cfg = pedido.impresion_comanda ? null : await API.getConfig().catch(() => null);
       if (cfg && cfg.activar_impresion && cfg.activar_impresion !== 0) {
         const detalle = await API.getPedido(pedido.id).catch(() => null);
         if (detalle) {

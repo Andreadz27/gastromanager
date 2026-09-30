@@ -1,6 +1,7 @@
 'use strict';
 const {
-  path, Afip, run, get, all, transaccion, LOCAL, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, importe, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest
+  path, Afip, run, get, all, transaccion, LOCAL, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, importe, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest,
+  comandaAutomatica
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -442,11 +443,11 @@ app.post('/api/tiendanube/webhook', async (req, res) => {
     const costoEnvio = parseFloat(o.shipping_cost_customer) || 0;
 
     // La consulta HTTP ya se hizo: el alta del pedido es una sola transacción
-    await transaccion(async () => {
+    const pedidoNuevo = await transaccion(async () => {
       // Dentro de la transacción: dos reintentos simultáneos no duplican el pedido
       const existente = await get(
         "SELECT pedido_id FROM entregas WHERE codigo_externo = ? AND plataforma = 'Tienda Nube'", [codigoExterno]);
-      if (existente) return;
+      if (existente) return null;
 
       const numero = await generarNumeroPedido();
       const { id: pedidoId } = await run(
@@ -480,7 +481,9 @@ app.post('/api/tiendanube/webhook', async (req, res) => {
       emitEvento('cocina:actualizar', { pedido_id: pedidoId, accion: 'creado' });
       emitEvento('delivery:actualizar', { pedido_id: pedidoId, accion: 'creado', plataforma: 'Tienda Nube' });
       emitEvento('dashboard:actualizar', { motivo: 'webhook_tiendanube' });
+      return pedidoId;
     });
+    if (pedidoNuevo) await comandaAutomatica(pedidoNuevo).catch(() => false);
     res.sendStatus(200);
   } catch (e) {
     console.error('[Tienda Nube webhook]', e.message);

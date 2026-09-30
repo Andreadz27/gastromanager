@@ -100,8 +100,9 @@ const ConfigView = {
               </select>
             </div>
             <div class="form-group">
-              <label>Impresión</label>
-              <select id="cfgImpresion">
+              <label>Impresión automática de comandas</label>
+              <select id="cfgImpresion" title="Con impresoras térmicas configuradas, la comanda sale sola al crear el pedido. Sin impresoras, se abre la impresión del navegador.">
+
                 <option value="1" ${c.activar_impresion ? 'selected' : ''}>Activada</option>
                 <option value="0" ${!c.activar_impresion ? 'selected' : ''}>Desactivada</option>
               </select>
@@ -241,6 +242,42 @@ const ConfigView = {
 
       <div class="card mt-20">
         <div class="card-header">
+          <span class="card-title"><i class="fas fa-print"></i> Impresoras térmicas</span>
+          <button class="btn btn-primary btn-sm" onclick="ConfigView.editarImpresora()"><i class="fas fa-plus"></i> Agregar impresora</button>
+        </div>
+        <p class="text-muted">Comandas para cocina y barra, y tickets para el cliente, en impresoras de 58 u 80 mm
+          (USB instaladas en esta computadora o de red). Para cada impresora podés elegir qué categorías imprime:
+          por ejemplo, la barra solo bebidas.</p>
+        <div id="listaImpresoras" class="mt-10"><i class="fas fa-spinner fa-spin"></i></div>
+        <form id="formOpcionesImpresion" class="mt-20" onsubmit="ConfigView.guardarOpcionesImpresion(event)">
+          <div class="grid grid-3">
+            <div class="form-group">
+              <label>Ticket al cobrar</label>
+              <select id="impTicketCobro">
+                <option value="0">No imprimir</option>
+                <option value="1">Imprimir automáticamente</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Cajón de dinero</label>
+              <select id="impCajon">
+                <option value="0">No abrir</option>
+                <option value="1">Abrir al cobrar en efectivo</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Mensaje al pie del ticket</label>
+              <input type="text" id="impPie" maxlength="200">
+            </div>
+          </div>
+          <div class="text-right">
+            <button type="submit" class="btn btn-outline btn-sm"><i class="fas fa-save"></i> Guardar opciones</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card mt-20">
+        <div class="card-header">
           <span class="card-title"><i class="fas fa-database"></i> Copias de seguridad</span>
           <button class="btn btn-primary btn-sm" onclick="ConfigView.crearBackup()"><i class="fas fa-save"></i> Crear copia ahora</button>
         </div>
@@ -250,6 +287,191 @@ const ConfigView = {
       </div>
     `;
     this._cargarBackups();
+    this._cargarImpresoras();
+  },
+
+  // ===== Impresoras térmicas =====
+
+  async _cargarImpresoras() {
+    const cont = document.getElementById('listaImpresoras');
+    if (!cont) return;
+    try {
+      const [impresoras, categorias, opciones] = await Promise.all([
+        API.getImpresoras(), API.getCategorias(), API.getOpcionesImpresion()
+      ]);
+      this.impresoras = impresoras;
+      this.categorias = categorias;
+      document.getElementById('impTicketCobro').value = opciones.ticket_al_cobrar ? '1' : '0';
+      document.getElementById('impCajon').value = opciones.abrir_cajon ? '1' : '0';
+      document.getElementById('impPie').value = opciones.pie || '';
+
+      if (!impresoras.length) {
+        cont.innerHTML = '<p class="text-muted">No hay impresoras configuradas: las comandas se imprimen desde el navegador.</p>';
+        return;
+      }
+      const nombreCat = id => (categorias.find(c => c.id === id) || {}).nombre || `#${id}`;
+      cont.innerHTML = `<div class="table-wrap"><table>
+        <thead><tr><th>Nombre</th><th>Conexión</th><th>Papel</th><th>Imprime</th><th>Categorías</th><th>Último uso</th><th></th></tr></thead>
+        <tbody>${impresoras.map(i => {
+          const u = i.ultima_impresion;
+          const estado = !i.activa ? '<span class="badge badge-gray">Desactivada</span>'
+            : !u ? '<span class="badge badge-gray">Sin usar</span>'
+            : u.estado === 'ok' ? `<span class="badge badge-green">OK</span> <small>${fmtFechaHora(u.fecha)}</small>`
+            : `<span class="badge badge-red" title="${esc(u.error)}">Error</span> <small>${esc(u.error)}</small>`;
+          return `<tr>
+            <td class="font-bold">${esc(i.nombre)}</td>
+            <td>${i.tipo === 'red' ? 'Red' : 'USB'}: <code>${esc(i.destino)}</code></td>
+            <td>${i.ancho} mm${i.copias > 1 ? ` · ${i.copias} copias` : ''}</td>
+            <td>${[i.imprime_comandas ? 'Comandas' : '', i.imprime_tickets ? 'Tickets' : ''].filter(Boolean).join(' + ')}</td>
+            <td>${i.categorias.length ? i.categorias.map(c => esc(nombreCat(c))).join(', ') : 'Todas'}</td>
+            <td>${estado}</td>
+            <td class="text-right" style="white-space:nowrap">
+              <button class="btn btn-outline btn-sm" onclick="ConfigView.probarImpresora(${Number(i.id)})" title="Imprimir prueba"><i class="fas fa-vial"></i></button>
+              <button class="btn btn-outline btn-sm" onclick="ConfigView.editarImpresora(${Number(i.id)})" title="Editar"><i class="fas fa-edit"></i></button>
+              <button class="btn btn-danger btn-sm" onclick="ConfigView.eliminarImpresora(${Number(i.id)})" title="Eliminar"><i class="fas fa-trash"></i></button>
+            </td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>`;
+    } catch (err) {
+      cont.innerHTML = `<p class="text-muted">No se pudieron cargar las impresoras: ${esc(err.message)}</p>`;
+    }
+  },
+
+  async editarImpresora(id) {
+    const i = id ? (this.impresoras || []).find(x => x.id === id) : { tipo: 'red', ancho: 80, imprime_comandas: 1, imprime_tickets: 0, categorias: [], copias: 1, activa: 1 };
+    if (!i) return;
+    const categorias = this.categorias || await API.getCategorias().catch(() => []);
+    App.showModal(`
+      <form onsubmit="ConfigView.guardarImpresora(event, ${id ? Number(id) : 'null'})">
+        <div class="grid grid-2">
+          <div class="form-group">
+            <label>Nombre</label>
+            <input type="text" id="impNombre" value="${esc(i.nombre || '')}" placeholder="Cocina, Barra, Caja..." required maxlength="40">
+          </div>
+          <div class="form-group">
+            <label>Conexión</label>
+            <select id="impTipo" onchange="ConfigView.cambiarTipoImpresora()">
+              <option value="red" ${i.tipo === 'red' ? 'selected' : ''}>Red (Ethernet / WiFi)</option>
+              <option value="usb" ${i.tipo === 'usb' ? 'selected' : ''}>USB (instalada en esta computadora)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" id="impDestinoRed">
+          <label>Dirección IP de la impresora</label>
+          <input type="text" id="impIp" value="${i.tipo === 'red' ? esc(i.destino || '') : ''}" placeholder="192.168.0.50 o 192.168.0.50:9100">
+          <small class="text-muted">La IP figura en la hoja de configuración que imprime la impresora al mantener apretado el botón FEED al encenderla.</small>
+        </div>
+        <div class="form-group" id="impDestinoUsb">
+          <label>Impresora instalada en Windows</label>
+          <select id="impNombreSistema"><option value="">Cargando...</option></select>
+          <small class="text-muted">Tiene que estar instalada en la computadora donde corre el sistema (con su driver o como "Generic / Text Only").</small>
+        </div>
+        <div class="grid grid-3">
+          <div class="form-group">
+            <label>Ancho del papel</label>
+            <select id="impAncho">
+              <option value="80" ${i.ancho !== 58 ? 'selected' : ''}>80 mm</option>
+              <option value="58" ${i.ancho === 58 ? 'selected' : ''}>58 mm</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Imprime</label>
+            <label class="checkbox-label"><input type="checkbox" id="impComandas" ${i.imprime_comandas ? 'checked' : ''}> Comandas</label>
+            <label class="checkbox-label"><input type="checkbox" id="impTickets" ${i.imprime_tickets ? 'checked' : ''}> Tickets</label>
+          </div>
+          <div class="form-group">
+            <label>Copias</label>
+            <input type="number" id="impCopias" min="1" max="5" value="${Number(i.copias) || 1}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Categorías de las comandas (ninguna marcada = todas)</label>
+          <div class="grid grid-3">
+            ${categorias.map(c => `<label class="checkbox-label"><input type="checkbox" class="impCategoria" value="${Number(c.id)}"
+              ${i.categorias.includes(c.id) ? 'checked' : ''}> ${esc(c.nombre)}</label>`).join('')}
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label"><input type="checkbox" id="impActiva" ${i.activa ? 'checked' : ''}> Activa</label>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" onclick="App.closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Guardar</button>
+        </div>
+      </form>
+    `, { title: id ? `Editar impresora ${i.nombre}` : 'Agregar impresora' });
+    this.cambiarTipoImpresora();
+
+    // Impresoras instaladas en la computadora del servidor
+    const sel = document.getElementById('impNombreSistema');
+    const instaladas = await API.getImpresorasSistema().catch(() => []);
+    if (!sel) return;
+    const actual = i.tipo === 'usb' ? i.destino : '';
+    const opciones = [...new Set([...instaladas, ...(actual ? [actual] : [])])];
+    sel.innerHTML = opciones.length
+      ? opciones.map(n => `<option value="${esc(n)}" ${n === actual ? 'selected' : ''}>${esc(n)}</option>`).join('')
+      : '<option value="">No se encontraron impresoras instaladas</option>';
+  },
+
+  cambiarTipoImpresora() {
+    const red = document.getElementById('impTipo').value === 'red';
+    document.getElementById('impDestinoRed').style.display = red ? '' : 'none';
+    document.getElementById('impDestinoUsb').style.display = red ? 'none' : '';
+  },
+
+  async guardarImpresora(e, id) {
+    e.preventDefault();
+    const tipo = document.getElementById('impTipo').value;
+    const data = {
+      nombre: document.getElementById('impNombre').value,
+      tipo,
+      destino: tipo === 'red' ? document.getElementById('impIp').value : document.getElementById('impNombreSistema').value,
+      ancho: parseInt(document.getElementById('impAncho').value, 10),
+      imprime_comandas: document.getElementById('impComandas').checked,
+      imprime_tickets: document.getElementById('impTickets').checked,
+      copias: parseInt(document.getElementById('impCopias').value, 10) || 1,
+      categorias: [...document.querySelectorAll('.impCategoria:checked')].map(c => parseInt(c.value, 10)),
+      activa: document.getElementById('impActiva').checked
+    };
+    try {
+      if (id) await API.actualizarImpresora(id, data);
+      else await API.crearImpresora(data);
+      App.closeModal();
+      App.showToast('Impresora guardada. Probala con el botón de prueba.', 'success');
+      this._cargarImpresoras();
+    } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
+  async probarImpresora(id) {
+    try {
+      App.showToast('Enviando prueba...', 'info');
+      const r = await API.probarImpresora(id);
+      App.showToast(r.message, r.ok ? 'success' : 'error', r.ok ? 3500 : 9000);
+      this._cargarImpresoras();
+    } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
+  async eliminarImpresora(id) {
+    const i = (this.impresoras || []).find(x => x.id === id);
+    if (!confirm(`¿Eliminar la impresora ${i ? i.nombre : ''}?`)) return;
+    try {
+      await API.eliminarImpresora(id);
+      App.showToast('Impresora eliminada', 'success');
+      this._cargarImpresoras();
+    } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
+  async guardarOpcionesImpresion(e) {
+    e.preventDefault();
+    try {
+      await API.guardarOpcionesImpresion({
+        ticket_al_cobrar: document.getElementById('impTicketCobro').value === '1',
+        abrir_cajon: document.getElementById('impCajon').value === '1',
+        pie: document.getElementById('impPie').value
+      });
+      App.showToast('Opciones de impresión guardadas', 'success');
+    } catch (err) { App.showToast(err.message, 'error'); }
   },
 
   async _cargarBackups() {

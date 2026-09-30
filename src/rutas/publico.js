@@ -1,6 +1,7 @@
 'use strict';
 const {
-  rateLimit, PORT, run, get, all, transaccion, errorHttp, errorInterno, emitEvento, generarNumeroPedido
+  rateLimit, PORT, run, get, all, transaccion, errorHttp, errorInterno, emitEvento, generarNumeroPedido,
+  comandaAutomatica
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -91,6 +92,7 @@ app.post('/api/publico/pedido', pedidoOnlineLimiter, async (req, res) => {
       if (tipoFin==='delivery') emitEvento('delivery:actualizar',{pedido_id:pid,accion:'creado'});
       return { pid, numero, sub };
     });
+    await comandaAutomatica(pid).catch(() => false);
     const label = {whatsapp:'WhatsApp',instagram:'Instagram',web:'Web'}[orig]||orig;
     res.status(201).json({id:pid,numero_pedido:numero,subtotal:sub,total:sub,origen:label});
   } catch (err) { errorInterno(res, err); }

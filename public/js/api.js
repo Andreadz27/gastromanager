@@ -206,6 +206,18 @@ const API = {
   syncProductosTiendaNube()         { return this.request('POST', '/integraciones/tiendanube/sync-productos'); },
   crearLinkMercadoPago(pedidoId)    { return this.request('POST', `/integraciones/mercadopago/link/${pedidoId}`); },
 
+  // ===== Impresoras térmicas =====
+  getImpresoras()                  { return this.request('GET', '/impresoras'); },
+  getImpresorasSistema()           { return this.request('GET', '/impresoras/sistema'); },
+  crearImpresora(data)             { return this.request('POST', '/impresoras', data); },
+  actualizarImpresora(id, data)    { return this.request('PUT', `/impresoras/${id}`, data); },
+  eliminarImpresora(id)            { return this.request('DELETE', `/impresoras/${id}`); },
+  probarImpresora(id)              { return this.request('POST', `/impresoras/${id}/prueba`); },
+  getOpcionesImpresion()           { return this.request('GET', '/impresion/config'); },
+  guardarOpcionesImpresion(data)   { return this.request('PUT', '/impresion/config', data); },
+  imprimirComanda(pedidoId)        { return this.request('POST', `/pedidos/${pedidoId}/imprimir/comanda`); },
+  imprimirTicket(pedidoId)         { return this.request('POST', `/pedidos/${pedidoId}/imprimir/ticket`); },
+
   // ===== Copias de seguridad (admin) =====
   getBackups()  { return this.request('GET', '/backups'); },
   crearBackup() { return this.request('POST', '/backups'); },

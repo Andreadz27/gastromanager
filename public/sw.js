@@ -3,7 +3,7 @@
 // Caché de assets estáticos para PWA offline
 // =============================================
 
-const CACHE_NAME = 'gastromanager-v7';
+const CACHE_NAME = 'gastromanager-v8';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

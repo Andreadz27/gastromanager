@@ -1,6 +1,7 @@
 'use strict';
 const {
-  crypto, PORT, run, get, all, transaccion, LOCAL, fechaLocal, slugificar, parseCfgPlataforma, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, urlPublica
+  crypto, PORT, run, get, all, transaccion, LOCAL, fechaLocal, slugificar, parseCfgPlataforma, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, urlPublica,
+  comandaAutomatica
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -365,6 +366,7 @@ app.post('/api/webhooks/:plataforma', async (req, res) => {
       return res.status(409).json({ error: 'Pedido duplicado', entrega_id: resultado.duplicado.id, pedido_id: resultado.duplicado.pedido_id });
     }
     const { pedidoId, numero } = resultado;
+    await comandaAutomatica(pedidoId).catch(() => false);
     res.status(201).json({
       ok: true,
       pedido_id: pedidoId,

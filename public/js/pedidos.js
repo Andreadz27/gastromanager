@@ -162,7 +162,8 @@ const Pedidos = {
 
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="App.closeModal()">Cerrar</button>
-        <button class="btn btn-primary" onclick="App.imprimirRecibo(Pedidos.ultimoPedido)"><i class="fas fa-print"></i> Imprimir recibo</button>
+        <button class="btn btn-primary" onclick="Pedidos.imprimirTicket(${p.id})"><i class="fas fa-print"></i> ${p.estado === 'pagado' ? 'Imprimir ticket' : 'Precuenta'}</button>
+        ${p.estado !== 'cancelado' ? `<button class="btn btn-outline" onclick="Pedidos.reimprimirComanda(${p.id})"><i class="fas fa-utensils"></i> Reimprimir comanda</button>` : ''}
         ${
           esAbierto ? `
           <button class="btn btn-primary" onclick="Pedidos.agregarItem(${p.id})"><i class="fas fa-plus"></i> Item</button>
@@ -182,6 +183,31 @@ const Pedidos = {
   },
 
   // Genera un link de pago de Mercado Pago; al aprobarse, el pedido se cierra solo
+  // Ticket en la impresora térmica; si no hay ninguna configurada, impresión del navegador
+  async imprimirTicket(pedidoId) {
+    try {
+      const r = await API.imprimirTicket(pedidoId);
+      const fallas = r.resultados.filter(x => !x.ok);
+      if (fallas.length) App.showToast(`No se pudo imprimir en ${fallas.map(f => f.impresora).join(', ')}: ${fallas[0].error}`, 'error', 8000);
+      else App.showToast('Ticket enviado a la impresora', 'success');
+    } catch (err) {
+      if (/No hay impresoras/.test(err.message)) App.imprimirRecibo(this.ultimoPedido);
+      else App.showToast(err.message, 'error');
+    }
+  },
+
+  async reimprimirComanda(pedidoId) {
+    try {
+      const r = await API.imprimirComanda(pedidoId);
+      const fallas = r.resultados.filter(x => !x.ok);
+      if (fallas.length) App.showToast(`No se pudo imprimir en ${fallas.map(f => f.impresora).join(', ')}: ${fallas[0].error}`, 'error', 8000);
+      else App.showToast(`Comanda reimpresa en ${r.resultados.map(x => x.impresora).join(', ')}`, 'success');
+    } catch (err) {
+      App.showToast(/No hay impresoras/.test(err.message)
+        ? 'No hay impresoras de comandas configuradas (Configuración → Impresoras)' : err.message, 'error');
+    }
+  },
+
   async linkMercadoPago(pedidoId) {
     try {
       const r = await API.crearLinkMercadoPago(pedidoId);

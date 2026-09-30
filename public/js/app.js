@@ -79,6 +79,12 @@ const App = {
         if (App.currentView === 'cocina') Cocina.refresh();
       });
 
+      // Falla de una impresora térmica: avisar para que reimpriman o revisen la impresora
+      this.socket.on('impresion:error', (data) => {
+        const que = { comanda: 'la comanda', agregado: 'el agregado', anulado: 'la anulación', ticket: 'el ticket' }[data.tipo] || 'el documento';
+        this.showToast(`No se pudo imprimir ${que} en "${data.impresora}": ${data.error}`, 'error', 10000);
+      });
+
       // Cambio de estado de una mesa en otra terminal
       this.socket.on('mesas:actualizar', () => {
         if (App.currentView === 'mesas') Mesas.render();

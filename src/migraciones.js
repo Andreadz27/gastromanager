@@ -33,6 +33,30 @@ async function migrarEsquema() {
   await agregarColumna('caja', 'resumen', 'TEXT');
   await agregarColumna('caja', 'observaciones_cierre', "TEXT DEFAULT ''");
   await run('CREATE INDEX IF NOT EXISTS idx_caja_estado ON caja(estado)');
+  // Impresoras térmicas (comandas por estación y tickets) y registro de impresiones
+  await run(`CREATE TABLE IF NOT EXISTS impresoras (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    tipo TEXT NOT NULL DEFAULT 'red',
+    destino TEXT NOT NULL,
+    ancho INTEGER NOT NULL DEFAULT 80,
+    imprime_comandas INTEGER NOT NULL DEFAULT 1,
+    imprime_tickets INTEGER NOT NULL DEFAULT 0,
+    categorias TEXT NOT NULL DEFAULT '[]',
+    copias INTEGER NOT NULL DEFAULT 1,
+    activa INTEGER NOT NULL DEFAULT 1,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await run(`CREATE TABLE IF NOT EXISTS impresiones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    impresora_id INTEGER,
+    impresora_nombre TEXT,
+    tipo TEXT,
+    pedido_id INTEGER,
+    estado TEXT,
+    error TEXT,
+    fecha TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
   await agregarColumna('productos', 'tn_product_id', 'INTEGER');
   await agregarColumna('productos', 'tn_variant_id', 'INTEGER');
 
