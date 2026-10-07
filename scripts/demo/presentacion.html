@@ -170,7 +170,10 @@ details p { color: var(--ink-2); margin-top: 10px; }
 .cierre { background: var(--ink); color: var(--canvas); border-radius: 22px; padding: 48px clamp(22px, 5vw, 56px); display: grid; gap: 18px; margin-bottom: 56px; }
 .cierre h2 { max-width: 20ch; }
 .cierre p { color: color-mix(in srgb, var(--canvas) 75%, transparent); max-width: 60ch; }
-.cierre .boton.primario { justify-self: start; }
+.cierre .acciones { justify-content: flex-start; }
+.cierre .boton.secundario { background: transparent; color: var(--canvas); border-color: color-mix(in srgb, var(--canvas) 35%, transparent); }
+.cierre .demo-claves { font-size: 15px; }
+.cierre code { font-family: var(--mono); }
 footer.pie { padding-block: 0 40px; color: var(--ink-2); font-size: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
 @media (max-width: 1100px) {
@@ -207,6 +210,7 @@ footer.pie { padding-block: 0 40px; color: var(--ink-2); font-size: 14px; displa
       <a href="#mod-contabilidad">Contabilidad</a>
       <a href="#roles">Roles</a>
       <a href="#preguntas">Preguntas</a>
+      <a href="https://gastromanager-demo.onrender.com" target="_blank" rel="noopener">Probar la demo</a>
     </nav>
   </div>
 
@@ -215,7 +219,8 @@ footer.pie { padding-block: 0 40px; color: var(--ink-2); font-size: 14px; displa
     <h1>Tu restaurante, de la comanda <em>al balance del mes.</em></h1>
     <p class="intro">Punto de venta, mesas, cocina, delivery, caja, contabilidad y facturación electrónica en un solo sistema. Mirá cómo funciona La Buena Mesa, un restaurante de ejemplo con una semana completa de ventas, compras y gastos.</p>
     <div class="acciones">
-      <a class="boton primario" href="#modulos">Ver los módulos</a>
+      <a class="boton primario" href="https://gastromanager-demo.onrender.com" target="_blank" rel="noopener">Probar la demo</a>
+      <a class="boton secundario" href="#modulos">Ver los módulos</a>
       <a class="boton secundario" href="#recorrido">Ver el video</a>
       <a class="boton secundario" href="#contacto">Pedir una demo en vivo</a>
     </div>
@@ -693,14 +698,18 @@ footer.pie { padding-block: 0 40px; color: var(--ink-2); font-size: 14px; displa
       <details><summary>¿En qué equipos funciona?</summary><p>En cualquier PC, notebook, tablet o celular con navegador. No hay que instalar nada en cada equipo: los mozos pueden usar su tablet o su celular.</p></details>
       <details><summary>¿Qué impresoras puedo usar?</summary><p>Impresoras térmicas de 58 u 80 mm compatibles con ESC/POS (Epson, Xprinter, 3nStar, Gadnic, Hasar y similares), por red o USB. Podés separar la cocina y la barra.</p></details>
       <details><summary>¿Mis datos están seguros?</summary><p>Cada persona entra con su usuario y su rol, el sistema pide cambiar las contraseñas iniciales y hace una copia de seguridad automática todos los días, que podés descargar cuando quieras.</p></details>
-      <details><summary>¿Cómo lo pruebo?</summary><p>Coordinamos una demo en vivo con los usuarios de cada rol (administrador, cajero, mozo y cocina) para que lo uses como si fuera tu local.</p></details>
+      <details><summary>¿Cómo lo pruebo?</summary><p>Entrá a la <a href="https://gastromanager-demo.onrender.com" target="_blank" rel="noopener">demo de La Buena Mesa</a> y elegí un rol: administrador, encargado, cajero, mozo o cocina (clave demo1234). Podés vender, cobrar, cargar gastos y ver la contabilidad; los datos se reinician cada 6 horas. Si estuvo sin visitas un rato, la primera carga tarda cerca de un minuto. También coordinamos una demo en vivo con tu carta.</p></details>
     </div>
   </section>
 
   <section class="cierre" id="contacto" aria-labelledby="t-cierre">
     <h2 id="t-cierre">Probalo con los datos de tu local</h2>
     <p>Te mostramos el sistema en vivo, cargamos tu carta y armamos las mesas de tu salón para que veas cómo funcionaría tu día a día.</p>
-    <a class="boton primario" href="#recorrido">Volver a ver el recorrido</a>
+    <div class="acciones">
+      <a class="boton primario" href="https://gastromanager-demo.onrender.com" target="_blank" rel="noopener">Probar la demo ahora</a>
+      <a class="boton secundario" href="#recorrido">Volver a ver el recorrido</a>
+    </div>
+    <p class="demo-claves">Usuarios: admin@, encargado@, caja@, lucas@ (mozo) y cocina@labuenamesa.com · clave <code>demo1234</code>. Los datos se reinician cada 6 horas.</p>
   </section>
 
   <footer class="pie">
