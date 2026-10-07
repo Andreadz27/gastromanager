@@ -3,7 +3,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
-/* Layout: página de producto; el video es la pieza central y el recorrido de un pedido se cuenta con comandas térmicas */
+/* Layout: página de producto ordenada por módulos: un mapa de cinco áreas (el camino de la plata, de la venta al balance) y una ficha con captura por módulo; el recorrido de un pedido se cuenta con comandas térmicas */
 :root {
   --canvas: #f3f5f9;
   --paper: #ffffff;
@@ -81,16 +81,16 @@ section > header { display: grid; gap: 12px; }
 .capitulos time { font: 600 13px/1.3 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 
 /* Comandas térmicas */
-.recorrido { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; align-items: start; }
+.recorrido { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; align-items: start; }
 .paso { display: grid; gap: 16px; }
 .paso header { display: grid; gap: 6px; }
 .paso header .etiqueta { color: var(--ink-2); }
 .paso header p { color: var(--ink-2); }
-.comanda { background: #fffefb; color: #1c1917; font: 400 14px/1.55 var(--mono); padding: 18px 18px 26px; position: relative;
+.comanda { background: #fffefb; color: #1c1917; font: 400 13px/1.55 var(--mono); padding: 18px 18px 26px; position: relative;
   box-shadow: var(--sombra); transform: rotate(var(--giro, 0deg));
   -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - 10px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 16px 10px repeat-x;
           mask: linear-gradient(#000 0 0) top / 100% calc(100% - 10px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 16px 10px repeat-x; }
-.comanda .titulo { text-align: center; font-weight: 600; font-size: 22px; letter-spacing: .06em; }
+.comanda .titulo { text-align: center; font-weight: 600; font-size: 20px; letter-spacing: .06em; }
 .comanda .grande { text-align: center; font-weight: 600; font-size: 18px; }
 .comanda .centro { text-align: center; }
 .comanda hr { border: 0; border-top: 1px dashed #a8a29e; margin: 8px 0; }
@@ -100,18 +100,49 @@ section > header { display: grid; gap: 12px; }
 .comanda .total { font-weight: 600; font-size: 17px; }
 .dos-comandas { display: grid; gap: 14px; }
 
-/* Módulos */
-.modulos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--linea); }
-.modulo { padding: 22px 22px 22px 0; border-bottom: 1px solid var(--linea); display: grid; gap: 6px; align-content: start; }
-.modulo:nth-child(3n+2), .modulo:nth-child(3n) { padding-left: 22px; border-left: 1px solid var(--linea); }
-.modulo p { color: var(--ink-2); font-size: 15.5px; }
+/* Mapa del sistema: el recorrido del dinero, de la venta al balance */
+.mapa { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.etapa { background: var(--paper); border: 1px solid var(--linea); border-radius: 14px; padding: 18px; display: grid; gap: 10px; align-content: start; position: relative; }
+.etapa:not(:last-child)::after { content: "→"; position: absolute; right: -14px; top: 22px; width: 14px; text-align: center; color: var(--brasa); font-weight: 700; }
+.etapa .etiqueta { color: var(--ink-2); }
+.etapa h3 a { color: var(--ink); text-decoration: none; }
+.etapa h3 a:hover { color: var(--brasa); }
+.etapa p { color: var(--ink-2); font-size: 14.5px; line-height: 1.45; }
+.etapa ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.etapa li a { display: inline-block; padding: 4px 10px; border-radius: 999px; background: var(--canvas); color: var(--ink); font-size: 13.5px; font-weight: 500; text-decoration: none; border: 1px solid var(--linea); }
+.etapa li a:hover { border-color: var(--brasa); color: var(--brasa); }
+.etapa li a.nuevo { background: var(--brasa-suave); border-color: var(--brasa); color: var(--brasa); font-weight: 600; }
+.base { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; padding: 14px 18px; border: 1px dashed var(--linea); border-radius: 14px; color: var(--ink-2); font-size: 15px; }
+.base strong { color: var(--ink); font-weight: 600; }
 
-/* Galería */
-.galeria { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
-.galeria button { display: grid; gap: 10px; padding: 0; border: 0; background: none; text-align: left; cursor: zoom-in; color: var(--ink); font: 500 15px/1.35 var(--texto); }
-.galeria img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border-radius: 10px; border: 1px solid var(--linea); background: var(--paper); transition: transform .2s; }
-.galeria button:hover img { transform: translateY(-3px); }
-.galeria .celular img { object-fit: contain; background: linear-gradient(135deg, #fb923c33, #ec489933); }
+/* Áreas y fichas de módulo */
+.area { padding-block: 64px 24px; display: grid; gap: 8px; }
+.area > header { display: grid; gap: 12px; padding-bottom: 16px; }
+.area > header .paso-n { font: 600 14px/1 var(--mono); color: var(--brasa); }
+.ficha { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 36px; align-items: center; padding-block: 28px; border-top: 1px solid var(--linea); scroll-margin-top: 16px; }
+.ficha .texto { display: grid; gap: 12px; min-width: 0; }
+.ficha h3 { font-size: 26px; font-weight: 800; }
+.ficha .para { font-size: 17.5px; }
+.ficha ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; color: var(--ink-2); font-size: 15.5px; }
+.ficha li { padding-left: 18px; position: relative; }
+.ficha li::before { content: ""; position: absolute; left: 0; top: .62em; width: 7px; height: 7px; border-radius: 2px; background: var(--brasa); }
+.quien { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13.5px; color: var(--ink-2); }
+.quien span { padding: 3px 10px; border-radius: 999px; background: var(--paper); border: 1px solid var(--linea); color: var(--ink); font-weight: 500; }
+.nuevo-sello { justify-self: start; font: 600 12px/1 var(--texto); letter-spacing: .08em; text-transform: uppercase; color: #fff; background: var(--brasa); padding: 6px 10px; border-radius: 999px; }
+.capturas { display: grid; gap: 10px; min-width: 0; }
+.capturas .miniaturas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.captura { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 10px; }
+.captura img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border-radius: 10px; border: 1px solid var(--linea); background: var(--paper); box-shadow: var(--sombra); transition: transform .2s; }
+.captura:hover img { transform: translateY(-3px); }
+.captura.celular img { object-fit: contain; background: linear-gradient(135deg, #fb923c33, #ec489933); }
+.miniaturas .captura img { box-shadow: none; }
+.compactas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--linea); }
+.compacta { padding: 20px 22px 20px 0; display: grid; gap: 6px; align-content: start; }
+.compacta + .compacta { padding-left: 22px; border-left: 1px solid var(--linea); }
+.compacta h4 { margin: 0; font: 600 17px/1.2 var(--display); }
+.compacta p { color: var(--ink-2); font-size: 15px; }
+
+/* Visor de capturas */
 dialog { border: 0; padding: 0; background: none; max-width: min(1200px, 94vw); }
 dialog::backdrop { background: rgba(8, 12, 22, .82); }
 dialog figure { margin: 0; display: grid; gap: 12px; }
@@ -142,19 +173,24 @@ details p { color: var(--ink-2); margin-top: 10px; }
 .cierre .boton.primario { justify-self: start; }
 footer.pie { padding-block: 0 40px; color: var(--ink-2); font-size: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
+@media (max-width: 1100px) {
+  .recorrido { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mapa { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .etapa:nth-child(3)::after { content: none; }
+}
 @media (max-width: 900px) {
   .pantalla { grid-template-columns: 1fr; }
-  .recorrido, .galeria { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .modulos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .modulo:nth-child(n) { padding: 20px 18px 20px 0; border-left: 0; }
-  .modulo:nth-child(2n) { padding-left: 18px; border-left: 1px solid var(--linea); }
+  .ficha { grid-template-columns: 1fr; gap: 20px; }
+  .compactas { grid-template-columns: 1fr; }
+  .compacta, .compacta + .compacta { padding: 18px 0; border-left: 0; border-bottom: 1px solid var(--linea); }
 }
-@media (max-width: 560px) {
-  section { padding-block: 52px; }
-  .recorrido, .galeria, .modulos { grid-template-columns: 1fr; }
-  .modulo:nth-child(n) { padding: 18px 0; border-left: 0; }
+@media (max-width: 640px) {
+  section, .area { padding-block: 48px 16px; }
+  .recorrido, .mapa { grid-template-columns: 1fr; }
+  .etapa::after { content: none !important; }
   .barra nav { display: none; }
   .comanda { transform: none; }
+  .ficha h3 { font-size: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -166,32 +202,35 @@ footer.pie { padding-block: 0 40px; color: var(--ink-2); font-size: 14px; displa
       GastroManager
     </a>
     <nav aria-label="Secciones">
-      <a href="#recorrido">Recorrido</a>
       <a href="#modulos">Módulos</a>
-      <a href="#pantallas">Pantallas</a>
+      <a href="#recorrido">Video</a>
+      <a href="#mod-contabilidad">Contabilidad</a>
+      <a href="#roles">Roles</a>
       <a href="#preguntas">Preguntas</a>
     </nav>
   </div>
 
   <header class="portada" id="inicio">
     <span class="etiqueta">Sistema de gestión gastronómica</span>
-    <h1>Tu restaurante, de la comanda <em>al cierre de caja.</em></h1>
-    <p class="intro">Punto de venta, mesas, cocina, delivery, caja y facturación electrónica en un solo sistema. Mirá cómo funciona un día en La Buena Mesa, un restaurante de ejemplo con datos reales de una semana de trabajo.</p>
+    <h1>Tu restaurante, de la comanda <em>al balance del mes.</em></h1>
+    <p class="intro">Punto de venta, mesas, cocina, delivery, caja, contabilidad y facturación electrónica en un solo sistema. Mirá cómo funciona La Buena Mesa, un restaurante de ejemplo con una semana completa de ventas, compras y gastos.</p>
     <div class="acciones">
-      <a class="boton primario" href="#recorrido">Ver el recorrido</a>
+      <a class="boton primario" href="#modulos">Ver los módulos</a>
+      <a class="boton secundario" href="#recorrido">Ver el video</a>
       <a class="boton secundario" href="#contacto">Pedir una demo en vivo</a>
     </div>
     <div class="sellos">
       <span>Funciona en PC, tablet y celular</span>
       <span>Factura A, B y C con AFIP</span>
       <span>PedidosYa, Rappi y WhatsApp</span>
+      <span>Libro diario e IVA para tu contador</span>
     </div>
   </header>
 
   <section id="recorrido" aria-labelledby="t-recorrido">
     <header>
       <span class="etiqueta">Recorrido en video · <span id="duracion">2 min</span></span>
-      <h2 id="t-recorrido">Un turno completo, en dos minutos y medio</h2>
+      <h2 id="t-recorrido">Un turno completo, en tres minutos</h2>
     </header>
     <div class="pantalla">
       <figure>
@@ -210,8 +249,8 @@ footer.pie { padding-block: 0 40px; color: var(--ink-2); font-size: 14px; displa
   <section aria-labelledby="t-pedido">
     <header>
       <span class="etiqueta">Cómo viaja un pedido</span>
-      <h2 id="t-pedido">Del salón a la cocina y de vuelta a la caja</h2>
-      <p class="intro">Estas son las comandas que imprime el sistema para el pedido de la mesa 3 que aparece en el video.</p>
+      <h2 id="t-pedido">Del salón a la cocina, a la caja y a los libros</h2>
+      <p class="intro">Así pasa por los módulos el pedido de la mesa 3 que aparece en el video: las comandas que imprime el sistema, el ticket y el asiento contable que se genera solo.</p>
     </header>
     <div class="recorrido">
       <div class="paso">
@@ -276,41 +315,352 @@ footer.pie { padding-block: 0 40px; color: var(--ink-2); font-size: 14px; displa
           <div class="centro">¡Gracias por su visita!</div>
         </div>
       </div>
+      <div class="paso">
+        <header>
+          <span class="etiqueta">4 · Contabilidad</span>
+          <h3>La venta ya está en los libros</h3>
+          <p>El cobro se suma solo al asiento de ventas del día, con el IVA separado.</p>
+        </header>
+        <div class="comanda" style="--giro:-.6deg">
+          <div class="titulo">LIBRO DIARIO</div>
+          <div class="centro">Ventas del día</div>
+          <div class="centro">incluye P-20260930-00275</div>
+          <hr>
+          <div class="fila"><span>Cuenta</span><span>Debe</span></div>
+          <div class="fila item"><span>Caja</span><span>38.000,00</span></div>
+          <hr>
+          <div class="fila"><span>Cuenta</span><span>Haber</span></div>
+          <div class="fila"><span>Ventas</span><span>31.404,96</span></div>
+          <div class="fila"><span>IVA débito 21%</span><span>6.595,04</span></div>
+          <hr>
+          <div class="fila total"><span>Debe = Haber</span><span>38.000</span></div>
+          <div class="centro">Exportable a Excel</div>
+        </div>
+      </div>
     </div>
   </section>
 
   <section id="modulos" aria-labelledby="t-modulos">
     <header>
-      <span class="etiqueta">Módulos</span>
-      <h2 id="t-modulos">Todo lo que necesita un local gastronómico</h2>
-      <p class="intro">Se adapta al tipo de negocio: restaurante, bar, cafetería, rotisería, heladería o kiosco. Activás solo los módulos que usás.</p>
+      <span class="etiqueta">Mapa del sistema</span>
+      <h2 id="t-modulos">Cinco áreas, en el orden en que trabaja tu local</h2>
+      <p class="intro">Cada módulo le pasa los datos al siguiente: lo que se vende en el salón llega a la cocina, se cobra en la caja, se asienta en la contabilidad y aparece en los reportes. Nada se carga dos veces. Tocá un módulo para ver qué hace.</p>
     </header>
-    <div class="modulos">
-      <div class="modulo"><h3>Punto de venta</h3><p>Pedidos en segundos desde PC, tablet o celular, con descuentos, propinas y notas para cocina.</p></div>
-      <div class="modulo"><h3>Mesas y reservas</h3><p>Mapa del salón por sectores, mesas libres, ocupadas y reservadas, y reservas del día.</p></div>
-      <div class="modulo"><h3>Cocina en tiempo real</h3><p>Comandas en pantalla con el tiempo de espera en colores, y pantalla dedicada para tablet o TV.</p></div>
-      <div class="modulo"><h3>Delivery</h3><p>Pedidos de PedidosYa, Rappi y de tu carta por WhatsApp en una sola lista, con cadete y estado.</p></div>
-      <div class="modulo"><h3>Caja y arqueo</h3><p>Cobros por medio de pago, ingresos y retiros, efectivo esperado y diferencias de cada cierre.</p></div>
-      <div class="modulo"><h3>Facturación electrónica</h3><p>Factura A, B y C con CAE de AFIP (ARCA) desde el pedido cobrado.</p></div>
-      <div class="modulo"><h3>Stock e inventario</h3><p>Cada venta descuenta del stock y el sistema avisa qué reponer antes de que falte.</p></div>
-      <div class="modulo"><h3>Reportes</h3><p>Ventas por día, horas pico, productos más vendidos y rentabilidad por plato. Exportás a Excel.</p></div>
-      <div class="modulo"><h3>Carta QR y pedidos online</h3><p>Carta digital para el celular del cliente y pedidos para llevar o delivery sin comisiones.</p></div>
-      <div class="modulo"><h3>Mercado Pago y Tienda Nube</h3><p>Links de pago que cierran el pedido solos y sincronización de productos con tu tienda.</p></div>
-      <div class="modulo"><h3>Impresoras térmicas</h3><p>Comandas y tickets en impresoras de 58 u 80 mm, de red o USB, separadas por estación.</p></div>
-      <div class="modulo"><h3>Roles y copias de seguridad</h3><p>Cinco roles con permisos distintos y copias automáticas de tus datos todos los días.</p></div>
+    <div class="mapa">
+      <div class="etapa">
+        <span class="etiqueta">1 · Vender</span>
+        <h3><a href="#vender">Tomar pedidos</a></h3>
+        <p>En el salón, en el mostrador y online.</p>
+        <ul>
+          <li><a href="#mod-pos">Punto de venta</a></li>
+          <li><a href="#mod-mesas">Mesas y reservas</a></li>
+          <li><a href="#mod-delivery">Delivery</a></li>
+          <li><a href="#mod-carta">Carta QR</a></li>
+        </ul>
+      </div>
+      <div class="etapa">
+        <span class="etiqueta">2 · Preparar</span>
+        <h3><a href="#preparar">Cocinar a tiempo</a></h3>
+        <p>Cada estación recibe su comanda.</p>
+        <ul>
+          <li><a href="#mod-cocina">Cocina</a></li>
+          <li><a href="#mod-pantalla">Pantalla de cocina</a></li>
+          <li><a href="#mod-impresoras">Impresoras</a></li>
+        </ul>
+      </div>
+      <div class="etapa">
+        <span class="etiqueta">3 · Cobrar</span>
+        <h3><a href="#cobrar">Cerrar la cuenta</a></h3>
+        <p>Cobro, factura y una caja que cuadra.</p>
+        <ul>
+          <li><a href="#mod-cobro">Cobro y factura</a></li>
+          <li><a href="#mod-caja">Caja y arqueo</a></li>
+        </ul>
+      </div>
+      <div class="etapa">
+        <span class="etiqueta">4 · Administrar</span>
+        <h3><a href="#administrar">Ordenar el negocio</a></h3>
+        <p>Gastos, deudas, IVA e inventario.</p>
+        <ul>
+          <li><a class="nuevo" href="#mod-contabilidad">Contabilidad · nuevo</a></li>
+          <li><a href="#mod-stock">Stock</a></li>
+          <li><a href="#mod-contactos">Proveedores y clientes</a></li>
+        </ul>
+      </div>
+      <div class="etapa">
+        <span class="etiqueta">5 · Decidir</span>
+        <h3><a href="#decidir">Mirar los números</a></h3>
+        <p>Qué se vende, cuándo y cuánto deja.</p>
+        <ul>
+          <li><a href="#mod-dashboard">Dashboard</a></li>
+          <li><a href="#mod-reportes">Reportes y rentabilidad</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="base">
+      <strong>En todo el sistema:</strong>
+      <a href="#mod-roles">Usuarios y roles</a>
+      <span>Copias de seguridad diarias</span>
+      <span>Mercado Pago y Tienda Nube</span>
+      <span>PC, tablet y celular</span>
     </div>
   </section>
 
-  <section id="pantallas" aria-labelledby="t-pantallas">
+  <div class="area" id="vender" aria-labelledby="t-vender">
     <header>
-      <span class="etiqueta">Pantallas</span>
-      <h2 id="t-pantallas">Así se ve el sistema</h2>
-      <p class="intro">Capturas reales de la demo. Tocá cualquiera para verla en grande.</p>
+      <span class="paso-n">Área 1 de 5</span>
+      <h2 id="t-vender">Vender</h2>
+      <p class="intro">Todo lo que pasa antes de que el pedido llegue a la cocina.</p>
     </header>
-    <div class="galeria" id="galeria"></div>
-  </section>
+    <article class="ficha" id="mod-pos">
+      <div class="capturas"><button type="button" class="captura"><img data-captura="04-punto-de-venta" alt="Punto de venta con la carta por categorías y el pedido en curso"></button></div>
+      <div class="texto">
+        <h3>Punto de venta</h3>
+        <p class="para">Para tomar un pedido en segundos desde la caja, una tablet o el celular del mozo.</p>
+        <ul>
+          <li>La carta ordenada por categorías, con los precios del sistema.</li>
+          <li>Notas para cocina, descuentos y propinas.</li>
+          <li>Pedidos de salón, para llevar o delivery.</li>
+        </ul>
+        <div class="quien">Lo usan: <span>Mozo</span><span>Cajero</span><span>Encargado</span></div>
+      </div>
+    </article>
+    <article class="ficha" id="mod-mesas">
+      <div class="capturas"><button type="button" class="captura"><img data-captura="03-mesas" alt="Mapa del salón con mesas libres, ocupadas y reservadas"></button></div>
+      <div class="texto">
+        <h3>Mesas y reservas</h3>
+        <p class="para">Para ver el salón tal como está ahora.</p>
+        <ul>
+          <li>Mesas libres, ocupadas y reservadas, por sector.</li>
+          <li>Reservas del día con cantidad de personas y notas.</li>
+          <li>Desde la mesa abrís su pedido, agregás ítems y sacás la precuenta.</li>
+        </ul>
+        <div class="quien">Lo usan: <span>Mozo</span><span>Cajero</span></div>
+      </div>
+    </article>
+    <article class="ficha" id="mod-delivery">
+      <div class="capturas"><button type="button" class="captura"><img data-captura="07-delivery" alt="Pedidos de delivery de PedidosYa, Rappi y WhatsApp"></button></div>
+      <div class="texto">
+        <h3>Delivery</h3>
+        <p class="para">Para atender las apps y tus pedidos propios en una sola lista.</p>
+        <ul>
+          <li>PedidosYa, Rappi y los pedidos de tu carta por WhatsApp.</li>
+          <li>Estado de cada envío y cadete asignado.</li>
+          <li>Aceptás, despachás y cobrás desde la misma pantalla.</li>
+        </ul>
+        <div class="quien">Lo usan: <span>Cajero</span><span>Encargado</span></div>
+      </div>
+    </article>
+    <article class="ficha" id="mod-carta">
+      <div class="capturas"><button type="button" class="captura celular"><img data-captura="15-carta-celular" alt="Carta digital en el celular del cliente"></button></div>
+      <div class="texto">
+        <h3>Carta QR y pedidos online</h3>
+        <p class="para">Para que el cliente vea la carta en su celular y pida sin comisiones de terceros.</p>
+        <ul>
+          <li>Un QR en cada mesa con la carta siempre actualizada.</li>
+          <li>Pedidos para llevar o delivery que entran directo a la cocina.</li>
+          <li>Los precios son los mismos que en el punto de venta.</li>
+        </ul>
+        <div class="quien">Lo usa: <span>El cliente</span></div>
+      </div>
+    </article>
+  </div>
 
-  <section aria-labelledby="t-roles">
+  <div class="area" id="preparar" aria-labelledby="t-preparar">
+    <header>
+      <span class="paso-n">Área 2 de 5</span>
+      <h2 id="t-preparar">Preparar</h2>
+      <p class="intro">La comanda llega a quien la tiene que hacer, apenas se toma el pedido.</p>
+    </header>
+    <article class="ficha" id="mod-cocina">
+      <div class="capturas"><button type="button" class="captura"><img data-captura="05-cocina" alt="Comandas en cocina con tiempo de espera"></button></div>
+      <div class="texto">
+        <h3>Cocina</h3>
+        <p class="para">Para que cada plato salga a tiempo y como lo pidió el cliente.</p>
+        <ul>
+          <li>Las comandas aparecen al instante, con las notas del mozo.</li>
+          <li>El tiempo de espera cambia de color a medida que pasa.</li>
+          <li>Cada plato se marca como listo y el salón se entera.</li>
+        </ul>
+        <div class="quien">Lo usan: <span>Cocina</span></div>
+      </div>
+    </article>
+    <article class="ficha" id="mod-pantalla">
+      <div class="capturas"><button type="button" class="captura"><img data-captura="14-pantalla-cocina" alt="Pantalla de cocina para tablet o TV"></button></div>
+      <div class="texto">
+        <h3>Pantalla de cocina</h3>
+        <p class="para">Para una tablet o un televisor colgado en la cocina.</p>
+        <ul>
+          <li>Solo las comandas, en letra grande y sin menús.</li>
+          <li>Se actualiza sola: nadie tiene que tocarla.</li>
+        </ul>
+        <div class="quien">Lo usan: <span>Cocina</span></div>
+      </div>
+    </article>
+    <article class="ficha" id="mod-impresoras">
+      <div class="capturas"><button type="button" class="captura"><img data-captura="12-impresoras" alt="Configuración de impresoras térmicas por estación"></button></div>
+      <div class="texto">
+        <h3>Impresoras térmicas</h3>
+        <p class="para">Para los locales que trabajan con comandas en papel.</p>
+        <ul>
+          <li>La cocina recibe los platos y la barra las bebidas.</li>
+          <li>Agregados y anulaciones salen impresos solos.</li>
+          <li>Impresoras de 58 u 80 mm, por red o USB, con apertura del cajón.</li>
+        </ul>
+        <div class="quien">Lo configura: <span>Administrador</span></div>
+      </div>
+    </article>
+  </div>
+
+  <div class="area" id="cobrar" aria-labelledby="t-cobrar">
+    <header>
+      <span class="paso-n">Área 3 de 5</span>
+      <h2 id="t-cobrar">Cobrar</h2>
+      <p class="intro">Cada cobro queda registrado en la caja del turno y, después, en la contabilidad.</p>
+    </header>
+    <article class="ficha" id="mod-cobro">
+      <div class="capturas"><button type="button" class="captura"><img data-captura="06-detalle-pedido" alt="Detalle del pedido con cobro, precuenta y factura"></button></div>
+      <div class="texto">
+        <h3>Cobro y factura</h3>
+        <p class="para">Para cerrar la mesa sin errores en el vuelto ni en el ticket.</p>
+        <ul>
+          <li>Efectivo, tarjeta, Mercado Pago o transferencia, con el vuelto calculado.</li>
+          <li>Precuenta y ticket impresos.</li>
+          <li>Factura electrónica A, B o C con CAE de AFIP (ARCA).</li>
+        </ul>
+        <div class="quien">Lo usan: <span>Cajero</span><span>Encargado</span></div>
+      </div>
+    </article>
+    <article class="ficha" id="mod-caja">
+      <div class="capturas"><button type="button" class="captura"><img data-captura="08-caja" alt="Caja abierta con ventas por medio de pago y efectivo esperado"></button></div>
+      <div class="texto">
+        <h3>Caja y arqueo</h3>
+        <p class="para">Para saber cuánta plata tiene que haber en la caja al final del turno.</p>
+        <ul>
+          <li>Apertura con el fondo de cambio.</li>
+          <li>Ventas por medio de pago, ingresos y retiros.</li>
+          <li>Efectivo esperado contra el contado, con faltantes y sobrantes en el historial.</li>
+        </ul>
+        <div class="quien">Lo usan: <span>Cajero</span><span>Encargado</span></div>
+      </div>
+    </article>
+    <div class="compactas">
+      <div class="compacta"><h4>Facturación electrónica</h4><p>Para responsables inscriptos y monotributistas. El comprobante queda asociado al pedido.</p></div>
+      <div class="compacta"><h4>Mercado Pago</h4><p>Links de pago que cierran el pedido solos cuando el cliente paga.</p></div>
+      <div class="compacta"><h4>Tienda Nube</h4><p>Productos y precios sincronizados con tu tienda online.</p></div>
+    </div>
+  </div>
+
+  <div class="area" id="administrar" aria-labelledby="t-administrar">
+    <header>
+      <span class="paso-n">Área 4 de 5</span>
+      <h2 id="t-administrar">Administrar</h2>
+      <p class="intro">Lo que pasa fuera del salón: lo que gastás, lo que debés, el IVA y la mercadería.</p>
+    </header>
+    <article class="ficha" id="mod-contabilidad">
+      <div class="capturas">
+        <button type="button" class="captura"><img data-captura="16-contabilidad-resultados" alt="Estado de resultados de la semana con ventas, gastos y resultado"></button>
+        <div class="miniaturas">
+          <button type="button" class="captura"><img data-captura="17-cuentas-a-pagar" alt="Cuentas a pagar a proveedores con vencimientos"></button>
+          <button type="button" class="captura"><img data-captura="18-iva" alt="IVA del mes con débito, crédito y saldo"></button>
+          <button type="button" class="captura"><img data-captura="19-libro-diario" alt="Libro diario y balance de sumas y saldos"></button>
+        </div>
+      </div>
+      <div class="texto">
+        <span class="nuevo-sello">Nuevo</span>
+        <h3>Contabilidad</h3>
+        <p class="para">Para saber cuánto ganás de verdad y tener los papeles en orden para tu contador. Las ventas entran solas: solo cargás las compras y los gastos.</p>
+        <ul>
+          <li><b>Estado de resultados:</b> ventas netas de IVA, mercadería, sueldos, alquiler y demás gastos, con el resultado y el margen del período.</li>
+          <li><b>Gastos y compras</b> con su comprobante: factura A, B o C, ticket o recibo.</li>
+          <li><b>Cuentas a pagar:</b> vencimientos y saldo por proveedor. Pagás con un clic, también con el efectivo de la caja.</li>
+          <li><b>IVA del mes:</b> débito de las ventas, crédito de las compras y el saldo estimado a pagar.</li>
+          <li><b>Libro diario</b> en partida doble y balance de sumas y saldos, exportables a Excel.</li>
+          <li><b>Costo de mercadería real contra el teórico</b> de la carta, para detectar mermas.</li>
+        </ul>
+        <div class="quien">Lo usan: <span>Administrador</span><span>Encargado</span></div>
+      </div>
+    </article>
+    <article class="ficha" id="mod-stock">
+      <div class="capturas"><button type="button" class="captura"><img data-captura="10-inventario" alt="Inventario con niveles de stock en colores"></button></div>
+      <div class="texto">
+        <h3>Stock e inventario</h3>
+        <p class="para">Para reponer antes de que algo falte.</p>
+        <ul>
+          <li>Cada venta descuenta del stock en el momento.</li>
+          <li>Niveles en colores y alertas de reposición.</li>
+          <li>Entradas, ajustes y mermas con su historial.</li>
+        </ul>
+        <div class="quien">Lo usan: <span>Cajero</span><span>Encargado</span><span>Cocina (consulta)</span></div>
+      </div>
+    </article>
+    <div class="compactas" id="mod-contactos">
+      <div class="compacta"><h4>Proveedores</h4><p>Datos, CUIT y contacto. Sus facturas y deudas se ven en Contabilidad.</p></div>
+      <div class="compacta"><h4>Clientes</h4><p>Historial de pedidos, datos de envío y puntos por compras.</p></div>
+      <div class="compacta"><h4>Promociones</h4><p>Descuentos por porcentaje o por monto, como el happy hour.</p></div>
+    </div>
+  </div>
+
+  <div class="area" id="decidir" aria-labelledby="t-decidir">
+    <header>
+      <span class="paso-n">Área 5 de 5</span>
+      <h2 id="t-decidir">Decidir</h2>
+      <p class="intro">Los números del día y del mes, para decidir precios, compras y horarios.</p>
+    </header>
+    <article class="ficha" id="mod-dashboard">
+      <div class="capturas"><button type="button" class="captura"><img data-captura="02-dashboard" alt="Dashboard con ventas del día, ticket promedio y alertas"></button></div>
+      <div class="texto">
+        <h3>Dashboard</h3>
+        <p class="para">Para ver cómo viene el día apenas entrás.</p>
+        <ul>
+          <li>Ventas del día, ticket promedio y comparación con la semana.</li>
+          <li>Horas pico y productos más vendidos.</li>
+          <li>Alertas de stock y consejos automáticos.</li>
+        </ul>
+        <div class="quien">Lo usan: <span>Administrador</span><span>Encargado</span><span>Cajero</span></div>
+      </div>
+    </article>
+    <article class="ficha" id="mod-reportes">
+      <div class="capturas"><button type="button" class="captura"><img data-captura="09-rentabilidad" alt="Rentabilidad por plato con costo y margen"></button></div>
+      <div class="texto">
+        <h3>Reportes y rentabilidad</h3>
+        <p class="para">Para saber qué plato te conviene vender y cuál revisar.</p>
+        <ul>
+          <li>Ventas por rango de fechas, exportables a Excel, CSV o PDF.</li>
+          <li>Costo, margen y unidades vendidas de cada plato.</li>
+          <li>Auditoría: quién hizo cada descuento, anulación o cierre.</li>
+        </ul>
+        <div class="quien">Lo usan: <span>Administrador</span><span>Encargado</span></div>
+      </div>
+    </article>
+  </div>
+
+  <div class="area" id="sistema" aria-labelledby="t-sistema">
+    <header>
+      <span class="paso-n">En todo el sistema</span>
+      <h2 id="t-sistema">Seguridad y configuración</h2>
+    </header>
+    <article class="ficha" id="mod-roles">
+      <div class="capturas"><button type="button" class="captura"><img data-captura="11-roles" alt="Alta de usuario con los permisos del rol"></button></div>
+      <div class="texto">
+        <h3>Usuarios y roles</h3>
+        <p class="para">Para que cada persona vea y haga solo lo que le corresponde.</p>
+        <ul>
+          <li>Cinco roles: administrador, encargado, cajero, mozo y cocina.</li>
+          <li>Los permisos se controlan en cada acción, no solo en el menú.</li>
+          <li>Contraseña propia para cada uno, con cambio obligatorio en el primer ingreso.</li>
+        </ul>
+        <div class="quien">Lo configura: <span>Administrador</span></div>
+      </div>
+    </article>
+    <div class="compactas">
+      <div class="compacta"><h4>Copias de seguridad</h4><p>Automáticas todos los días, con descarga desde Configuración.</p></div>
+      <div class="compacta"><h4>Funciona sin internet</h4><p>En la red del local seguís vendiendo, cocinando y cobrando aunque se corte internet.</p></div>
+      <div class="compacta"><h4>Cualquier equipo</h4><p>PC, notebook, tablet o celular con navegador. No se instala nada en cada uno.</p></div>
+    </div>
+  </div>
+
+  <section id="roles" aria-labelledby="t-roles">
     <header>
       <span class="etiqueta">Roles</span>
       <h2 id="t-roles">Cada uno ve lo que le corresponde</h2>
@@ -320,9 +670,9 @@ footer.pie { padding-block: 0 40px; color: var(--ink-2); font-size: 14px; displa
       <table>
         <thead><tr><th>Rol</th><th>Puede</th><th>No puede</th></tr></thead>
         <tbody>
-          <tr><td>Administrador</td><td>Todo el sistema, usuarios, configuración, integraciones y copias de seguridad</td><td>—</td></tr>
-          <tr><td>Encargado</td><td>Toda la operación, la carta y los precios, el historial de caja y la rentabilidad</td><td>Usuarios, configuración e integraciones</td></tr>
-          <tr><td>Cajero</td><td>Tomar pedidos, cobrar, descuentos, caja, delivery, clientes y stock</td><td>Editar la carta o ver costos</td></tr>
+          <tr><td>Administrador</td><td>Todo el sistema, incluida la contabilidad, usuarios, configuración, integraciones y copias de seguridad</td><td>—</td></tr>
+          <tr><td>Encargado</td><td>Toda la operación, la carta y los precios, el historial de caja, la rentabilidad y la contabilidad</td><td>Usuarios, configuración e integraciones</td></tr>
+          <tr><td>Cajero</td><td>Tomar pedidos, cobrar, descuentos, caja, delivery, clientes y stock</td><td>Editar la carta, ver costos o la contabilidad</td></tr>
           <tr><td>Mozo</td><td>Tomar pedidos, agregar ítems, mesas, reservas y precuenta</td><td>Cobrar, hacer descuentos, cancelar o ver ventas</td></tr>
           <tr><td>Cocina</td><td>Pantalla de cocina y consulta de stock</td><td>Todo lo demás</td></tr>
         </tbody>
@@ -338,6 +688,8 @@ footer.pie { padding-block: 0 40px; color: var(--ink-2); font-size: 14px; displa
     <div class="preguntas">
       <details><summary>¿Necesito internet para usarlo?</summary><p>El sistema funciona en la red del local: si se corta internet, seguís tomando pedidos, cocinando y cobrando. La carta online, el delivery de las apps, Mercado Pago y la factura electrónica sí necesitan conexión.</p></details>
       <details><summary>¿Emite factura electrónica?</summary><p>Sí. Factura A, B y C con CAE de AFIP (ARCA), para responsables inscriptos y monotributistas, desde el pedido cobrado.</p></details>
+      <details><summary>¿Reemplaza a mi contador?</summary><p>No. Le deja todo ordenado: gastos con su comprobante, IVA compras, libro diario y sumas y saldos, exportables a Excel. Las declaraciones juradas y el balance anual los sigue haciendo tu contador, con mucho menos trabajo.</p></details>
+      <details><summary>¿Tengo que cargar las ventas en la contabilidad?</summary><p>No. Cada cobro entra solo. Solo se cargan las compras y los gastos: facturas de proveedores, sueldos, alquiler y servicios. Si un gasto se paga con el efectivo de la caja, también queda en el arqueo del turno.</p></details>
       <details><summary>¿En qué equipos funciona?</summary><p>En cualquier PC, notebook, tablet o celular con navegador. No hay que instalar nada en cada equipo: los mozos pueden usar su tablet o su celular.</p></details>
       <details><summary>¿Qué impresoras puedo usar?</summary><p>Impresoras térmicas de 58 u 80 mm compatibles con ESC/POS (Epson, Xprinter, 3nStar, Gadnic, Hasar y similares), por red o USB. Podés separar la cocina y la barra.</p></details>
       <details><summary>¿Mis datos están seguros?</summary><p>Cada persona entra con su usuario y su rol, el sistema pide cambiar las contraseñas iniciales y hace una copia de seguridad automática todos los días, que podés descargar cuando quieras.</p></details>
@@ -398,26 +750,26 @@ video.addEventListener('loadedmetadata', () => {
   if (isFinite(video.duration)) document.getElementById('duracion').textContent = mmss(video.duration) + ' min';
 });
 
-// Galería con visor
-const galeria = document.getElementById('galeria');
-CAPTURAS.forEach((c, i) => {
-  const b = document.createElement('button');
-  b.type = 'button';
-  if (c.celular) b.classList.add('celular');
-  const img = document.createElement('img');
-  img.src = c.archivo; img.alt = c.titulo; img.decoding = 'async';
-  const t = document.createElement('span'); t.textContent = c.titulo;
-  b.append(img, t);
+// Capturas de cada módulo (por nombre) y visor en grande
+const PORNOMBRE = Object.fromEntries(CAPTURAS.map(c => [c.nombre, c]));
+const botonesCaptura = [];
+document.querySelectorAll('.captura').forEach(b => {
+  const img = b.querySelector('img');
+  const c = PORNOMBRE[img.dataset.captura];
+  if (!c) { b.hidden = true; return; }
+  img.src = c.archivo; img.decoding = 'async'; img.loading = 'lazy';
+  const i = botonesCaptura.length;
+  botonesCaptura.push({ archivo: c.archivo, titulo: img.alt });
+  b.setAttribute('aria-label', 'Ampliar: ' + img.alt);
   b.addEventListener('click', () => abrir(i));
-  galeria.appendChild(b);
 });
 const visor = document.getElementById('visor');
 let indice = 0;
 function abrir(i) {
-  indice = (i + CAPTURAS.length) % CAPTURAS.length;
-  document.getElementById('visorImg').src = CAPTURAS[indice].archivo;
-  document.getElementById('visorImg').alt = CAPTURAS[indice].titulo;
-  document.getElementById('visorTexto').textContent = CAPTURAS[indice].titulo;
+  indice = (i + botonesCaptura.length) % botonesCaptura.length;
+  document.getElementById('visorImg').src = botonesCaptura[indice].archivo;
+  document.getElementById('visorImg').alt = botonesCaptura[indice].titulo;
+  document.getElementById('visorTexto').textContent = botonesCaptura[indice].titulo;
   if (!visor.open) visor.showModal();
 }
 document.getElementById('visorAnterior').addEventListener('click', () => abrir(indice - 1));

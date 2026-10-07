@@ -86,6 +86,33 @@ async function migrarEsquema() {
   await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_pedidos_numero ON pedidos(numero_pedido)');
   await run('CREATE INDEX IF NOT EXISTS idx_pedidos_mp_payment ON pedidos(mp_payment_id)');
   await run('CREATE INDEX IF NOT EXISTS idx_comprobantes_pedido ON comprobantes_afip(pedido_id)');
+
+  // Contabilidad: gastos y compras con su comprobante (cuentas a pagar e IVA compras)
+  await run(`CREATE TABLE IF NOT EXISTS gastos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT NOT NULL,
+    categoria TEXT NOT NULL,
+    proveedor_id INTEGER,
+    descripcion TEXT NOT NULL DEFAULT '',
+    tipo_comprobante TEXT NOT NULL DEFAULT 'sin_comprobante',
+    numero_comprobante TEXT NOT NULL DEFAULT '',
+    neto REAL NOT NULL DEFAULT 0,
+    iva REAL NOT NULL DEFAULT 0,
+    otros_impuestos REAL NOT NULL DEFAULT 0,
+    total REAL NOT NULL DEFAULT 0,
+    estado TEXT NOT NULL DEFAULT 'pendiente',
+    vencimiento TEXT,
+    fecha_pago TEXT,
+    metodo_pago TEXT NOT NULL DEFAULT '',
+    caja_movimiento_id INTEGER,
+    usuario_id INTEGER,
+    anulado INTEGER NOT NULL DEFAULT 0,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (proveedor_id) REFERENCES proveedores(id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+  )`);
+  await run('CREATE INDEX IF NOT EXISTS idx_gastos_fecha ON gastos(fecha)');
+  await run('CREATE INDEX IF NOT EXISTS idx_gastos_estado ON gastos(estado, anulado)');
 }
 
 module.exports = { migrarEsquema };

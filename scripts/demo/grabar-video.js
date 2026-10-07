@@ -167,7 +167,7 @@ const puertoLibre = () => new Promise((ok, mal) => {
   // ---------- Recorrido ----------
   await page.goto(base + '/');
   await page.evaluate(() => window.__gm.placa('GastroManager', 'El sistema de gestión para restaurantes, bares y cafeterías',
-    ['Punto de venta', 'Mesas y comandas', 'Delivery', 'Caja y arqueo', 'Facturación AFIP']));
+    ['Punto de venta', 'Mesas y comandas', 'Delivery', 'Caja y arqueo', 'Contabilidad', 'Facturación AFIP']));
   await esperar(4200);
   await page.evaluate(() => window.__gm.ocultarPlaca());
   await esperar(700);
@@ -270,13 +270,31 @@ const puertoLibre = () => new Promise((ok, mal) => {
   await rotulo('Sabé qué te deja cada plato', 'Costo, margen y unidades vendidas para decidir precios con datos.', 3600);
   await captura('09-rentabilidad');
 
-  // 10. Stock
+  // 10. Contabilidad
+  capitulo("Contabilidad");
+  await ir('contabilidad');
+  await clic('#view-contabilidad .cont-presets button:has-text("Últimos 7 días")', 1300);
+  await rotulo('La contabilidad se arma sola', 'Las ventas entran solas. Cargás compras y gastos y ves cuánto ganaste en la semana.', 3800);
+  await captura('16-contabilidad-resultados');
+  await resaltar('#view-contabilidad .cont-estado', 1600);
+  await clic('#view-contabilidad .cont-tabs button:has-text("Cuentas a pagar")', 1300);
+  await rotulo('Lo que le debés a cada proveedor', 'Vencimientos en colores y el pago con un clic, también con el efectivo de la caja.', 3400);
+  await captura('17-cuentas-a-pagar');
+  await clic('#view-contabilidad .cont-tabs button:has-text("IVA del mes")', 1300);
+  await rotulo('El IVA del mes', 'Débito de las ventas, crédito de las facturas de compra y el saldo estimado a pagar.', 3200);
+  await captura('18-iva');
+  await clic('#view-contabilidad .cont-tabs button:has-text("Libro diario")', 1300);
+  await rotulo('Libro diario para tu contador', 'Cada venta, compra y pago queda asentado en partida doble y se exporta a Excel.', 3400);
+  await captura('19-libro-diario');
+  await arriba();
+
+  // 11. Stock
   capitulo("Stock y alertas");
   await ir('stock');
   await rotulo('Stock al día', 'Cada venta descuenta del inventario y el sistema avisa antes de que falte.', 3400);
   await captura('10-inventario');
 
-  // 11. Roles
+  // 12. Roles
   capitulo("Permisos por rol");
   await ir('usuarios');
   await clic('button[onclick="Usuarios.nuevo()"]', 800);
@@ -287,7 +305,7 @@ const puertoLibre = () => new Promise((ok, mal) => {
   await page.evaluate(() => App.closeModal());
   await esperar(500);
 
-  // 12. Impresoras y copias
+  // 13. Impresoras y copias
   capitulo("Impresoras y copias de seguridad");
   await ir('config');
   await desplazar('#listaImpresoras', 1500);
@@ -296,7 +314,7 @@ const puertoLibre = () => new Promise((ok, mal) => {
   await desplazar('#listaBackups', 1200);
   await rotulo('Tus datos, siempre a salvo', 'Copias de seguridad automáticas todos los días.', 2800);
 
-  // 13. Carta QR
+  // 14. Carta QR
   capitulo("Carta digital con QR");
   await sinRotulo();
   await esperar(500);
@@ -311,7 +329,7 @@ const puertoLibre = () => new Promise((ok, mal) => {
 
   // Cierre
   await page.evaluate(() => { window.__gm.ocultarRotulo(); window.__gm.placa('GastroManager', 'Todo tu restaurante en un solo sistema. Sin instalaciones complicadas.',
-    ['Pedidos', 'Cocina', 'Delivery', 'Caja', 'Stock', 'Reportes', 'AFIP']); });
+    ['Pedidos', 'Cocina', 'Delivery', 'Caja', 'Contabilidad', 'Stock', 'Reportes', 'AFIP']); });
   await esperar(4500);
 
   fs.writeFileSync(path.join(SALIDA, 'capitulos.json'), JSON.stringify(capitulos, null, 2));

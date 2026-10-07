@@ -2040,3 +2040,40 @@ tr:hover td {
 /* Filas de tabla que abren un detalle (historial de caja) */
 .clickable { cursor: pointer; }
 .clickable:hover { background: rgba(0, 0, 0, 0.04); }
+
+/* ===== Contabilidad ===== */
+.cont-periodo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; }
+.cont-presets, .cont-fechas { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cont-fechas label { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-light); }
+.cont-fechas input { padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; }
+.cont-tabs { flex-wrap: wrap; }
+.cont-estado td, .cont-estado th { padding: 7px 10px; }
+.cont-estado .cont-subtotal td { font-weight: 700; border-top: 1px solid var(--border); }
+.cont-estado .cont-total td { font-weight: 800; font-size: 17px; border-top: 2px solid var(--text); }
+.cont-nota { font-size: 13px; line-height: 1.5; }
+.cont-leyenda { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-light); }
+.cont-leyenda span { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-left: 8px; }
+.cont-leyenda .v, .cont-barra .v { background: #0ea5e9; }
+.cont-leyenda .g, .cont-barra .g { background: #f97316; }
+.cont-grafico { display: flex; align-items: flex-end; gap: 4px; height: 260px; padding-top: 10px; overflow-x: auto; }
+.cont-barra { flex: 1 0 18px; display: flex; flex-direction: column; align-items: center; height: 100%; gap: 4px; }
+.cont-barra-par { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+.cont-barra-par span { width: 45%; max-width: 16px; min-height: 1px; border-radius: 3px 3px 0 0; }
+.cont-barra small { font-size: 11px; color: var(--text-light); font-variant-numeric: tabular-nums; }
+.cont-filtros { flex-wrap: wrap; gap: 10px; }
+.cont-filtros > div { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cont-filtros select { padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; font-size: 14px; }
+.cont-acciones { white-space: nowrap; }
+.cont-pagar { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 20px; }
+.cont-diario { display: grid; gap: 20px; }
+#view-contabilidad .stat-info small { display: block; margin-top: 2px; }
+.cont-libro .cont-asiento-cab td { background: var(--bg); font-weight: 600; border-top: 2px solid var(--border); }
+.cont-libro .cont-haber { padding-left: 32px; }
+.cont-comprobante { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.cont-total-form { font-size: 17px; }
+.cont-check { display: flex !important; align-items: center; gap: 8px; margin-top: 30px; cursor: pointer; }
+.cont-check input { width: auto !important; }
+@media (max-width: 1023px) {
+  .cont-pagar { grid-template-columns: 1fr; }
+  .cont-check { margin-top: 0; }
+}

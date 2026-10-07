@@ -1,6 +1,6 @@
 // Genera un entorno de demostración de "La Buena Mesa" con datos realistas:
 // una semana de ventas, cajas cerradas con arqueo, mesas ocupadas, comandas en cocina,
-// delivery, reservas, usuarios de cada rol y alertas de stock.
+// delivery, reservas, usuarios de cada rol, alertas de stock y compras y gastos para la contabilidad.
 //
 // Uso: node scripts/demo/generar-datos.js [carpeta]   (por defecto demo/datos)
 // No toca la base real (data/). Los datos son siempre los mismos (semilla fija),
@@ -118,7 +118,7 @@ const puertoLibre = () => new Promise((ok, mal) => {
     for (const p of PRODUCTOS) {
       const r = await api(A, 'POST', '/api/productos', {
         nombre: p.nombre, descripcion: p.descripcion, categoria_id: idCat[categoriaDe(p)], precio_venta: p.precio,
-        costo: Math.round(p.precio * (0.28 + azar() * 0.14) / 10) * 10, es_plato: p.categoria !== 'Bebidas',
+        costo: Math.round(p.precio * (0.24 + azar() * 0.12) / 10) * 10, es_plato: p.categoria !== 'Bebidas',
         tracking_stock: 1, stock_actual: 500, stock_minimo: Math.ceil(p.stock * 0.25), unidad: p.categoria === 'Bebidas' ? 'unidad' : 'porción'
       });
       productos.push({ ...p, id: r.id, cat: categoriaDe(p) });
@@ -264,6 +264,49 @@ const puertoLibre = () => new Promise((ok, mal) => {
     ]) {
       await api(MOZOS[1], 'POST', '/api/reservas', { mesa_id: mesa, cliente, telefono, fecha: hoy, hora, personas, notas });
     }
+
+    // ---------- Contabilidad: compras y gastos de la semana ----------
+    // Importes proporcionales a lo vendido, para un resultado realista (~15-20 % de margen)
+    const [{ vendido }] = await q("SELECT COALESCE(SUM(monto), 0) vendido FROM pagos");
+    const proveedores = Object.fromEntries((await api(A, 'GET', '/api/proveedores')).map(p => [p.nombre, p.id]));
+    proveedores['Verdulería Don Pepe'] = (await api(A, 'POST', '/api/proveedores', { nombre: 'Verdulería Don Pepe', cuit: '20-23456789-1', telefono: '11 4932-1188' })).id;
+    proveedores['Frío Service'] = (await api(A, 'POST', '/api/proveedores', { nombre: 'Frío Service', cuit: '20-30111222-5', telefono: '11 5011-4433' })).id;
+    const fechaDia = dias => new Date(horaLocal(dias, 12, 0).getTime() + OFFSET_ARG_MIN * 60000).toISOString().slice(0, 10);
+    let nroComprobante = 1840;
+    const GASTOS = [
+      // [días atrás, categoría, proveedor, descripción, comprobante, % de lo vendido, pago ('' = a pagar), vence en días]
+      [6, 'mercaderia', 'Carnes del Norte', 'Carne vacuna: bife, vacío y entraña', 'factura_a', 0.13, 'transferencia'],
+      [6, 'sueldos', null, 'Sueldos de la semana: cocina y salón', 'recibo', 0.22, 'transferencia'],
+      [5, 'mercaderia', 'Verdulería Don Pepe', 'Verduras y frutas', 'factura_c', 0.028, 'efectivo'],
+      [5, 'alquiler', null, 'Alquiler del local', 'factura_a', 0.07, '', 3],
+      [4, 'mercaderia', 'Bebidas del Sur', 'Vinos, cervezas y gaseosas', 'factura_a', 0.065, '', 10],
+      [4, 'servicios', null, 'Factura de luz', 'factura_a', 0.02, '', 8],
+      [3, 'mercaderia', 'Distribuidora Central', 'Almacén: harinas, aceite y lácteos', 'factura_a', 0.055, '', -1],
+      [3, 'servicios', null, 'Gas natural', 'factura_a', 0.012, 'tarjeta'],
+      [3, 'mantenimiento', 'Frío Service', 'Service de la cámara de frío', 'factura_c', 0.008, 'efectivo'],
+      [2, 'mercaderia', 'Carnes del Norte', 'Carne vacuna y pollo', 'factura_a', 0.08, '', 5],
+      [2, 'servicios', null, 'Internet y telefonía', 'factura_a', 0.004, 'tarjeta'],
+      [1, 'mercaderia', 'Verdulería Don Pepe', 'Verduras y frutas', 'factura_c', 0.022, 'efectivo'],
+      [1, 'comisiones', null, 'Comisiones PedidosYa y Rappi', 'factura_a', 0.025, '', 6],
+      [1, 'impuestos', null, 'Ingresos Brutos: anticipo', 'recibo', 0.03, '', 12],
+      [0, 'marketing', null, 'Publicidad en Instagram', 'factura_a', 0.006, 'tarjeta']
+    ];
+    for (const [dias, categoria, proveedor, descripcion, tipo, pct, pago, vence] of GASTOS) {
+      const total = vendido * pct;
+      const neto = tipo === 'factura_a' ? Math.round(total / 1.21 / 100) * 100 : Math.round(total / 100) * 100;
+      const fecha = fechaDia(dias);
+      await api(A, 'POST', '/api/contabilidad/gastos', {
+        fecha, categoria, descripcion, proveedor_id: proveedor ? proveedores[proveedor] : null, tipo_comprobante: tipo,
+        numero_comprobante: tipo === 'recibo' ? '' : `000${entre(1, 9)}-000${nroComprobante++}`,
+        neto, iva: tipo === 'factura_a' ? Math.round(neto * 21) / 100 : 0,
+        vencimiento: pago ? null : fechaDia(-vence), pagado: !!pago, metodo_pago: pago || undefined, fecha_pago: fecha
+      });
+    }
+    // Compra de hoy pagada con el efectivo de la caja abierta (queda en el arqueo)
+    await api(A, 'POST', '/api/contabilidad/gastos', {
+      fecha: fechaDia(0), categoria: 'mercaderia', descripcion: 'Pan del día', proveedor_id: null, tipo_comprobante: 'ticket',
+      neto: Math.round(vendido * 0.004 / 100) * 100, pagado: true, metodo_pago: 'efectivo', desde_caja: true
+    });
 
     // Clientes, impresoras y promociones
     for (const c of CLIENTES) await api(CAJA, 'POST', '/api/clientes', c);

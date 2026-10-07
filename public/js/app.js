@@ -274,7 +274,7 @@ const App = {
   VISTA_PERMISO: {
     dashboard: 'reportes', pos: 'pedidos.tomar', mesas: 'pedidos.ver', pedidos: 'pedidos.ver',
     delivery: 'delivery', cocina: 'cocina', productos: 'catalogo', stock: 'stock.ver',
-    proveedores: 'stock.ver', clientes: 'clientes', caja: 'caja.operar', reportes: 'reportes',
+    proveedores: 'stock.ver', clientes: 'clientes', caja: 'caja.operar', reportes: 'reportes', contabilidad: 'contabilidad',
     integraciones: 'admin', usuarios: 'admin', config: 'admin', qr: 'catalogo'
   },
 
@@ -401,6 +401,7 @@ const App = {
       'clientes': () => Clientes.render(),
       'caja': () => Caja.render(),
       'reportes': () => Reportes.render(),
+      'contabilidad': () => Contabilidad.render(),
       'usuarios': () => Usuarios.render(),
       'config': () => ConfigView.render(),
       'integraciones': () => Integraciones.render(),

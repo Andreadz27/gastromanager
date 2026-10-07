@@ -18,6 +18,7 @@ const PERMISOS = {
   'catalogo': 'Editar productos, categorías, mesas, promociones, proveedores y carta QR',
   'reportes': 'Dashboard y reportes de ventas',
   'reportes.costos': 'Rentabilidad y costos',
+  'contabilidad': 'Contabilidad: gastos, cuentas a pagar, IVA, estado de resultados y libro diario',
   'admin': 'Usuarios, configuración, integraciones, impresoras y copias de seguridad'
 };
 

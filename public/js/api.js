@@ -156,6 +156,21 @@ const API = {
   cerrarCaja(data) { return this.request('POST', '/caja/cerrar', data); },
   getCajaEstado() { return this.request('GET', '/caja/estado'); },
   getHistorialCaja() { return this.request('GET', '/caja/historial'); },
+
+  // Contabilidad
+  getContabilidadOpciones() { return this.request('GET', '/contabilidad/opciones'); },
+  getGastos(filtros = {}) {
+    const qs = new URLSearchParams(Object.entries(filtros).filter(([, v]) => v !== '' && v !== null && v !== undefined)).toString();
+    return this.request('GET', `/contabilidad/gastos${qs ? '?' + qs : ''}`);
+  },
+  createGasto(data) { return this.request('POST', '/contabilidad/gastos', data); },
+  updateGasto(id, data) { return this.request('PUT', `/contabilidad/gastos/${id}`, data); },
+  pagarGasto(id, data) { return this.request('POST', `/contabilidad/gastos/${id}/pagar`, data); },
+  anularGasto(id) { return this.request('DELETE', `/contabilidad/gastos/${id}`); },
+  getCuentasPagar() { return this.request('GET', '/contabilidad/cuentas-pagar'); },
+  getResultados(desde, hasta) { return this.request('GET', `/contabilidad/resultados?desde=${desde}&hasta=${hasta}`); },
+  getIva(mes) { return this.request('GET', `/contabilidad/iva?mes=${mes}`); },
+  getLibroDiario(desde, hasta) { return this.request('GET', `/contabilidad/libro-diario?desde=${desde}&hasta=${hasta}`); },
   getArqueoCaja(id) { return this.request('GET', `/caja/${id}/arqueo`); },
   registrarMovimientoCaja(data) { return this.request('POST', '/caja/movimiento', data); },
 // ===== Proveedores =====

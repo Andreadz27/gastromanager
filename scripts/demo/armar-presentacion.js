@@ -25,7 +25,11 @@ const TITULOS = {
   '12-impresoras': 'Impresoras térmicas por estación',
   '13-carta-qr': 'Carta digital',
   '14-pantalla-cocina': 'Pantalla de cocina para tablet o TV',
-  '15-carta-celular': 'La carta en el celular del cliente'
+  '15-carta-celular': 'La carta en el celular del cliente',
+  '16-contabilidad-resultados': 'Estado de resultados de la semana',
+  '17-cuentas-a-pagar': 'Cuentas a pagar a proveedores',
+  '18-iva': 'IVA del mes: débito, crédito y saldo',
+  '19-libro-diario': 'Libro diario y sumas y saldos'
 };
 
 function buscarFfmpeg() {
@@ -62,7 +66,7 @@ for (const archivo of fs.readdirSync(path.join(SALIDA, 'capturas')).filter(f => 
   } else {
     fs.copyFileSync(origen, path.join(DESTINO, salida));
   }
-  capturas.push({ archivo: salida, titulo: TITULOS[nombre] || nombre, celular: nombre.includes('celular') });
+  capturas.push({ nombre, archivo: salida, titulo: TITULOS[nombre] || nombre, celular: nombre.includes('celular') });
 }
 
 const capitulos = JSON.parse(fs.readFileSync(path.join(SALIDA, 'capitulos.json'), 'utf8'));

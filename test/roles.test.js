@@ -43,6 +43,7 @@ test('mozo: toma pedidos, pero no cobra, no descuenta, no cancela ni ve ventas',
   assert.equal((await pedidoNuevo('mozo', { descuento: 500 }))[0], 403, 'tampoco con descuento al crear');
   assert.equal(await status('mozo', 'PUT', `/api/pedidos/${p.id}/cancelar`, {}), 403);
   assert.equal(await status('mozo', 'GET', '/api/caja/estado'), 403);
+  assert.equal(await status('mozo', 'GET', '/api/contabilidad/resultados'), 403);
   assert.equal(await status('mozo', 'GET', '/api/reportes/dashboard'), 403);
   assert.equal(await status('mozo', 'POST', '/api/productos', { nombre: 'x', precio_venta: 1 }), 403);
   // El cajero sí puede cobrar ese pedido
@@ -73,6 +74,7 @@ test('encargado: carta, historial de caja y costos, pero no administración', as
   assert.equal(await status('encargado', 'POST', '/api/mesas', { nombre: 'Mesa 50' }), 201);
   assert.equal(await status('encargado', 'GET', '/api/caja/historial'), 200);
   assert.equal(await status('encargado', 'GET', '/api/reportes/rentabilidad'), 200);
+  assert.equal(await status('encargado', 'GET', '/api/contabilidad/resultados'), 200);
   assert.equal(await status('encargado', 'GET', '/api/usuarios'), 403);
   assert.equal(await status('encargado', 'PUT', '/api/config', { nombre_negocio: 'x' }), 403);
   assert.equal(await status('encargado', 'GET', '/api/integraciones/config'), 403);

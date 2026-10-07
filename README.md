@@ -1,7 +1,7 @@
 # GastroManager
 
-Sistema de gestión gastronómica: POS, mesas, comandas de cocina, delivery, stock, caja con arqueo, reportes y
-facturación electrónica (AFIP/ARCA), con integraciones de Mercado Pago y Tienda Nube.
+Sistema de gestión gastronómica: POS, mesas, comandas de cocina, delivery, stock, caja con arqueo, contabilidad,
+reportes y facturación electrónica (AFIP/ARCA), con integraciones de Mercado Pago y Tienda Nube.
 
 ## Requisitos
 
@@ -43,14 +43,31 @@ pm2 save
 
 | Rol | Puede |
 |---|---|
-| Administrador | Todo, incluidos usuarios, configuración, integraciones, impresoras y copias de seguridad |
-| Encargado | Toda la operación, carta (productos, mesas, promociones, proveedores), historial de caja y rentabilidad |
+| Administrador | Todo, incluida la contabilidad, usuarios, configuración, integraciones, impresoras y copias de seguridad |
+| Encargado | Toda la operación, carta (productos, mesas, promociones, proveedores), historial de caja, rentabilidad y contabilidad |
 | Cajero | Tomar pedidos, cobrar, descuentos, cancelar, caja, delivery, clientes, stock y reportes de ventas |
 | Mozo | Tomar pedidos, agregar ítems, mesas, reservas y precuenta (no cobra, no descuenta, no cancela, no ve ventas) |
 | Cocina | Pantalla de cocina y consulta de stock |
 
 Los permisos se controlan en el servidor en cada acción (`src/permisos.js`); el menú muestra solo lo permitido.
 Siempre tiene que quedar al menos un administrador activo.
+
+## Contabilidad
+
+Menú **Contabilidad** (administrador y encargado). Las ventas salen de los cobros: solo se cargan compras y gastos.
+
+- **Gastos y compras:** fecha, categoría (mercadería, sueldos, alquiler, servicios, impuestos, comisiones,
+  mantenimiento, publicidad, otros), proveedor y comprobante. Solo la factura A discrimina IVA; el total es
+  neto + IVA + percepciones. Se cargan como pagados o a pagar con vencimiento.
+- **Cuentas a pagar:** deudas por vencimiento y por proveedor. Al pagar en efectivo se puede sacar de la caja
+  abierta: queda como egreso en el arqueo y no se cuenta dos veces.
+- **Estado de resultados:** ventas netas de IVA − mercadería − gastos operativos (incluidos los egresos de caja
+  sin comprobante). Compara el costo de mercadería real con el teórico (costo cargado en cada plato).
+- **IVA del mes:** débito sobre lo cobrado con la tasa de Configuración, crédito de las facturas A. Con tasa 0
+  (monotributo) no hay débito y los gastos se toman por su total.
+- **Libro diario y sumas y saldos:** asientos en partida doble generados en cada consulta a partir de cobros,
+  gastos y movimientos de caja (no se guardan, así siempre reflejan las correcciones). Exportables a Excel.
+- Los gastos no se borran: se anulan y queda en la auditoría.
 
 ## Impresoras térmicas (comandas y tickets)
 
@@ -112,6 +129,7 @@ Mercado Pago, Tienda Nube y las impresoras se prueban contra servidores simulado
 | `flujos.test.js` | Un turno completo (caja, mesa, cocina, cobro, reportes), reservas, carta online, delivery, ABM y configuración |
 | `pedidos.test.js` | Precios desde la base, transacciones, concurrencia, cobros sin duplicar, stock |
 | `caja.test.js` | Arqueo: ventas por medio de pago, movimientos, efectivo esperado y diferencias |
+| `contabilidad.test.js` | Gastos, pagos desde la caja, estado de resultados, IVA, libro diario balanceado, anulaciones |
 | `roles.test.js` | Qué puede y qué no puede hacer cada rol |
 | `seguridad.test.js` | Sesiones, límites de login, Socket.IO, secretos, webhooks, CSP |
 | `integraciones.test.js` | Mercado Pago (link y webhook) y Tienda Nube (sync y webhook) contra APIs simuladas |
