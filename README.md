@@ -69,6 +69,17 @@ Menú **Contabilidad** (administrador y encargado). Las ventas salen de los cobr
   gastos y movimientos de caja (no se guardan, así siempre reflejan las correcciones). Exportables a Excel.
 - Los gastos no se borran: se anulan y queda en la auditoría.
 
+## Demo pública
+
+`npm run demo:publica` sirve La Buena Mesa en `PORT` para que cualquiera la pruebe desde internet
+(`render.yaml` la despliega en Render: New → Blueprint → este repositorio). Usa una carpeta temporal, nunca `data/`.
+
+- La pantalla de ingreso muestra los usuarios de cada rol (clave `demo1234`).
+- Los datos se regeneran cada `GM_DEMO_REINICIO_HORAS` horas (6 por defecto) sin cortar el servicio.
+- Con `GM_DEMO=1` (lo pone el script) se bloquean usuarios y contraseñas, impresoras, integraciones,
+  webhooks de pago y copias de seguridad, y la impresión se simula: con claves públicas nadie puede dejar
+  afuera a los demás ni hacer que el servidor se conecte a otras direcciones (`src/demo.js`).
+
 ## Impresoras térmicas (comandas y tickets)
 
 Se configuran en **Configuración → Impresoras térmicas**. Papel de 58 u 80 mm, comandos ESC/POS
@@ -130,6 +141,7 @@ Mercado Pago, Tienda Nube y las impresoras se prueban contra servidores simulado
 | `pedidos.test.js` | Precios desde la base, transacciones, concurrencia, cobros sin duplicar, stock |
 | `caja.test.js` | Arqueo: ventas por medio de pago, movimientos, efectivo esperado y diferencias |
 | `contabilidad.test.js` | Gastos, pagos desde la caja, estado de resultados, IVA, libro diario balanceado, anulaciones |
+| `demo.test.js` | Modo demo pública: acciones bloqueadas y el resto del sistema funcionando |
 | `roles.test.js` | Qué puede y qué no puede hacer cada rol |
 | `seguridad.test.js` | Sesiones, límites de login, Socket.IO, secretos, webhooks, CSP |
 | `integraciones.test.js` | Mercado Pago (link y webhook) y Tienda Nube (sync y webhook) contra APIs simuladas |

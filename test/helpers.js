@@ -19,13 +19,13 @@ const puertoLibre = () => new Promise((ok, mal) => {
 
 const esperar = ms => new Promise(r => setTimeout(r, ms));
 
-async function iniciarServidor() {
+async function iniciarServidor(envExtra = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gm-test-'));
   const env = { ...process.env, GM_DATA_DIR: dataDir, SECRET_KEY, NODE_ENV: 'test' };
   execFileSync(process.execPath, [path.join(RAIZ, 'init-db.js')], { env, stdio: 'ignore' });
 
   const port = await puertoLibre();
-  const proc = spawn(process.execPath, [path.join(RAIZ, 'server.js')], { env: { ...env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const proc = spawn(process.execPath, [path.join(RAIZ, 'server.js')], { env: { ...env, ...envExtra, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = '';
   proc.stdout.on('data', d => { log += d; });
   proc.stderr.on('data', d => { log += d; });
@@ -46,6 +46,11 @@ async function iniciarServidor() {
   const admin = (await q("SELECT id FROM usuarios WHERE rol = 'admin' LIMIT 1"))[0];
   const tokenAdmin = jwt.sign({ id: admin.id }, SECRET_KEY);
   const rv = await llamar(base, 'POST', '/api/usuarios', { nombre: 'Vendedor Test', email: 'vendedor@test.com', password: 'vendedor123', rol: 'vendedor' }, tokenAdmin);
+  if (rv[0] !== 201) { // demo pública: el alta de usuarios por la API está bloqueada
+    const hash = require('bcryptjs').hashSync('vendedor123', 4);
+    await q("INSERT INTO usuarios (nombre, email, password, rol) VALUES ('Vendedor Test', 'vendedor@test.com', ?, 'cajero')", [hash]);
+    rv[1] = (await q("SELECT id FROM usuarios WHERE email = 'vendedor@test.com'"))[0];
+  }
   await q('UPDATE usuarios SET debe_cambiar_password = 0');
   const tokenVendedor = jwt.sign({ id: rv[1].id }, SECRET_KEY);
 

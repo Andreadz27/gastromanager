@@ -1,0 +1,18 @@
+# Demo pública de GastroManager en Render (plan gratuito).
+# En Render: New → Blueprint → elegir este repositorio. Ver README, sección "Demo pública".
+services:
+  - type: web
+    name: gastromanager-demo
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm run demo:publica
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Render está detrás de varios proxies: se toma la IP real del visitante para los límites de peticiones
+      - key: TRUST_PROXY
+        value: "true"
+      - key: GM_DEMO_REINICIO_HORAS
+        value: "6"

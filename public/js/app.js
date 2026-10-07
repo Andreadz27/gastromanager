@@ -9,11 +9,39 @@ const App = {
   socket: null,
 
   init() {
+    this.cargarDemo();
     this.setupLogin();
     this.setupNavigation();
     this.setupLogout();
     this.setupMobile();
     this.checkSession();
+  },
+
+  // ===== Demo pública: usuarios de prueba en la pantalla de ingreso =====
+  async cargarDemo() {
+    let demo;
+    try {
+      const r = await fetch('/api/demo');
+      if (!r.ok) return;
+      demo = await r.json();
+    } catch (e) { return; }
+    const panel = document.createElement('div');
+    panel.className = 'demo-ingreso';
+    panel.innerHTML = `
+      <p><strong>Demo de La Buena Mesa.</strong> Entrá con cualquier rol para ver qué puede hacer cada uno
+        (clave <code>${esc(demo.clave)}</code>). Los datos se reinician cada ${Number(demo.reinicio_horas)} horas.</p>
+      <div class="demo-roles">${demo.usuarios.map(u =>
+        `<button type="button" class="btn btn-outline btn-sm" data-email="${esc(u.email)}">${esc(u.rol)}</button>`).join('')}</div>`;
+    panel.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      document.getElementById('loginEmail').value = b.dataset.email;
+      document.getElementById('loginPassword').value = demo.clave;
+      document.getElementById('loginForm').requestSubmit();
+    }));
+    document.querySelector('.login-card').appendChild(panel);
+    const nota = document.createElement('div');
+    nota.className = 'demo-nota';
+    nota.textContent = `Demo pública · se reinicia cada ${Number(demo.reinicio_horas)} h`;
+    document.querySelector('.sidebar-footer').prepend(nota);
   },
 
   // ===== Socket.IO realtime =====

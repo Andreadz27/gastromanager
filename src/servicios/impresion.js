@@ -13,6 +13,7 @@ const { emitEvento } = require('../realtime');
 const { ZONA_HORARIA } = require('../tiempo');
 const { getIntCfg } = require('./integraciones');
 const { Ticket } = require('./escpos');
+const { ES_DEMO } = require('../demo');
 
 const TIEMPO_ESPERA_MS = 8000;
 
@@ -121,6 +122,8 @@ async function enviarSistema(nombre, datos) {
 }
 
 function enviar(impresora, datos) {
+  // Demo pública: la impresión se simula (el servidor no se conecta a ninguna dirección)
+  if (ES_DEMO) return Promise.resolve();
   return impresora.tipo === 'red' ? enviarRed(impresora.destino, datos) : enviarSistema(impresora.destino, datos);
 }
 

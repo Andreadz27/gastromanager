@@ -2077,3 +2077,10 @@ tr:hover td {
   .cont-pagar { grid-template-columns: 1fr; }
   .cont-check { margin-top: 0; }
 }
+
+/* ===== Demo pública ===== */
+.demo-ingreso { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); text-align: left; font-size: 14px; color: var(--text-light); line-height: 1.5; }
+.demo-ingreso strong { color: var(--text); }
+.demo-ingreso code { background: var(--bg); padding: 1px 6px; border-radius: 4px; color: var(--text); }
+.demo-roles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.demo-nota { font-size: 12px; color: #fdba74; background: rgba(249, 115, 22, .12); border-radius: 6px; padding: 6px 10px; margin-bottom: 10px; text-align: center; }

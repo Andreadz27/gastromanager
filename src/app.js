@@ -7,6 +7,7 @@ const http = require('http');
 const path = require('path');
 const { origenPermitido } = require('./config');
 const { apiLimiter } = require('./limites');
+const { bloqueoDemo, rutasDemo } = require('./demo');
 
 const app = express();
 const server = http.createServer(app);
@@ -47,7 +48,10 @@ app.use(cors({
 }));
 // Detrás de un proxy/túnel (nginx, cloudflared) la IP real llega en X-Forwarded-For.
 // Por defecto solo se confía en un proxy en la misma máquina.
-app.set('trust proxy', process.env.TRUST_PROXY || 'loopback');
+// Valores: "loopback" (por defecto), IPs/subredes separadas por coma, una cantidad de saltos ("1")
+// o "true" (confiar en cualquiera; solo para hostings donde no se conoce la cadena de proxies).
+const confianzaProxy = v => v === 'true' ? true : /^\d+$/.test(v) ? Number(v) : v;
+app.set('trust proxy', confianzaProxy(process.env.TRUST_PROXY || 'loopback'));
 app.use(express.json({ limit: '2mb' }));
 // JSON mal formado: 400 en lugar de un error sin manejar
 app.use((err, req, res, next) => {
@@ -60,6 +64,10 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Apply API rate limiter to all /api routes
 app.use('/api/', apiLimiter);
+
+// Demo pública: acciones bloqueadas y datos de ingreso (sin efecto fuera de la demo)
+app.use(bloqueoDemo);
+rutasDemo(app);
 
 // Rutas de la API (una por módulo)
 for (const modulo of ["auth","publico","configuracion","usuarios","catalogo","mesas","promociones","pedidos","delivery","caja","contabilidad","proveedores","stock","clientes","reportes","integraciones","backups","impresion"]) {
