@@ -5,7 +5,8 @@ services:
     name: gastromanager-demo
     runtime: node
     plan: free
-    buildCommand: npm ci --omit=dev
+    # sqlite3 se compila en el servidor: el binario precompilado pide una glibc más nueva que la de Render
+    buildCommand: npm ci --omit=dev --build-from-source=sqlite3
     startCommand: npm run demo:publica
     healthCheckPath: /
     envVars:
