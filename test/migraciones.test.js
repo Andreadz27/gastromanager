@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { spawn, execFileSync } = require('child_process');
+const net = require('net');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -28,9 +29,16 @@ const ejecutar = (dir, codigo) => execFileSync(process.execPath, ['-e', codigo],
   cwd: RAIZ, env: { ...process.env, GM_DATA_DIR: dir, SECRET_KEY }, encoding: 'utf8'
 });
 
+// Puerto libre que da el sistema (uno al azar puede estar reservado en Windows)
+const puertoLibre = () => new Promise((ok, mal) => {
+  const srv = net.createServer();
+  srv.listen(0, () => { const { port } = srv.address(); srv.close(() => ok(port)); });
+  srv.on('error', mal);
+});
+
 // Arranca el servidor real sobre una carpeta existente y lo cierra cuando responde
 async function arrancarYCerrar(dir) {
-  const port = 20000 + Math.floor(Math.random() * 20000);
+  const port = await puertoLibre();
   const proc = spawn(process.execPath, [path.join(RAIZ, 'server.js')], {
     env: { ...process.env, GM_DATA_DIR: dir, SECRET_KEY, PORT: String(port), NODE_ENV: 'test' }, stdio: 'ignore'
   });
