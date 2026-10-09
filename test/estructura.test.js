@@ -37,3 +37,22 @@ test('el frontend no tiene páginas de diagnóstico ni credenciales escritas', (
     assert.doesNotMatch(texto, /admin123|password[^\n]{0,40}['"`]123456['"`]|SECRET_KEY/i, rel);
   }
 });
+
+// Demo pública: una ruta nueva de administrador tiene que decidirse a propósito (bloquearla en src/demo.js
+// o anotarla acá como segura), así nadie tiene que acordarse de revisarlo.
+test('demo pública: toda acción de administrador está bloqueada o declarada segura', () => {
+  const { BLOQUEADAS } = require('../src/demo');
+  const SEGURAS_EN_DEMO = ['PUT /api/config', 'PUT /api/delivery/plataformas', 'POST /api/delivery/plataformas',
+    'DELETE /api/delivery/plataformas/:id'];
+  const sinDecidir = [];
+  for (const archivo of fs.readdirSync(path.join(RAIZ, 'src', 'rutas'))) {
+    const codigo = fs.readFileSync(path.join(RAIZ, 'src', 'rutas', archivo), 'utf8');
+    for (const [, metodo, ruta] of codigo.matchAll(/^app\.(post|put|delete)\('([^']+)',[^\n]*\besAdmin\b/gm)) {
+      const clave = `${metodo.toUpperCase()} ${ruta}`;
+      const ejemplo = ruta.replace(/:[^/]+/g, '1');
+      const bloqueada = BLOQUEADAS.some(([re, metodos]) => re.test(ejemplo) && metodos.includes(metodo.toUpperCase()));
+      if (!bloqueada && !SEGURAS_EN_DEMO.includes(clave)) sinDecidir.push(`${archivo}: ${clave}`);
+    }
+  }
+  assert.deepEqual(sinDecidir, []);
+});

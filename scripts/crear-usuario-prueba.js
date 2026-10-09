@@ -31,7 +31,7 @@ async function main() {
   if (String(datos.clave).length < 8) throw new Error('La contraseña debe tener al menos 8 caracteres');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.email)) throw new Error(`Email inválido: ${datos.email}`);
   if (!(await get("SELECT 1 AS x FROM sqlite_master WHERE type = 'table' AND name = 'usuarios'"))) {
-    throw new Error(`No hay base en ${DATA_DIR}. Corré primero: npm run init-db`);
+    throw new Error(`No hay base en ${DATA_DIR}. Ejecuta primero: npm run init-db`);
   }
   await migrarConRespaldo({ respaldar: crearBackup });
 

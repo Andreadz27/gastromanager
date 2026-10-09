@@ -16,7 +16,8 @@
     "demo:publica": "node scripts/demo/demo-publica.js",
     "usuario:prueba": "node scripts/crear-usuario-prueba.js",
     "lint": "eslint .",
-    "check": "npm run lint && node scripts/verificar-nombres.js . && npm test"
+    "check": "npm run lint && node scripts/verificar-nombres.js . && npm test",
+    "prueba:fuego": "node scripts/prueba-de-fuego.js"
   },
   "engines": {
     "node": ">=20"
