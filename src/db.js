@@ -17,7 +17,11 @@ const dbPath = path.join(DATA_DIR, 'gastromanager.db');
 const db = new sqlite3.Database(dbPath);
 db.configure('busyTimeout', 10000);
 // WAL: las lecturas no se bloquean mientras hay una escritura en curso
-db.run('PRAGMA journal_mode = WAL');
+// Las transacciones (dbTx) esperan a que termine: SQLite no cambia a WAL con otra transacción abierta
+const listo = new Promise(resolve => db.run('PRAGMA journal_mode = WAL', err => {
+  if (err) console.error('[db] No se pudo activar WAL:', err.message);
+  resolve();
+}));
 // Activar claves foráneas
 db.run('PRAGMA foreign_keys = ON');
 
@@ -60,7 +64,7 @@ const all = (sql, params = []) => {
 
 // Ejecuta fn de forma atómica: o se guarda todo o nada. Las transacciones se
 // ejecutan de a una (cola). No hacer llamadas HTTP externas dentro de fn.
-let colaTx = Promise.resolve();
+let colaTx = listo;
 function transaccion(fn) {
   if (txContexto.getStore()) return fn(); // ya estamos dentro de una transacción
   const ejecutar = () => {
