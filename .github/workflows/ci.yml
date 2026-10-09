@@ -1,0 +1,62 @@
+# Chequeos automáticos: corren en cada push y en cada pull request.
+# Si algo falla, el cambio no se publica (con la rama main protegida: ver docs/MAPA-DE-RIESGOS.md).
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Lint, tests y arranque (Linux, Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Node 20 llegó a fin de soporte (abril 2026) y no acepta el patrón "test/*.test.js" de npm test
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Nombres sin importar (módulos de src/)
+        run: node scripts/verificar-nombres.js .
+      - name: Tests de API, flujos, migraciones y seguridad
+        run: npm test
+      - name: Tests en navegador (Chrome)
+        run: npm run test:e2e
+      - name: El servidor arranca sobre una base nueva (build)
+        run: |
+          export GM_DATA_DIR="$RUNNER_TEMP/gm-humo" PORT=3999
+          npm run init-db
+          node server.js > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 50); do curl -fsS "http://127.0.0.1:3999/" > /dev/null && break; sleep 0.3; done
+          curl -fsS "http://127.0.0.1:3999/" > /dev/null || (cat "$RUNNER_TEMP/server.log"; exit 1)
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3999/api/pedidos)" = "401"
+          kill %1
+
+  windows:
+    # El sistema se instala en Windows en los locales: se prueba también ahí (sqlite3 nativo, rutas, Edge)
+    name: Tests (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:e2e

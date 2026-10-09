@@ -42,4 +42,4 @@ function rutasDemo(app) {
   app.get('/api/demo', (req, res) => res.json({ demo: true, clave: CLAVE_DEMO, reinicio_horas: REINICIO_HORAS, usuarios: USUARIOS_DEMO }));
 }
 
-module.exports = { ES_DEMO, bloqueoDemo, rutasDemo };
+module.exports = { ES_DEMO, BLOQUEADAS, bloqueoDemo, rutasDemo };

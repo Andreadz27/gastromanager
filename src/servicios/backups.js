@@ -2,7 +2,7 @@
 const path = require('path');
 const fs = require('fs');
 const { DATA_DIR } = require('../config');
-const { db } = require('../db');
+const sqlite3 = require('sqlite3');
 const { ZONA_HORARIA, fechaLocal } = require('../tiempo');
 
 // ============ COPIAS DE SEGURIDAD ============
@@ -12,7 +12,9 @@ const { ZONA_HORARIA, fechaLocal } = require('../tiempo');
 // Restaurar: detener el servidor, reemplazar data/gastromanager.db por la copia y volver a iniciarlo.
 const DIR_BACKUPS = path.join(DATA_DIR, 'backups');
 const BACKUPS_CONSERVAR = Math.max(1, parseInt(process.env.BACKUPS_CONSERVAR, 10) || 30);
-const NOMBRE_BACKUP = /^gastromanager_\d{4}-\d{2}-\d{2}_\d{6}\.db$/;
+// El sufijo _N aparece si se pidieron dos copias en el mismo segundo (ej. la automática al iniciar y una manual)
+const NOMBRE_BACKUP = /^gastromanager_\d{4}-\d{2}-\d{2}_\d{6}(_\d{1,3})?\.db$/;
+const sinExtension = n => n.replace(/\.db$/, '');
 
 function listarBackups() {
   if (!fs.existsSync(DIR_BACKUPS)) return [];
@@ -22,7 +24,7 @@ function listarBackups() {
       const st = fs.statSync(path.join(DIR_BACKUPS, nombre));
       return { nombre, tamano: st.size, fecha: st.mtime.toISOString() };
     })
-    .sort((a, b) => b.nombre.localeCompare(a.nombre));
+    .sort((a, b) => sinExtension(b.nombre).localeCompare(sinExtension(a.nombre)));
 }
 
 let backupEnCurso = null;
@@ -34,10 +36,18 @@ function crearBackup() {
     const hora = new Intl.DateTimeFormat('en-GB', {
       timeZone: ZONA_HORARIA, hourCycle: 'h23', hour: '2-digit', minute: '2-digit', second: '2-digit'
     }).format(new Date()).replace(/:/g, '');
-    const nombre = `gastromanager_${fechaLocal()}_${hora}.db`;
+    const base = `gastromanager_${fechaLocal()}_${hora}`;
+    // VACUUM INTO falla si el archivo ya existe: nunca se pisa una copia anterior
+    let nombre = `${base}.db`;
+    for (let n = 2; fs.existsSync(path.join(DIR_BACKUPS, nombre)); n++) nombre = `${base}_${n}.db`;
     const destino = path.join(DIR_BACKUPS, nombre);
     // VACUUM INTO genera una copia consistente aunque la base esté en uso
-    await new Promise((resolve, reject) => db.run('VACUUM INTO ?', [destino], err => err ? reject(err) : resolve()));
+    // Se usa una conexión propia: en la compartida, VACUUM falla si otro pedido tiene una consulta en curso
+    await new Promise((resolve, reject) => {
+      const con = new sqlite3.Database(path.join(DATA_DIR, 'gastromanager.db'));
+      con.configure('busyTimeout', 10000);
+      con.run('VACUUM INTO ?', [destino], err => con.close(() => err ? reject(err) : resolve()));
+    });
 
     if (process.env.BACKUP_COPIA_DIR) {
       try {

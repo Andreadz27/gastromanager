@@ -15,7 +15,10 @@ before(async () => {
     await s.llamar('POST', '/api/usuarios', { nombre: `Usuario ${rol}`, email, password: 'clave1234', rol }, s.tokenAdmin);
   }
   await s.q('UPDATE usuarios SET debe_cambiar_password = 0');
-  navegador = await chromium.launch({ channel: CANAL, headless: true });
+  // GM_E2E_EJECUTABLE: ruta a un Chromium propio (ej. en CI o contenedores sin Chrome instalado)
+  navegador = await chromium.launch(process.env.GM_E2E_EJECUTABLE
+    ? { executablePath: process.env.GM_E2E_EJECUTABLE, headless: true }
+    : { channel: CANAL, headless: true });
 });
 after(async () => {
   await navegador?.close();

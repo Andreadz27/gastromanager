@@ -8,12 +8,13 @@ const { server } = require('./src/app');
 const { PORT } = require('./src/config');
 const { ZONA_HORARIA } = require('./src/tiempo');
 const { iniciarRealtime } = require('./src/realtime');
-const { migrarEsquema } = require('./src/migraciones');
-const { backupSiCorresponde } = require('./src/servicios/backups');
+const { migrarConRespaldo } = require('./src/migraciones');
+const { backupSiCorresponde, crearBackup } = require('./src/servicios/backups');
 
 iniciarRealtime(server);
 
-migrarEsquema().then(() => server.listen(PORT, () => {
+// Copia previa si hay migraciones nuevas + migraciones en una sola transacción (ver src/migraciones.js)
+migrarConRespaldo({ respaldar: crearBackup }).then(() => server.listen(PORT, () => {
   console.log('==========================================');
   console.log('  🍽️  GASTROMANAGER v2.0');
   console.log('  Sistema de Gestión Gastronómica');

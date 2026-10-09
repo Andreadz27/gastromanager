@@ -5,7 +5,7 @@ reportes y facturación electrónica (AFIP/ARCA), con integraciones de Mercado P
 
 ## Requisitos
 
-- Node.js 20 o superior
+- Node.js 22 o superior (Node 20 ya no tiene soporte)
 - Windows, Linux o macOS (la base es SQLite, no requiere servidor de base de datos)
 
 ## Instalación
@@ -17,6 +17,18 @@ npm start           # http://localhost:3000
 ```
 
 Usuario inicial: `admin@gastromanager.com` / `admin123`. El sistema obliga a cambiar la contraseña en el primer ingreso.
+
+### Usuario de prueba
+
+```bash
+npm run usuario:prueba
+# → prueba@gastromanager.com / Prueba2026!  (administrador, entra sin cambiar la clave)
+npm run usuario:prueba -- --email qa@miresto.com --clave OtraClave123 --rol cajero --nombre "QA Caja"
+```
+
+Se puede correr con el servidor andando. Si el usuario ya existe, lo reactiva y le vuelve a poner la clave.
+Usa la base de `GM_DATA_DIR` (por defecto `data/`). En una instalación de un cliente, desactivarlo al terminar
+(Configuración → Usuarios).
 
 En producción se usa PM2 (`ecosystem.config.js`):
 
@@ -103,6 +115,15 @@ Se configuran en **Configuración → Impresoras térmicas**. Papel de 58 u 80 m
   `gastromanager.db-wal` y `gastromanager.db-shm` si existen) y volver a iniciarlo.
 - La base usa modo WAL: no copiar `gastromanager.db` a mano con el servidor en marcha; usar las copias del sistema.
 
+## Actualizaciones y migraciones
+
+Los cambios de esquema están en `src/migraciones.js` y se aplican solos al iniciar:
+
+- Si hay migraciones nuevas, **antes** se hace una copia en `data/backups/` (es la marcha atrás).
+- Todas corren en **una transacción**: si una falla, el servidor no arranca y la base queda como estaba.
+- **Volver atrás:** detener el servidor, restaurar esa copia (ver arriba) e iniciar la versión anterior del código.
+  Probado en `test/migraciones.test.js`.
+
 ## Estructura
 
 ```
@@ -130,7 +151,14 @@ test/                  Tests de integración (npm test)
 npm test          # API, flujos, integraciones simuladas y chequeos de código (~10 s)
 npm run test:e2e  # en un navegador real: Edge en Windows, Chrome en Linux/Mac (~20 s)
 npm run test:todo # ambos
+npm run lint      # errores reales de código (ESLint)
+npm run check     # lint + nombres sin importar + tests: correrlo antes de cada commit
+npm run prueba:fuego  # rompe a propósito cada parte crítica y comprueba que algún test falla (~5-10 min)
 ```
+
+**CI:** `.github/workflows/ci.yml` corre lint, tests, tests en navegador y un arranque del servidor en Linux
+(Node 22 y 24) y en Windows, en cada push y pull request. La demo de Render solo se despliega si el CI pasó.
+Las partes frágiles y qué las rompe están en `docs/MAPA-DE-RIESGOS.md`.
 
 Cada archivo de test levanta el servidor real sobre una base nueva en una carpeta temporal (no toca `data/`).
 Mercado Pago, Tienda Nube y las impresoras se prueban contra servidores simulados; AFIP solo en sus validaciones.
@@ -147,5 +175,8 @@ Mercado Pago, Tienda Nube y las impresoras se prueban contra servidores simulado
 | `integraciones.test.js` | Mercado Pago (link y webhook) y Tienda Nube (sync y webhook) contra APIs simuladas |
 | `impresion.test.js` | Comandas por estación, agregados, anulaciones, tickets y cajón (impresoras simuladas) |
 | `productos.test.js`, `fechas-backups.test.js` | Validaciones, ediciones parciales, zona horaria y copias de seguridad |
-| `estructura.test.js` | Imports faltantes, rutas sin sesión, credenciales en el frontend |
+| `estructura.test.js` | Imports faltantes, rutas sin sesión, credenciales en el frontend, rutas de admin decididas para la demo |
+| `migraciones.test.js` | Migración fallida sin cambios a medias, copia previa y restauración (rollback) |
+| `regresiones.test.js` | Bugs que ya pasaron: configuración parcial, edición de productos, copia con el sistema en uso |
+| `usuario-prueba.test.js` | `npm run usuario:prueba`: ingreso directo, sin duplicados, roles y validaciones |
 | `e2e/navegador.test.js` | Login, cambio de contraseña, menú por rol, venta completa por pantalla, XSS, impresoras |

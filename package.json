@@ -13,10 +13,14 @@
     "demo": "node scripts/demo/iniciar-demo.js",
     "demo:video": "node scripts/demo/grabar-video.js",
     "demo:presentacion": "node scripts/demo/armar-presentacion.js",
-    "demo:publica": "node scripts/demo/demo-publica.js"
+    "demo:publica": "node scripts/demo/demo-publica.js",
+    "usuario:prueba": "node scripts/crear-usuario-prueba.js",
+    "lint": "eslint .",
+    "check": "npm run lint && node scripts/verificar-nombres.js . && npm test",
+    "prueba:fuego": "node scripts/prueba-de-fuego.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "keywords": [
     "restaurant",
@@ -39,6 +43,8 @@
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {
+    "eslint": "^9.39.5",
+    "globals": "^15.15.0",
     "playwright-core": "^1.63.0"
   }
 }

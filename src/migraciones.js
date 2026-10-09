@@ -1,6 +1,8 @@
 'use strict';
 const bcrypt = require('bcryptjs');
-const { run, all } = require('./db');
+const crypto = require('crypto');
+const fs = require('fs');
+const { run, get, all, transaccion } = require('./db');
 
 // ============ Migraciones de esquema (se ejecutan al iniciar) ============
 async function agregarColumna(tabla, columna, definicion) {
@@ -115,4 +117,29 @@ async function migrarEsquema() {
   await run('CREATE INDEX IF NOT EXISTS idx_gastos_estado ON gastos(estado, anulado)');
 }
 
-module.exports = { migrarEsquema };
+// ============ Migración segura (lo que usa server.js) ============
+// 1. Si este archivo cambió desde la última vez (hay migraciones nuevas) y la base ya tenía datos,
+//    se hace una copia de seguridad ANTES de migrar: esa copia es la marcha atrás.
+// 2. Todas las migraciones corren en UNA transacción: si una falla, la base queda como estaba.
+// Restaurar a mano: detener el servidor y reemplazar data/gastromanager.db por la copia (ver README).
+const HUELLA_MIGRACIONES = crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex').slice(0, 16);
+
+async function migrarConRespaldo({ respaldar } = {}) {
+  const tieneDatos = !!(await get("SELECT 1 AS x FROM sqlite_master WHERE type = 'table' AND name = 'usuarios'"));
+  const meta = await get("SELECT 1 AS x FROM sqlite_master WHERE type = 'table' AND name = 'meta'");
+  const huella = meta ? (await get("SELECT valor FROM meta WHERE clave = 'huella_migraciones'")) : null;
+  let respaldo = null;
+  if (tieneDatos && (!huella || huella.valor !== HUELLA_MIGRACIONES) && respaldar) {
+    respaldo = await respaldar();
+    console.log(`[migraciones] Copia previa a migrar: ${respaldo && respaldo.nombre}`);
+  }
+  await transaccion(async () => {
+    await migrarEsquema();
+    await run('CREATE TABLE IF NOT EXISTS meta (clave TEXT PRIMARY KEY, valor TEXT NOT NULL)');
+    await run("INSERT INTO meta (clave, valor) VALUES ('huella_migraciones', ?) ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
+      [HUELLA_MIGRACIONES]);
+  });
+  return { respaldo };
+}
+
+module.exports = { migrarEsquema, migrarConRespaldo, HUELLA_MIGRACIONES };

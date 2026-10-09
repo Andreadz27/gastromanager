@@ -68,3 +68,20 @@ test('movimiento de stock numérico y validado', async () => {
   assert.equal(r.nuevo_stock, antes + 5);
   assert.equal((await s.llamar('POST', '/api/stock/movimiento', { producto_id: prod2.id, tipo: 'entrada', cantidad: 'abc' }, s.tokenVendedor))[0], 400);
 });
+
+// Encontrados por la prueba de fuego (npm run prueba:fuego): faltaban estos tests
+test('cantidades inválidas se rechazan (negativas, cero, texto o exageradas)', async () => {
+  for (const cantidad of [-1, 0, 'dos', 1001]) {
+    const [st] = await crearPedido([{ producto_id: prod.id, cantidad }]);
+    assert.equal(st, 400, `cantidad ${cantidad}`);
+  }
+});
+
+test('el descuento nunca deja el total negativo ni supera el subtotal', async () => {
+  const [st, p] = await crearPedido([{ producto_id: prod.id, cantidad: 1 }], { descuento: 5000 });
+  assert.equal(st, 201);
+  const [, ped] = await s.llamar('GET', `/api/pedidos/${p.id}`, undefined, s.tokenVendedor);
+  assert.equal(ped.subtotal, 1000);
+  assert.equal(ped.descuento, 1000, 'el descuento se limita al subtotal');
+  assert.equal(ped.total, 0);
+});

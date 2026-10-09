@@ -42,6 +42,26 @@ test('el frontend muestra las fechas UTC de SQLite en hora local', () => {
   assert.equal(ctx.jsArg("x');alert(1);//"), '&quot;x&#039;);alert(1);//&quot;');
 });
 
+// Regresión: dos copias en el mismo segundo (la automática al iniciar + una manual) daban error 500
+test('dos copias en el mismo segundo no se pisan ni fallan', async () => {
+  const pedidos = await Promise.all([0, 1].map(async () => {
+    const r = await s.llamar('POST', '/api/backups', undefined, s.tokenAdmin);
+    await s.llamar('POST', '/api/backups', undefined, s.tokenAdmin).then(x => r.push(x));
+    return r;
+  }));
+  const nombres = new Set();
+  for (const [st, b, otra] of pedidos) {
+    assert.equal(st, 201);
+    assert.equal(otra[0], 201);
+    nombres.add(b.nombre); nombres.add(otra[1].nombre);
+  }
+  assert.ok(nombres.size >= 2, 'cada copia tiene su archivo');
+  for (const n of nombres) {
+    const r = await fetch(`${s.base}/api/backups/${n}`, { headers: { Authorization: 'Bearer ' + s.tokenAdmin } });
+    assert.equal(r.status, 200, n);
+  }
+});
+
 test('copias de seguridad: automática, manual, descarga válida y protegida', async () => {
   const dir = path.join(s.dataDir, 'backups');
   for (let i = 0; i < 50 && !(fs.existsSync(dir) && fs.readdirSync(dir).length); i++) await esperar(100);

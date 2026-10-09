@@ -1,6 +1,6 @@
 'use strict';
 const {
-  path, Afip, run, get, all, transaccion, LOCAL, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, importe, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere
+  Afip, run, get, all, transaccion, LOCAL, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
