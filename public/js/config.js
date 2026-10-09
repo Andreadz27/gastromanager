@@ -687,17 +687,5 @@ const ConfigView = {
     document.querySelectorAll('.wizard-card[data-perfil]').forEach(el => {
       el.classList.toggle('activo', el.dataset.perfil === tipo);
     });
-  },
-
-  async togglePlataforma(id, activa) {
-    try {
-      const lista = (this.plataformas || []).map(p => p.id === id ? { ...p, activa } : p);
-      await API.savePlataformasDelivery(lista);
-      this.plataformas = lista;
-      App.showToast(activa ? 'Plataforma activada' : 'Plataforma desactivada', 'success');
-    } catch (err) {
-      App.showToast(err.message, 'error');
-      this.render();
-    }
   }
 };

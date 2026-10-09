@@ -25,7 +25,7 @@ async function esperarTrabajos(impresora, cantidad, ms = 8000) {
   assert.equal(impresora.trabajos.length, cantidad, `se esperaban ${cantidad} trabajos en ${impresora.destino}`);
 }
 
-let s, cocina, barra, caja, idCocina, idBarra, idCaja, productos;
+let s, cocina, barra, caja, idCocina, productos;
 const CUT = Buffer.from([0x1d, 0x56]).toString('latin1');
 const CAJON = Buffer.from([0x1b, 0x70, 0x00]).toString('latin1');
 
@@ -56,9 +56,9 @@ test('configurar estaciones: cocina (platos), barra (bebidas, 58 mm) y caja (tic
   let r = await crearImpresora({ nombre: 'Cocina', tipo: 'red', destino: cocina.destino, categorias: [cat('Entradas'), cat('Platos Principales')] });
   assert.equal(r[0], 201); idCocina = r[1].id;
   r = await crearImpresora({ nombre: 'Barra', tipo: 'red', destino: barra.destino, ancho: 58, categorias: [cat('Bebidas')] });
-  assert.equal(r[0], 201); idBarra = r[1].id;
+  assert.equal(r[0], 201);
   r = await crearImpresora({ nombre: 'Caja', tipo: 'red', destino: caja.destino, imprime_comandas: false, imprime_tickets: true });
-  assert.equal(r[0], 201); idCaja = r[1].id;
+  assert.equal(r[0], 201);
   const [, lista] = await s.llamar('GET', '/api/impresoras', undefined, s.tokenAdmin);
   assert.equal(lista.length, 3);
 });

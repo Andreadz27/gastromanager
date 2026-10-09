@@ -1,6 +1,6 @@
 'use strict';
 const {
-  run, get, errorHttp, errorInterno, autenticar, esAdmin, emitEvento, actualizarParcial
+  get, errorHttp, errorInterno, autenticar, esAdmin, emitEvento, actualizarParcial
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
