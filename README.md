@@ -5,7 +5,7 @@ reportes y facturación electrónica (AFIP/ARCA), con integraciones de Mercado P
 
 ## Requisitos
 
-- Node.js 20 o superior
+- Node.js 22 o superior (Node 20 ya no tiene soporte)
 - Windows, Linux o macOS (la base es SQLite, no requiere servidor de base de datos)
 
 ## Instalación
@@ -157,7 +157,7 @@ npm run prueba:fuego  # rompe a propósito cada parte crítica y comprueba que a
 ```
 
 **CI:** `.github/workflows/ci.yml` corre lint, tests, tests en navegador y un arranque del servidor en Linux
-(Node 20 y 22) y en Windows, en cada push y pull request. La demo de Render solo se despliega si el CI pasó.
+(Node 22 y 24) y en Windows, en cada push y pull request. La demo de Render solo se despliega si el CI pasó.
 Las partes frágiles y qué las rompe están en `docs/MAPA-DE-RIESGOS.md`.
 
 Cada archivo de test levanta el servidor real sobre una base nueva en una carpeta temporal (no toca `data/`).
