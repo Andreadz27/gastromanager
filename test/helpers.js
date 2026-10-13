@@ -21,7 +21,7 @@ const esperar = ms => new Promise(r => setTimeout(r, ms));
 
 async function iniciarServidor(envExtra = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gm-test-'));
-  const env = { ...process.env, GM_DATA_DIR: dataDir, SECRET_KEY, NODE_ENV: 'test' };
+  const env = { ...process.env, GM_DATA_DIR: dataDir, SECRET_KEY, NODE_ENV: 'test', GM_ENV_FILE: path.join(dataDir, 'sin.env') };
   execFileSync(process.execPath, [path.join(RAIZ, 'init-db.js')], { env, stdio: 'ignore' });
 
   const port = await puertoLibre();

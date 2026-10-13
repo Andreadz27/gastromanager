@@ -39,6 +39,9 @@ pm2 save
 
 ## Configuración (variables de entorno)
 
+Se definen en el entorno o en un archivo `.env` en la carpeta del sistema (una `CLAVE=valor` por línea; lo crea el instalador).
+Para instalar en un restaurante: **[docs/INSTALACION.md](docs/INSTALACION.md)** (instalador de Windows, copias en la nube, monitoreo, acceso remoto y actualizaciones).
+
 | Variable | Para qué sirve | Por defecto |
 |---|---|---|
 | `PORT` | Puerto HTTP | `3000` |
@@ -50,6 +53,8 @@ pm2 save
 | `TRUST_PROXY` | Proxies de confianza (nginx, cloudflared) | `loopback` |
 | `BACKUPS_CONSERVAR` | Cantidad de copias automáticas a conservar | `30` |
 | `BACKUP_COPIA_DIR` | Carpeta extra para duplicar cada copia (ej. Google Drive / OneDrive) | — |
+| `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_KEY_ID`, `BACKUP_S3_SECRET`, `BACKUP_S3_PREFIJO` | Sube cada copia a un bucket S3 / Backblaze B2 (fuera del local) | — |
+| `MONITOREO_URL`, `MONITOREO_MINUTOS` | Latido a un servicio de monitoreo (healthchecks.io); `/fail` si hay un problema | — , `5` |
 
 ## Roles de usuario
 
@@ -154,6 +159,7 @@ npm run test:todo # ambos
 npm run lint      # errores reales de código (ESLint)
 npm run check     # lint + nombres sin importar + tests: correrlo antes de cada commit
 npm run prueba:fuego  # rompe a propósito cada parte crítica y comprueba que algún test falla (~5-10 min)
+npm run actualizar    # baja la última versión de main con copia previa y vuelta atrás automática
 ```
 
 **CI:** `.github/workflows/ci.yml` corre lint, tests, tests en navegador y un arranque del servidor en Linux
@@ -178,5 +184,7 @@ Mercado Pago, Tienda Nube y las impresoras se prueban contra servidores simulado
 | `estructura.test.js` | Imports faltantes, rutas sin sesión, credenciales en el frontend, rutas de admin decididas para la demo |
 | `migraciones.test.js` | Migración fallida sin cambios a medias, copia previa y restauración (rollback) |
 | `regresiones.test.js` | Bugs que ya pasaron: configuración parcial, edición de productos, copia con el sistema en uso |
+| `nube-monitoreo.test.js` | Firma SigV4 (vector oficial de AWS), subida de copias a S3, `/api/salud` y latido |
+| `actualizar.test.js` | Actualización: copia previa, solo avance rápido, nunca pisa cambios locales |
 | `usuario-prueba.test.js` | `npm run usuario:prueba`: ingreso directo, sin duplicados, roles y validaciones |
 | `e2e/navegador.test.js` | Login, cambio de contraseña, menú por rol, venta completa por pantalla, XSS, impresoras |

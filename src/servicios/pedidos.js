@@ -2,15 +2,14 @@
 // Numeración, validación de ítems, totales y cobro de pedidos
 const { run, get, all, transaccion } = require('../db');
 const { emitEvento } = require('../realtime');
+const { fechaLocal } = require('../tiempo');
 
-// Generar número de pedido: secuencial y atómico (P-AAAAMMDD-00001)
+// Generar número de pedido: secuencial y atómico (P-AAAAMMDD-00001).
+// La fecha es la del negocio (ZONA_HORARIA), no la del servidor: en un servidor en UTC
+// los pedidos de después de las 21 h de Argentina salían con la fecha del día siguiente.
 async function generarNumeroPedido() {
   const row = await get("UPDATE secuencias SET valor = valor + 1 WHERE nombre = 'pedido' RETURNING valor");
-  const fecha = new Date();
-  const y = fecha.getFullYear();
-  const m = String(fecha.getMonth() + 1).padStart(2, '0');
-  const d = String(fecha.getDate()).padStart(2, '0');
-  return `P-${y}${m}${d}-${String(row.valor).padStart(5, '0')}`;
+  return `P-${fechaLocal().replace(/-/g, '')}-${String(row.valor).padStart(5, '0')}`;
 }
 
 // Valida los ítems recibidos y toma nombre y precio de la tabla productos:

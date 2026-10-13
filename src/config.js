@@ -1,5 +1,6 @@
 'use strict';
 // Configuración general (variables de entorno)
+require('./env'); // .env de la instalación (antes que cualquier otra lectura de process.env)
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');

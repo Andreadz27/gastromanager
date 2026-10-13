@@ -23,6 +23,8 @@ jobs:
         node: [22, 24]
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # el test de actualización publica commits en un repo de prueba
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
@@ -53,6 +55,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # el test de actualización publica commits en un repo de prueba
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -60,3 +64,12 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run test:e2e
+      - name: Scripts de instalación (sintaxis de PowerShell)
+        shell: pwsh
+        run: |
+          $errores = $null
+          foreach ($f in Get-ChildItem scripts/windows/*.ps1) {
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$errores) | Out-Null
+            if ($errores) { $errores | ForEach-Object { Write-Error "$($f.Name): $_" }; exit 1 }
+          }
+          Write-Host 'Scripts de PowerShell sin errores de sintaxis'

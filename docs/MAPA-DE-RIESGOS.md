@@ -72,16 +72,15 @@ Con usuarios y claves conocidos en internet. Lo peligroso se bloquea por lista.
 - **Antes dependía de acordarse:** una ruta nueva de administrador no se bloqueaba sola. Ahora
   `estructura.test.js` falla hasta que se la bloquee o se la declare segura.
 
-### 9. Número de pedido — `generarNumeroPedido` · riesgo BAJO (bug posible)
-La fecha del número (`P-AAAAMMDD-…`) usa la hora del **servidor**, no `ZONA_HORARIA`. En Windows en Argentina da
-igual; en Render (UTC) los pedidos después de las 21 h salen con la fecha de mañana. Cambia lo que ve el usuario
-→ pendiente de decisión.
+### 9. Número de pedido — `generarNumeroPedido` · CORREGIDO (13/10/2026)
+Usaba la hora del servidor: en Render (UTC) los pedidos de después de las 21 h salían con la fecha de mañana.
+Ahora usa `ZONA_HORARIA`. Test en `regresiones.test.js` con servidores en UTC+14 y UTC-12.
 
 ### 10. Copias de seguridad — `src/servicios/backups.js` · riesgo BAJO
 - **Bugs corregidos:** dos copias en el mismo segundo daban error 500 (nombre repetido); una copia con el sistema en
   uso podía fallar. Tests en `fechas-backups.test.js` y `regresiones.test.js`.
-- Las copias quedan en la misma computadora salvo que se configure `BACKUP_COPIA_DIR` (Drive/OneDrive): si se rompe
-  el disco, se pierden base y copias.
+- Con `BACKUP_S3_*` cada copia se sube a la nube (Backblaze B2 / S3). Sin eso, quedan en la misma computadora:
+  si se rompe el disco, se pierden base y copias. El monitoreo avisa si falla la subida.
 
 ## Lo que todavía depende de que nadie se equivoque
 
@@ -102,4 +101,4 @@ igual; en Render (UTC) los pedidos después de las 21 h salen con la fecha de ma
    *Require status checks to pass* (elegir los jobs de **CI**) → *Do not allow bypassing*.
 2. **Render:** si el servicio ya existía, en Settings → Build & Deploy → Auto-Deploy elegir *After CI Checks Pass*
    (el `render.yaml` lo pide para servicios nuevos).
-3. **Copias fuera de la PC del local:** definir `BACKUP_COPIA_DIR` apuntando a una carpeta de Google Drive / OneDrive.
+3. **Copias fuera de la PC del local:** configurar `BACKUP_S3_*` en el `.env` de cada local (docs/INSTALACION.md).

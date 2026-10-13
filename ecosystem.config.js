@@ -2,7 +2,7 @@ module.exports = {
   apps: [{
     name: 'gastromanager',
     script: 'server.js',
-    cwd: 'C:\\Users\\Administrador\\Documents\\Sistema de gestión gastronomico',
+    cwd: __dirname, // la carpeta donde esté instalado
     exec_mode: 'fork',
     instances: 1,
     autorestart: true,

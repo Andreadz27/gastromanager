@@ -17,7 +17,8 @@
     "usuario:prueba": "node scripts/crear-usuario-prueba.js",
     "lint": "eslint .",
     "check": "npm run lint && node scripts/verificar-nombres.js . && npm test",
-    "prueba:fuego": "node scripts/prueba-de-fuego.js"
+    "prueba:fuego": "node scripts/prueba-de-fuego.js",
+    "actualizar": "node scripts/actualizar.js"
   },
   "engines": {
     "node": ">=22"

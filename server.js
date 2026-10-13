@@ -4,12 +4,14 @@
 // El código está en src/ (app.js, rutas/, servicios/).
 // =============================================
 
+require('./src/env'); // .env de la instalación
 const { server } = require('./src/app');
 const { PORT } = require('./src/config');
 const { ZONA_HORARIA } = require('./src/tiempo');
 const { iniciarRealtime } = require('./src/realtime');
 const { migrarConRespaldo } = require('./src/migraciones');
 const { backupSiCorresponde, crearBackup } = require('./src/servicios/backups');
+const { iniciarMonitoreo } = require('./src/servicios/monitoreo');
 
 iniciarRealtime(server);
 
@@ -27,6 +29,8 @@ migrarConRespaldo({ respaldar: crearBackup }).then(() => server.listen(PORT, () 
   // Copias de seguridad automáticas
   backupSiCorresponde();
   setInterval(backupSiCorresponde, 60 * 60 * 1000).unref();
+  // Latido al servicio de monitoreo (si MONITOREO_URL está configurada)
+  iniciarMonitoreo();
 })).catch(err => {
   console.error('Error al migrar la base de datos:', err);
   process.exit(1);
