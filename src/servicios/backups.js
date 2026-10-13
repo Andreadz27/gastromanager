@@ -4,6 +4,7 @@ const fs = require('fs');
 const { DATA_DIR } = require('../config');
 const sqlite3 = require('sqlite3');
 const { ZONA_HORARIA, fechaLocal } = require('../tiempo');
+const { subirCopia } = require('./copia-nube');
 
 // ============ COPIAS DE SEGURIDAD ============
 // Copia automática cada 24 hs en data/backups (se conservan las últimas BACKUPS_CONSERVAR).
@@ -62,6 +63,8 @@ function crearBackup() {
       try { fs.unlinkSync(path.join(DIR_BACKUPS, viejo.nombre)); } catch (e) {}
     }
     console.log(`[backup] Copia creada: ${nombre}`);
+    // Copia fuera del local (si está configurada): en segundo plano, no demora ni rompe la copia local
+    subirCopia(destino).catch(e => console.error('[backup] Error al subir la copia:', e.message));
     return listarBackups().find(b => b.nombre === nombre);
   })().finally(() => { backupEnCurso = null; });
   return backupEnCurso;

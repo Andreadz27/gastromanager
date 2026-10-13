@@ -13,7 +13,7 @@ const RAIZ = path.join(__dirname, '..');
 
 const nuevaBase = () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gm-migr-'));
-  execFileSync(process.execPath, [path.join(RAIZ, 'init-db.js')], { env: { ...process.env, GM_DATA_DIR: dir, SECRET_KEY }, stdio: 'ignore' });
+  execFileSync(process.execPath, [path.join(RAIZ, 'init-db.js')], { env: { ...process.env, GM_DATA_DIR: dir, SECRET_KEY, GM_ENV_FILE: path.join(dir, 'sin.env') }, stdio: 'ignore' });
   return dir;
 };
 
@@ -26,7 +26,7 @@ const backups = dir => fs.existsSync(path.join(dir, 'backups')) ? fs.readdirSync
 
 // Corre un script con los módulos del servidor apuntando a la carpeta indicada
 const ejecutar = (dir, codigo) => execFileSync(process.execPath, ['-e', codigo], {
-  cwd: RAIZ, env: { ...process.env, GM_DATA_DIR: dir, SECRET_KEY }, encoding: 'utf8'
+  cwd: RAIZ, env: { ...process.env, GM_DATA_DIR: dir, SECRET_KEY, GM_ENV_FILE: path.join(dir, 'sin.env') }, encoding: 'utf8'
 });
 
 // Puerto libre que da el sistema (uno al azar puede estar reservado en Windows)
@@ -40,7 +40,7 @@ const puertoLibre = () => new Promise((ok, mal) => {
 async function arrancarYCerrar(dir) {
   const port = await puertoLibre();
   const proc = spawn(process.execPath, [path.join(RAIZ, 'server.js')], {
-    env: { ...process.env, GM_DATA_DIR: dir, SECRET_KEY, PORT: String(port), NODE_ENV: 'test' }, stdio: 'ignore'
+    env: { ...process.env, GM_DATA_DIR: dir, SECRET_KEY, PORT: String(port), NODE_ENV: 'test', GM_ENV_FILE: path.join(dir, 'sin.env') }, stdio: 'ignore'
   });
   try {
     for (let i = 0; i < 100; i++) {

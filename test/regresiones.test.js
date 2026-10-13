@@ -50,3 +50,20 @@ test('login: clave incorrecta o email inexistente no entran; la correcta sí', a
   assert.equal(st, 200);
   assert.ok(r.token);
 });
+
+// El número de pedido llevaba la fecha del servidor: en Render (UTC) los pedidos de después
+// de las 21 h de Argentina salían con la fecha de mañana. Se prueba con servidores en UTC+14 y UTC-12:
+// a cualquier hora, al menos uno de los dos tiene otra fecha que Argentina.
+test('número de pedido con la fecha del negocio aunque el servidor esté en otra zona', async () => {
+  const { iniciarServidor: iniciar } = require('./helpers');
+  for (const TZ of ['Pacific/Kiritimati', 'Etc/GMT+12']) {
+    const srv = await iniciar({ TZ });
+    try {
+      const [prod] = await srv.q('SELECT id FROM productos WHERE activo = 1 LIMIT 1');
+      const [st, p] = await srv.llamar('POST', '/api/pedidos', { tipo: 'takeaway', items: [{ producto_id: prod.id, cantidad: 1 }] }, srv.tokenVendedor);
+      assert.equal(st, 201);
+      const hoyArg = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date()).replace(/-/g, '');
+      assert.match(p.numero_pedido, new RegExp(`^P-${hoyArg}-\\d{5}$`), TZ);
+    } finally { await srv.cerrar(); }
+  }
+});
