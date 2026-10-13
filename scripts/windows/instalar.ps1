@@ -49,7 +49,7 @@ if (-not (Test-Path $envFile)) {
 # Configuración de esta instalación de GastroManager ($Cliente). Ver docs/INSTALACION.md
 PORT=$Puerto
 BACKUPS_CONSERVAR=30
-# Copia diaria fuera del local (Backblaze B2 u otro S3): completar para activarla
+# Copia diaria fuera del local (Cloudflare R2 u otro S3): completar para activarla (docs/INSTALACION.md)
 BACKUP_S3_ENDPOINT=
 BACKUP_S3_BUCKET=
 BACKUP_S3_KEY_ID=

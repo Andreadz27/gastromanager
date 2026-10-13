@@ -35,24 +35,30 @@ powershell -ExecutionPolicy Bypass -File instalar.ps1 -Cliente "la-buena-mesa" -
 El instalador deja el sistema corriendo, con inicio automático, y muestra la dirección para las tablets
 (ej. `http://192.168.0.10:3000`). Se puede volver a ejecutar: no borra datos.
 
-## 3. Copia diaria en la nube (Backblaze B2)
+## 3. Copia diaria en la nube (Cloudflare R2)
 
-1. Crear una cuenta en [Backblaze](https://www.backblaze.com/cloud-storage) (los primeros 10 GB no tienen costo).
-2. **Buckets → Create a Bucket**: privado, por ejemplo `gastromanager-copias` (uno para todos los clientes).
-3. En el bucket, **Lifecycle Settings → Keep prior versions for this number of days: 30** (cuántos días se guardan).
-4. **Application Keys → Add a New Application Key**: acceso solo a ese bucket, Read and Write.
-5. Completar en `C:\GastroManager\.env`:
+Se usa la misma cuenta de Cloudflare del túnel. R2 no cobra la descarga de las copias y tiene un uso mensual
+gratuito; por encima, se paga por GB guardado.
+
+1. En [Cloudflare](https://dash.cloudflare.com): **R2 Object Storage → Create bucket**, por ejemplo
+   `gastromanager-copias` (uno para todos los clientes).
+2. En el bucket, **Settings → Object lifecycle rules → Add rule**: borrar objetos a los **30 días**.
+3. **R2 → Manage API tokens → Create API token**: permiso **Object Read & Write**, solo para ese bucket.
+   Copiar **Access Key ID**, **Secret Access Key** y el endpoint `https://<account-id>.r2.cloudflarestorage.com`.
+4. Completar en `C:\GastroManager\.env`:
 
 ```
-BACKUP_S3_ENDPOINT=https://s3.us-west-004.backblazeb2.com   (el "Endpoint" que muestra el bucket)
+BACKUP_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 BACKUP_S3_BUCKET=gastromanager-copias
-BACKUP_S3_KEY_ID=<keyID>
-BACKUP_S3_SECRET=<applicationKey>
+BACKUP_S3_KEY_ID=<Access Key ID>
+BACKUP_S3_SECRET=<Secret Access Key>
 BACKUP_S3_PREFIJO=la-buena-mesa
 ```
 
-6. `pm2 restart gastromanager --update-env`. Cada copia (al iniciar, cada 24 h y las manuales) se sube a
-   `gastromanager-copias/la-buena-mesa/`. Sirve cualquier servicio compatible con S3 (Cloudflare R2, AWS S3, Wasabi).
+5. `pm2 restart gastromanager --update-env`. Cada copia (al iniciar, cada 24 h y las manuales) se sube a
+   `gastromanager-copias/la-buena-mesa/`.
+
+También sirve cualquier otro servicio compatible con S3 (Backblaze B2, AWS S3, Wasabi): cambian solo esos datos.
 
 **Restaurar desde la nube:** descargar la copia del bucket y seguir "Restaurar" en el README.
 
@@ -70,7 +76,8 @@ Desde la red del local también se puede ver `http://<ip>:3000/api/salud`.
 
 Necesario para que el dueño vea el sistema desde afuera y para recibir avisos de Mercado Pago y Tienda Nube.
 
-1. Tener el dominio de la empresa (ej. `tudominio.com.ar`) administrado en [Cloudflare](https://dash.cloudflare.com) (gratis).
+1. Tener el dominio de la empresa (ej. `tudominio.com.ar`) administrado en [Cloudflare](https://dash.cloudflare.com) (gratis):
+   **Add a domain**, y en NIC Argentina cambiar los servidores DNS del dominio por los dos que indica Cloudflare.
 2. **Zero Trust → Networks → Tunnels → Create a tunnel** (tipo Cloudflared), con el nombre del local.
 3. **Public hostname**: `la-buena-mesa.tudominio.com.ar` → `http://localhost:3000`. Copiar el token.
 4. En la PC del local, PowerShell como Administrador:
