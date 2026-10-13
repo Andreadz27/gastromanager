@@ -1,10 +1,10 @@
 'use strict';
 // ============ Copia de seguridad fuera del local (nube compatible con S3) ============
 // Después de cada copia local se sube el archivo a un bucket S3-compatible
-// (Backblaze B2, Cloudflare R2, AWS S3, Wasabi...). Sin dependencias: firma AWS SigV4 propia.
+// (Cloudflare R2, Backblaze B2, AWS S3, Wasabi...). Sin dependencias: firma AWS SigV4 propia.
 //
 // Variables de entorno (si falta alguna, la copia en la nube queda desactivada):
-//   BACKUP_S3_ENDPOINT   https://s3.us-west-004.backblazeb2.com   (el "Endpoint" del bucket)
+//   BACKUP_S3_ENDPOINT   https://<account-id>.r2.cloudflarestorage.com (R2) o https://s3.us-west-004.backblazeb2.com (B2)
 //   BACKUP_S3_BUCKET     gastromanager-copias
 //   BACKUP_S3_KEY_ID     keyID de la Application Key (B2) o Access Key ID
 //   BACKUP_S3_SECRET     applicationKey (B2) o Secret Access Key

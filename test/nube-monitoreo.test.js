@@ -68,3 +68,11 @@ test('latido periódico al monitoreo; si falta la copia avisa con /fail', async 
   assert.equal(st, 503);
   assert.match(salud.problemas.join(' '), /copia de seguridad/);
 });
+
+test('región de la nube: Cloudflare R2 usa "auto", Backblaze la toma del endpoint', () => {
+  const { configNube } = require('../src/servicios/copia-nube');
+  const base = { BACKUP_S3_BUCKET: 'b', BACKUP_S3_KEY_ID: 'k', BACKUP_S3_SECRET: 's' };
+  assert.equal(configNube({ ...base, BACKUP_S3_ENDPOINT: 'https://abc123.r2.cloudflarestorage.com' }).region, 'auto');
+  assert.equal(configNube({ ...base, BACKUP_S3_ENDPOINT: 'https://s3.us-west-004.backblazeb2.com' }).region, 'us-west-004');
+  assert.equal(configNube({ ...base, BACKUP_S3_ENDPOINT: '' }), null, 'sin endpoint queda desactivada');
+});
