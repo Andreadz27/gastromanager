@@ -66,7 +66,7 @@ const MUTACIONES = [
   ['copias: dos en el mismo segundo se pisan', 'src/servicios/backups.js',
     'for (let n = 2; fs.existsSync(path.join(DIR_BACKUPS, nombre)); n++)', 'for (let n = 2; false; n++)'],
   ['número de pedido: fecha del servidor', 'src/servicios/pedidos.js',
-    "fechaLocal().replace(/-/g, '')", "new Date().toISOString().slice(0, 10).replace(/-/g, '')"],
+    "fechaLocal().replace(/-/g, '')", "new Date().toLocaleDateString('sv').replace(/-/g, '')"],
   ['copia en la nube: no se sube', 'src/servicios/backups.js',
     'subirCopia(destino).catch(', 'Promise.resolve().catch('],
   ['monitoreo: no avisa la falla', 'src/servicios/monitoreo.js',
