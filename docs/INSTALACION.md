@@ -14,11 +14,19 @@ aunque se corte internet; la nube guarda las copias y da acceso remoto.
 
 ## 2. Instalar (una vez por local, unos 15 minutos)
 
-En la PC del local, abrir **PowerShell como Administrador** y ejecutar:
+El repositorio es **privado**: cada instalación descarga el sistema con un token de GitHub de solo lectura.
+
+**Una vez (para todos los locales):** en GitHub, **Settings → Developer settings → Personal access tokens →
+Fine-grained tokens → Generate new token**: acceso solo al repositorio `gastromanager`, permiso
+**Contents: Read-only**, vencimiento de 1 año. Guardarlo en un lugar seguro (no se vuelve a mostrar).
+Antes de que venza, generar uno nuevo y volver a ejecutar el instalador en cada local con el token nuevo
+(no borra datos).
+
+**En cada local:** copiar `scripts\windows\instalar.ps1` a la PC (pendrive o WhatsApp), abrir
+**PowerShell como Administrador** en esa carpeta y ejecutar:
 
 ```powershell
-irm https://raw.githubusercontent.com/Andreadz27/gastromanager/main/scripts/windows/instalar.ps1 -OutFile instalar.ps1
-powershell -ExecutionPolicy Bypass -File instalar.ps1 -Cliente "la-buena-mesa" -ActualizacionAutomatica
+powershell -ExecutionPolicy Bypass -File instalar.ps1 -Cliente "la-buena-mesa" -Token "github_pat_..." -ActualizacionAutomatica
 ```
 
 `-Cliente` = nombre corto del local, en minúsculas y sin espacios (se usa en la nube y en el monitoreo).

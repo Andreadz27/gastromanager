@@ -1,6 +1,7 @@
 ﻿# GastroManager - instalador para Windows 10/11
 # Ejecutar en PowerShell COMO ADMINISTRADOR, en la PC o mini PC del restaurante:
-#   powershell -ExecutionPolicy Bypass -File instalar.ps1 -Cliente "la-buena-mesa"
+#   powershell -ExecutionPolicy Bypass -File instalar.ps1 -Cliente "la-buena-mesa" -Token "github_pat_..."
+# -Token: token de GitHub de SOLO LECTURA para este repositorio (el repo es privado; ver docs/INSTALACION.md).
 # Hace todo: Node.js y Git (con winget), descarga el sistema, crea la base, lo deja corriendo con pm2,
 # lo arranca solo al iniciar Windows, abre el puerto para las tablets de la red local y
 # (opcional) programa la actualización automática de madrugada.
@@ -9,6 +10,7 @@ param(
   [Parameter(Mandatory = $true)][string]$Cliente,          # nombre corto del local: carpeta en la nube y en el monitoreo
   [string]$Carpeta = 'C:\GastroManager',
   [string]$Repo = 'https://github.com/Andreadz27/gastromanager.git',
+  [string]$Token,                                          # token de solo lectura (repositorio privado)
   [int]$Puerto = 3000,
   [switch]$ActualizacionAutomatica                         # actualiza todos los días a las 05:00 (con copia y vuelta atrás)
 )
@@ -27,7 +29,15 @@ $major = [int]((node -v).TrimStart('v').Split('.')[0])
 if ($major -lt 22) { throw "GastroManager necesita Node.js 22 o superior (hay $(node -v)). Actualízalo: winget upgrade OpenJS.NodeJS.LTS" }
 
 Paso "Sistema en $Carpeta"
-if (Test-Path (Join-Path $Carpeta '.git')) { git -C $Carpeta pull --ff-only } else { git clone $Repo $Carpeta }
+# Con token, queda guardado en la dirección del repositorio de esta PC: así npm run actualizar puede bajar versiones nuevas
+$origen = if ($Token) { $Repo -replace '^https://', "https://x-access-token:$Token@" } else { $Repo }
+if (Test-Path (Join-Path $Carpeta '.git')) {
+  if ($Token) { git -C $Carpeta remote set-url origin $origen }
+  git -C $Carpeta pull --ff-only
+} else {
+  git clone $origen $Carpeta
+  if ($LASTEXITCODE -ne 0) { throw 'No se pudo descargar el sistema. Si el repositorio es privado, pasa -Token con un token de solo lectura.' }
+}
 Set-Location $Carpeta
 npm ci --omit=dev --no-audit --no-fund
 if (-not (Get-Command pm2 -ErrorAction SilentlyContinue)) { npm install -g pm2; Refrescar-Path }
