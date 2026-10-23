@@ -1,0 +1,55 @@
+:root {
+  --fondo: #f6f4f1; --tarjeta: #ffffff; --texto: #1c1917; --suave: #78716c; --borde: #e7e5e4;
+  --acento: #ea580c; --acento-2: #dc2626; --ok: #15803d; --alerta: #b45309; --mal: #b91c1c;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --fondo: #12100e; --tarjeta: #1f1b18; --texto: #f5f5f4; --suave: #a8a29e; --borde: #33302c;
+    --ok: #4ade80; --alerta: #fbbf24; --mal: #f87171; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--fondo); color: var(--texto); }
+[hidden] { display: none !important; }
+.marca { display: flex; align-items: center; gap: 10px; }
+.marca img { border-radius: 23%; }
+.marca strong { display: block; font-weight: 800; letter-spacing: -0.4px; }
+.marca small { color: var(--suave); font-size: 12px; }
+.tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+.tarjeta h2 { font-size: 15px; margin: 0 0 12px; }
+.boton { width: 100%; padding: 12px; border: 0; border-radius: 10px; font-size: 16px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--acento), var(--acento-2)); cursor: pointer; }
+.boton-sec { padding: 8px 14px; border: 1px solid var(--borde); border-radius: 10px; background: transparent; color: var(--texto); cursor: pointer; }
+.error { color: var(--mal); min-height: 1.2em; font-size: 14px; }
+.ingreso { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.ingreso-caja { width: 100%; max-width: 360px; }
+.ingreso-caja .marca { margin-bottom: 18px; }
+label { display: block; font-size: 14px; color: var(--suave); margin-bottom: 12px; }
+input { display: block; width: 100%; margin-top: 4px; padding: 11px; font-size: 16px; border: 1px solid var(--borde); border-radius: 10px;
+  background: var(--fondo); color: var(--texto); }
+.barra { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--tarjeta); border-bottom: 1px solid var(--borde); }
+.pestanas, .periodos { display: flex; gap: 6px; overflow-x: auto; padding: 12px 16px 0; }
+.pestanas button, .periodos button { flex: none; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--borde); background: var(--tarjeta);
+  color: var(--texto); font-size: 14px; cursor: pointer; }
+.pestanas button.activa, .periodos button.activa { background: var(--acento); border-color: var(--acento); color: #fff; }
+.periodos { padding: 0 0 12px; }
+main { max-width: 960px; margin: 0 auto; padding: 14px 16px 32px; }
+.kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+@media (min-width: 720px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+.kpi { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 14px; }
+.kpi small { color: var(--suave); font-size: 13px; }
+.kpi strong { display: block; font-size: 22px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.fila { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--borde); font-variant-numeric: tabular-nums; }
+.fila:first-child { border-top: 0; }
+.fila span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.fila small { color: var(--suave); display: block; }
+.derecha { text-align: right; white-space: nowrap; }
+.barras .dia { display: grid; grid-template-columns: 70px 1fr 90px; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; font-variant-numeric: tabular-nums; }
+.barras .pista { background: var(--fondo); border-radius: 6px; height: 14px; overflow: hidden; }
+.barras .relleno { height: 100%; background: linear-gradient(90deg, var(--acento), var(--acento-2)); border-radius: 6px; }
+.local { display: flex; gap: 12px; align-items: flex-start; }
+.punto { flex: none; width: 12px; height: 12px; border-radius: 50%; margin-top: 5px; background: var(--ok); }
+.punto.alerta { background: var(--alerta); }
+.punto.mal { background: var(--mal); }
+.local ul { margin: 6px 0 0; padding-left: 18px; color: var(--alerta); font-size: 14px; }
+.local p { margin: 4px 0 0; color: var(--suave); font-size: 13px; }
+.vacio, .nota { color: var(--suave); font-size: 14px; }
+.nota { text-align: center; }

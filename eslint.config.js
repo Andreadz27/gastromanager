@@ -19,7 +19,7 @@ module.exports = [
   },
   {
     // Frontend sin build: los archivos comparten funciones globales entre sí (api.js, app.js...)
-    files: ['public/**/*.js', 'landing/**/*.js'],
+    files: ['public/**/*.js', 'landing/**/*.js', 'nube/public/**/*.js'],
     languageOptions: { sourceType: 'script', globals: { ...globals.browser, io: 'readonly' } },
     rules: { 'no-undef': 'off', 'no-unused-vars': 'off', 'no-redeclare': 'off', 'no-useless-escape': 'off' }
   },

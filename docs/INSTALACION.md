@@ -134,6 +134,34 @@ El sistema avisa cada 5 minutos que está vivo. Si deja de avisar (PC apagada, s
 (base sin responder, sin copia en 26 horas, falló la subida a la nube), te llega la alerta.
 Desde la red del local también se puede ver `http://<ip>:3000/api/salud`.
 
+### 4b. Morfi Nube (panel del dueño y de soporte)
+
+Un servidor chico en internet (uno solo para todos los clientes) recibe las ventas cerradas y el estado de cada local.
+El dueño ve desde el celular las ventas de hoy, de la semana o del mes, por local y en total, lo más vendido y si
+cada local anda bien. Vos (soporte) ves todos los locales de todos los clientes, los que tienen problemas primero:
+sin noticias hace más de 15 minutos, sin copia de seguridad, facturas que ARCA rechazó o que esperan conexión.
+
+- Se mandan números de pedido, productos e importes. **No** se mandan nombres, teléfonos ni CUIT de los clientes.
+- El local no depende de la nube: si se cae o no hay internet, se sigue cobrando y lo pendiente se manda al volver.
+
+**Montar la nube (una vez):** cualquier servidor con Node 22 (un VPS de Hetzner o DigitalOcean, o Render/Railway con
+disco persistente). Copiar el repositorio, `npm ci --omit=dev` y arrancar con `npm run nube` (PM2 o el servicio del
+proveedor). Variables: `PORT`, `NUBE_DATOS` (carpeta persistente de la base), `NUBE_SECRETO` (48 caracteres al azar)
+y `TRUST_PROXY=true` si va detrás de un proxy con https. Siempre con https (Cloudflare o el del proveedor).
+Hacer copia de la carpeta `NUBE_DATOS`: si se pierde, los locales vuelven a mandar lo que tengan sin enviar, no el historial.
+
+**Altas (en el servidor de la nube):**
+
+```
+node nube/alta.js soporte --nombre "Soporte Morfi" --email vos@tu-dominio --password ********
+node nube/alta.js local   --cuenta "La Buena Mesa" --nombre "Centro" --cliente la-buena-mesa-centro
+node nube/alta.js usuario --cuenta "La Buena Mesa" --nombre "Ana" --email ana@labuenamesa.com --password ********
+```
+
+El alta del local muestra **una sola vez** su `NUBE_TOKEN`. En el `.env` del local poner `NUBE_URL=https://<tu nube>` y
+`NUBE_TOKEN=...` y reiniciar Morfi. A los 2 minutos manda todo su historial de ventas (en tandas) y queda al día.
+Una cadena con varias sucursales es una cuenta con varios locales: el dueño las ve juntas.
+
 ## 5. Acceso remoto y pagos online (Cloudflare Tunnel)
 
 Necesario para que el dueño vea el sistema desde afuera y para recibir avisos de Mercado Pago y Tienda Nube.
