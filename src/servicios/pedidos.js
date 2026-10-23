@@ -3,6 +3,7 @@
 const { run, get, all, transaccion } = require('../db');
 const { emitEvento } = require('../realtime');
 const { fechaLocal } = require('../tiempo');
+const { descontarStockItemTx } = require('./recetas');
 
 // Generar número de pedido: secuencial y atómico (P-AAAAMMDD-00001).
 // La fecha es la del negocio (ZONA_HORARIA), no la del servidor: en un servidor en UTC
@@ -51,30 +52,30 @@ function registrarPago(pedido, datosPago) {
 }
 
 async function registrarPagoTx(pedido, { metodo, monto, referencia, usuarioId }) {
-  const pedidoId = pedido.id;
   // Se marca como pagado solo si sigue abierto: si dos cobros llegan a la vez, gana uno
+  if (!(await cerrarPedidoTx(pedido, metodo, usuarioId))) return false;
+  await run('INSERT INTO pagos (pedido_id, metodo, monto, referencia) VALUES (?, ?, ?, ?)',
+    [pedido.id, metodo, monto, referencia || '']);
+  return true;
+}
+
+// Cierra un pedido abierto: estado pagado, mesa libre y descuento de stock.
+// Devuelve false si ya no estaba abierto.
+async function cerrarPedidoTx(pedido, metodo, usuarioId) {
+  const pedidoId = pedido.id;
   const { changes } = await run(
     `UPDATE pedidos SET estado = 'pagado', cerrado_en = CURRENT_TIMESTAMP, metodo_pago = ? WHERE id = ? AND estado = 'abierto'`,
     [metodo || '', pedidoId]);
   if (!changes) return false;
 
-  await run('INSERT INTO pagos (pedido_id, metodo, monto, referencia) VALUES (?, ?, ?, ?)',
-    [pedidoId, metodo, monto, referencia || '']);
-
   if (pedido.mesa_id) {
     await run('UPDATE mesas SET estado = ? WHERE id = ?', ['libre', pedido.mesa_id]);
   }
 
+  // Stock: los ingredientes de la receta o, sin receta, el producto (ver servicios/recetas.js)
   const items = await all('SELECT * FROM pedido_items WHERE pedido_id = ?', [pedidoId]);
   for (const item of items) {
-    if (item.producto_id) {
-      const producto = await get('SELECT * FROM productos WHERE id = ?', [item.producto_id]);
-      if (producto && producto.tracking_stock) {
-        await run('UPDATE productos SET stock_actual = stock_actual - ? WHERE id = ?', [item.cantidad, item.producto_id]);
-        await run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, motivo, usuario_id)
-                   VALUES (?, 'venta', ?, ?, ?)`, [item.producto_id, -item.cantidad, `Venta ${pedido.numero_pedido}`, usuarioId || null]);
-      }
-    }
+    if (item.producto_id) await descontarStockItemTx(item, pedido, usuarioId);
   }
 
   emitEvento('pedido:pagado', { id: Number(pedidoId), numero_pedido: pedido.numero_pedido });
@@ -87,4 +88,54 @@ async function registrarPagoTx(pedido, { metodo, monto, referencia, usuarioId })
 
 const METODOS_PAGO = ['efectivo', 'tarjeta', 'mercadopago', 'transferencia', 'otro'];
 
-module.exports = { generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, registrarPagoTx, METODOS_PAGO };
+const centavos = n => Math.round((Number(n) || 0) * 100) / 100;
+
+// Total, lo ya cobrado (pagos parciales al dividir la cuenta) y lo que falta
+async function saldoPedido(pedidoId) {
+  const pedido = await get('SELECT total FROM pedidos WHERE id = ?', [pedidoId]);
+  const { pagado } = await get('SELECT COALESCE(SUM(monto), 0) AS pagado FROM pagos WHERE pedido_id = ?', [pedidoId]);
+  const total = centavos(pedido && pedido.total);
+  return { total, pagado: centavos(pagado), saldo: centavos(Math.max(0, total - pagado)) };
+}
+
+// Cobro en la mesa: uno o varios pagos (dividir la cuenta o pagar con varios medios).
+// Va dentro de transaccion(): el pedido se relee acá, así dos cobros a la vez no pagan de más.
+// Si los pagos cubren el saldo, el pedido se cierra (mesa libre y stock), igual que un cobro único.
+async function registrarCobroTx(pedidoId, { pagos, propina, usuarioId }) {
+  const pedido = await get('SELECT * FROM pedidos WHERE id = ?', [pedidoId]);
+  if (!pedido) throw Object.assign(new Error('Pedido no encontrado'), { status: 404 });
+  if (pedido.estado !== 'abierto') throw Object.assign(new Error('El pedido ya fue cobrado o cancelado'), { status: 409 });
+
+  if (propina !== undefined && propina !== null) {
+    await run('UPDATE pedidos SET propina = ? WHERE id = ?', [importe(propina), pedido.id]);
+    await recalcularTotales(pedido.id);
+  }
+  const { total, pagado, saldo } = await saldoPedido(pedido.id);
+  if (total < pagado - 0.009)
+    throw Object.assign(new Error('El nuevo total queda por debajo de lo ya cobrado'), { status: 400 });
+
+  const aCobrar = centavos(pagos.reduce((s, p) => s + p.monto, 0));
+  if (aCobrar > saldo + 0.009)
+    throw Object.assign(new Error(`Se quiere cobrar ${aCobrar} y el saldo es ${saldo}`), { status: 400 });
+
+  for (const p of pagos) {
+    await run('INSERT INTO pagos (pedido_id, metodo, monto, referencia) VALUES (?, ?, ?, ?)',
+      [pedido.id, p.metodo, p.monto, p.referencia || '']);
+  }
+
+  const restante = centavos(saldo - aCobrar);
+  let cerrado = false;
+  if (restante <= 0.009) {
+    const metodos = await all('SELECT DISTINCT metodo FROM pagos WHERE pedido_id = ?', [pedido.id]);
+    cerrado = await cerrarPedidoTx(pedido, metodos.length === 1 ? metodos[0].metodo : 'mixto', usuarioId);
+  } else {
+    emitEvento('pedido:pago_parcial', { id: pedido.id, numero_pedido: pedido.numero_pedido, saldo: restante });
+    emitEvento('dashboard:actualizar', { motivo: 'pago_parcial' });
+  }
+  return { pedido, total, cobrado: aCobrar, saldo: cerrado ? 0 : restante, cerrado };
+}
+
+module.exports = {
+  generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, registrarPagoTx,
+  registrarCobroTx, saldoPedido, METODOS_PAGO
+};

@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { SECRET_KEY } = require('./config');
 const { get } = require('./db');
 const { ROLES, normalizarRol, permisosDeRol } = require('./permisos');
+const { ZONA_HORARIA } = require('./tiempo');
 
 // ============ AUTENTICACION ============
 // Verifica el token y que el usuario siga activo. El rol se toma de la base,
@@ -20,7 +21,10 @@ function datosSesion(u) {
   return {
     id: u.id, nombre: u.nombre, email: u.email, rol,
     rol_nombre: (ROLES[rol] || { nombre: rol }).nombre,
-    permisos: permisosDeRol(rol)
+    permisos: permisosDeRol(rol),
+    // Para que la pantalla calcule "hoy" con la zona del negocio y no con la del dispositivo
+    zona_horaria: ZONA_HORARIA,
+    tiene_pin: !!(u.tiene_pin || u.pin_hash)
   };
 }
 

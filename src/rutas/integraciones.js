@@ -1,6 +1,6 @@
 'use strict';
 const {
-  Afip, run, get, all, transaccion, LOCAL, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere
+  run, get, all, transaccion, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere, requiereCobro, configWhatsApp, requiereAutorizacion, pedidoDeSalon, emitirFactura, emitirNotaCredito, consultarPadron, crearAfip, saldoPedido
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -12,7 +12,8 @@ module.exports = function registrarRutas(app) {
 const CAMPOS_SECRETOS = {
   mercadopago: ['access_token', 'access_token_test'],
   afip: ['access_token', 'key'],
-  tiendanube: ['access_token']
+  tiendanube: ['access_token'],
+  whatsapp: ['access_token', 'app_secret']
 };
 const MASCARA = '••••••••';
 const enmascarar = v => v ? MASCARA + String(v).slice(-4) : '';
@@ -20,12 +21,13 @@ const enmascarar = v => v ? MASCARA + String(v).slice(-4) : '';
 // GET /api/integraciones/config
 app.get('/api/integraciones/config', autenticar, esAdmin, async (req, res) => {
   try {
-    const [mp, afip, tn] = await Promise.all([
+    const [mp, afip, tn, wa] = await Promise.all([
       getIntCfg('mercadopago'),
       getIntCfg('afip'),
-      getIntCfg('tiendanube')
+      getIntCfg('tiendanube'),
+      configWhatsApp()
     ]);
-    const cfgs = { mercadopago: mp, afip, tiendanube: tn };
+    const cfgs = { mercadopago: mp, afip, tiendanube: tn, whatsapp: wa };
     for (const [tipo, campos] of Object.entries(CAMPOS_SECRETOS)) {
       for (const c of campos) if (cfgs[tipo][c]) cfgs[tipo][c] = enmascarar(cfgs[tipo][c]);
     }
@@ -37,12 +39,14 @@ app.get('/api/integraciones/config', autenticar, esAdmin, async (req, res) => {
 // GET /api/integraciones/estado
 app.get('/api/integraciones/estado', autenticar, async (req, res) => {
   try {
-    const [mp, afip, tn] = await Promise.all([
+    const [mp, afip, tn, wa] = await Promise.all([
       getIntCfg('mercadopago'),
       getIntCfg('afip'),
-      getIntCfg('tiendanube')
+      getIntCfg('tiendanube'),
+      getIntCfg('whatsapp')
     ]);
     const estado = {
+      whatsapp:    wa.activa && wa.phone_number_id && wa.access_token ? 'conectada' : wa.phone_number_id ? 'configurada' : 'desconectada',
       mercadopago: mp.activa && mp.access_token ? 'conectada' : mp.access_token ? 'configurada' : 'desconectada',
       afip:        afip.activa && afip.cuit && afip.access_token ? 'conectada' : (afip.cuit || afip.access_token) ? 'configurada' : 'desconectada',
       tiendanube:  tn.activa && tn.store_id && tn.access_token ? 'conectada' : tn.store_id ? 'configurada' : 'desconectada',
@@ -57,7 +61,7 @@ app.get('/api/integraciones/estado', autenticar, async (req, res) => {
 // PUT /api/integraciones/config/:tipo
 app.put('/api/integraciones/config/:tipo', autenticar, esAdmin, async (req, res) => {
   const { tipo } = req.params;
-  if (!['mercadopago', 'afip', 'tiendanube'].includes(tipo))
+  if (!['mercadopago', 'afip', 'tiendanube', 'whatsapp'].includes(tipo))
     return res.status(400).json({ error: 'Tipo no válido' });
   try {
     const data = { ...req.body };
@@ -90,12 +94,7 @@ app.post('/api/integraciones/test/:tipo', autenticar, esAdmin, async (req, res) 
       if (!cfg.cuit) return res.json({ ok: false, message: 'Falta el CUIT.' });
       if (!cfg.access_token) return res.json({ ok: false, message: 'Falta el Access Token de AfipSDK.' });
       try {
-        const afipInst = new Afip({
-          CUIT: parseInt(cfg.cuit.replace(/-/g, ''), 10),
-          production: cfg.modo === 'produccion',
-          access_token: cfg.access_token,
-          ...(cfg.cert && cfg.key ? { cert: cfg.cert, key: cfg.key } : {})
-        });
+        const afipInst = crearAfip(cfg);
         const status = await afipInst.ElectronicBilling.getServerStatus();
         const ok = status && status.AppServer === 'OK' && status.DbServer === 'OK';
         return res.json({
@@ -132,143 +131,48 @@ app.get('/api/integraciones/afip/comprobantes', autenticar, requiere('pedidos.co
   } catch (e) { errorInterno(res, e); }
 });
 
-const facturandoPedidos = new Set();
-
 // POST /api/integraciones/afip/facturar
-app.post('/api/integraciones/afip/facturar', autenticar, requiere('pedidos.cobrar'), async (req, res) => {
+app.post('/api/integraciones/afip/facturar', autenticar, requiereCobro, async (req, res) => {
   const pedido_id = parseInt(req.body.pedido_id, 10);
-  const tipo_comprobante = parseInt(req.body.tipo_comprobante, 10);
-  // CUIT del receptor: obligatorio para Factura A
-  const cuitReceptor = String(req.body.cuit_receptor || '').replace(/\D/g, '');
-  if (!pedido_id || !tipo_comprobante)
-    return res.status(400).json({ error: 'Faltan datos obligatorios.' });
-  // 1 = Factura A, 6 = Factura B, 11 = Factura C
-  if (![1, 6, 11].includes(tipo_comprobante))
-    return res.status(400).json({ error: 'Tipo de comprobante no soportado (usar Factura A, B o C).' });
-  if (tipo_comprobante === 1 && cuitReceptor.length !== 11)
-    return res.status(400).json({ error: 'La Factura A requiere el CUIT del cliente (11 dígitos).' });
-  // Evita pedir dos CAE para el mismo pedido si llegan dos solicitudes a la vez
-  // (la llamada a AFIP es HTTP externa y no puede ir dentro de una transacción)
-  if (facturandoPedidos.has(pedido_id))
-    return res.status(409).json({ error: 'Ya se está generando el comprobante de este pedido.' });
-  facturandoPedidos.add(pedido_id);
+  if (!pedido_id) return res.status(400).json({ error: 'Faltan datos obligatorios.' });
   try {
-    const cfg = await getIntCfg('afip');
-    if (!cfg.activa)        return res.status(400).json({ error: 'La integración AFIP no está activa.' });
-    if (!cfg.cuit)          return res.status(400).json({ error: 'Configurá el CUIT en Integraciones → AFIP.' });
-    if (!cfg.access_token)  return res.status(400).json({ error: 'Configurá el Access Token de AfipSDK en Integraciones → AFIP.' });
-
-    const pedido = await get('SELECT * FROM pedidos WHERE id = ?', [pedido_id]);
-    if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado.' });
-    if (pedido.estado !== 'pagado')
-      return res.status(400).json({ error: 'Solo se pueden facturar pedidos cobrados.' });
-
-    // No emitir comprobante duplicado para el mismo pedido
-    const yaFacturado = await get(
-      'SELECT id, cae, tipo_comprobante_nombre FROM comprobantes_afip WHERE pedido_id = ?',
-      [pedido_id]
-    );
-    if (yaFacturado) {
-      return res.status(409).json({
-        error: `Este pedido ya tiene ${yaFacturado.tipo_comprobante_nombre} con CAE ${yaFacturado.cae}.`
-      });
-    }
-
-    // Construir instancia Afip con o sin certificado propio
-    const afipOpts = {
-      CUIT:         parseInt(String(cfg.cuit).replace(/-/g, ''), 10),
-      production:   cfg.modo === 'produccion',
-      access_token: cfg.access_token
-    };
-    // Si el usuario subió su propio cert + key, los usamos
-    if (cfg.cert && cfg.key && !/^•+$/.test(cfg.key)) {
-      afipOpts.cert = cfg.cert;
-      afipOpts.key  = cfg.key;
-    }
-    const afipInst = new Afip(afipOpts);
-
-    const ptoVenta = parseInt(cfg.pto_venta, 10) || 1;
-
-    // Obtener último número de comprobante para calcular el siguiente
-    const ultimoNro = await afipInst.ElectronicBilling.getLastVoucher(ptoVenta, tipo_comprobante);
-    const nroComprobante = ultimoNro + 1;
-
-    // Fecha en formato YYYYMMDD que requiere AFIP
-    const hoy = new Date();
-    const fechaAFIP = `${hoy.getFullYear()}${String(hoy.getMonth() + 1).padStart(2, '0')}${String(hoy.getDate()).padStart(2, '0')}`;
-
-    // Calcular importes. El total del pedido incluye IVA.
-    const total = parseFloat(pedido.total) || 0;
-    // Alícuotas AFIP: 3 = 0%, 4 = 10.5%, 5 = 21%, 6 = 27%
-    const ALICUOTAS = { 3: 0, 4: 0.105, 5: 0.21, 6: 0.27 };
-    const codigoAlicuota = ALICUOTAS[cfg.iva_tipo] !== undefined ? Number(cfg.iva_tipo) : 5;
-    const tasaIVA = ALICUOTAS[codigoAlicuota];
-    // Factura A y B (emisor Responsable Inscripto) discriminan IVA; Factura C (monotributo) no lleva IVA
-    const discriminaIVA = tipo_comprobante === 1 || tipo_comprobante === 6;
-    let impNeto = total, impIVA = 0;
-    if (discriminaIVA) {
-      impNeto = parseFloat((total / (1 + tasaIVA)).toFixed(2));
-      impIVA  = parseFloat((total - impNeto).toFixed(2));
-    }
-
-    const voucherData = {
-      CbteTipo:   tipo_comprobante,
-      PtoVta:     ptoVenta,
-      Concepto:   1,           // 1=Productos, 2=Servicios, 3=Productos y Servicios
-      // Factura A: 80 = CUIT del receptor. B/C: 99 = Consumidor Final
-      DocTipo:    tipo_comprobante === 1 ? 80 : 99,
-      DocNro:     tipo_comprobante === 1 ? parseInt(cuitReceptor, 10) : 0,
-      // Condición IVA del receptor (obligatoria): 1 = Resp. Inscripto, 5 = Consumidor Final
-      CondicionIVAReceptorId: tipo_comprobante === 1 ? 1 : 5,
-      CbteDesde:  nroComprobante,
-      CbteHasta:  nroComprobante,
-      CbteFch:    parseInt(fechaAFIP, 10),
-      ImpTotal:   total,
-      ImpTotConc: 0,
-      ImpNeto:    impNeto,
-      ImpOpEx:    0,
-      ImpIVA:     impIVA,
-      ImpTrib:    0,
-      MonId:      'PES',
-      MonCotiz:   1,
-      ...(discriminaIVA ? {
-        Iva: [{ Id: codigoAlicuota, BaseImp: impNeto, Importe: impIVA }]
-      } : {})
-    };
-
-    // Llamada real al WSFE de AFIP
-    const resultado = await afipInst.ElectronicBilling.createVoucher(voucherData);
-
-    const nombres = { 1: 'Factura A', 2: 'Nota Débito A', 3: 'Nota Crédito A',
-                      6: 'Factura B', 7: 'Nota Débito B', 8: 'Nota Crédito B',
-                     11: 'Factura C', 12: 'Nota Débito C', 13: 'Nota Crédito C',
-                     51: 'Factura M' };
-
-    await run(
-      `INSERT INTO comprobantes_afip
-         (pedido_id, tipo_comprobante, tipo_comprobante_nombre, punto_venta,
-          numero_comprobante, cae, cae_vencimiento, fecha_comprobante, total)
-       VALUES (?, ?, ?, ?, ?, ?, ?, date('now', ${LOCAL()}), ?)`,
-      [pedido_id, tipo_comprobante, nombres[tipo_comprobante] || `Tipo ${tipo_comprobante}`,
-       ptoVenta, nroComprobante, resultado.CAE, resultado.CAEFchVto, total]
-    );
-
-    emitEvento('afip:comprobante', { pedido_id, cae: resultado.CAE });
-
-    res.json({
-      ok:                true,
-      cae:               resultado.CAE,
-      cae_vencimiento:   resultado.CAEFchVto,
-      numero_comprobante: nroComprobante,
-      punto_venta:       ptoVenta,
-      tipo_comprobante,
-      tipo_nombre:       nombres[tipo_comprobante] || `Tipo ${tipo_comprobante}`
-    });
+    if (!req.puedeCobrarTodo && !(await pedidoDeSalon(pedido_id)))
+      return res.status(403).json({ error: 'Tu usuario solo puede facturar pedidos de mesa' });
+    res.json(await emitirFactura(pedido_id, req.body.tipo_comprobante, req.body.cuit_receptor, {
+      condicionIva: req.body.condicion_iva_receptor, razonSocial: req.body.razon_social
+    }));
   } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
     console.error('[AFIP facturar]', e.message);
     res.status(500).json({ error: e.message });
-  } finally {
-    facturandoPedidos.delete(pedido_id);
+  }
+});
+
+// POST /api/integraciones/afip/nota-credito  { comprobante_id, motivo, cuit_receptor? }
+// Anula una factura ante ARCA; después el pedido se puede volver a facturar (ej. era A y salió B)
+app.post('/api/integraciones/afip/nota-credito', autenticar, requiereAutorizacion('pedidos.cancelar', 'Anular factura'), async (req, res) => {
+  const comprobanteId = parseInt(req.body.comprobante_id, 10);
+  if (!comprobanteId) return res.status(400).json({ error: 'Faltan datos obligatorios.' });
+  try {
+    const r = await emitirNotaCredito(comprobanteId, req.body.motivo, req.body.cuit_receptor);
+    await run('INSERT INTO auditoria (usuario_id, accion, detalle) VALUES (?, ?, ?)',
+      [req.usuario.id, 'nota_credito', `${r.tipo_nombre} ${r.numero_comprobante} (CAE ${r.cae}) anula el comprobante ${comprobanteId}: ${String(req.body.motivo).slice(0, 200)}`]);
+    res.json(r);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    console.error('[AFIP nota de crédito]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/integraciones/afip/padron/:cuit — razón social y condición de IVA desde ARCA
+app.get('/api/integraciones/afip/padron/:cuit', autenticar, requiereCobro, async (req, res) => {
+  try {
+    res.json(await consultarPadron(req.params.cuit));
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    console.error('[AFIP padrón]', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -336,19 +240,23 @@ app.post('/api/integraciones/tiendanube/sync-productos', autenticar, esAdmin, as
 // POST /api/integraciones/mercadopago/link/:pedidoId
 // Crea un link de pago (Checkout Pro) para un pedido abierto. El pago aprobado
 // llega por /api/mp/notificacion y cierra el pedido automáticamente.
-app.post('/api/integraciones/mercadopago/link/:pedidoId', autenticar, requiere('pedidos.cobrar'), async (req, res) => {
+app.post('/api/integraciones/mercadopago/link/:pedidoId', autenticar, requiereCobro, async (req, res) => {
   try {
+    if (!req.puedeCobrarTodo && !(await pedidoDeSalon(req.params.pedidoId)))
+      return res.status(403).json({ error: 'Tu usuario solo puede cobrar pedidos de mesa' });
     const cfg = await getIntCfg('mercadopago');
     if (!cfg.activa || !cfg.access_token)
       return res.status(400).json({ error: 'Configurá y activá Mercado Pago en Integraciones.' });
     const pedido = await get('SELECT * FROM pedidos WHERE id = ?', [req.params.pedidoId]);
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
     if (pedido.estado !== 'abierto') return res.status(400).json({ error: 'El pedido no está abierto' });
-    if (!(pedido.total > 0)) return res.status(400).json({ error: 'El pedido no tiene importe' });
+    // Si ya se cobró una parte (cuenta dividida), el link es por lo que falta
+    const { saldo } = await saldoPedido(pedido.id);
+    if (!(saldo > 0)) return res.status(400).json({ error: 'El pedido no tiene importe' });
 
     const base = urlPublica();
     const preferencia = await mpRequest(cfg, 'POST', '/checkout/preferences', {
-      items: [{ title: `Pedido ${pedido.numero_pedido}`, quantity: 1, unit_price: Number(pedido.total), currency_id: 'ARS' }],
+      items: [{ title: `Pedido ${pedido.numero_pedido}`, quantity: 1, unit_price: saldo, currency_id: 'ARS' }],
       external_reference: String(pedido.id),
       // MP solo acepta URLs públicas HTTPS para notificaciones
       ...(base.startsWith('https://') ? { notification_url: `${base}/api/mp/notificacion` } : {})
@@ -356,6 +264,7 @@ app.post('/api/integraciones/mercadopago/link/:pedidoId', autenticar, requiere('
     res.json({
       link: cfg.modo === 'produccion' ? preferencia.init_point : (preferencia.sandbox_init_point || preferencia.init_point),
       preferencia_id: preferencia.id,
+      monto: saldo,
       notificaciones: base.startsWith('https://')
     });
   } catch (e) { res.status(500).json({ error: e.message }); }

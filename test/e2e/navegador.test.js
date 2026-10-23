@@ -5,12 +5,17 @@ const assert = require('node:assert/strict');
 const net = require('net');
 const { chromium } = require('playwright-core');
 const { iniciarServidor } = require('../helpers');
+const { iniciarArcaSimulado } = require('../afip-simulado');
 
 const CANAL = process.env.GM_E2E_NAVEGADOR || (process.platform === 'win32' ? 'msedge' : 'chrome');
-let s, navegador;
+// El navegador en la zona del negocio, como en un local real. Sin esto, en el CI (UTC) después de las 21 h de
+// Argentina la pantalla pide los pedidos "de mañana" y la lista sale vacía (ver docs/MAPA-DE-RIESGOS.md).
+const ZONA = process.env.ZONA_HORARIA || 'America/Argentina/Buenos_Aires';
+let s, navegador, arca;
 
 before(async () => {
-  s = await iniciarServidor();
+  arca = await iniciarArcaSimulado();
+  s = await iniciarServidor({ GM_AFIP_API_URL: arca.url });
   for (const [rol, email] of [['mozo', 'mozo@test.com'], ['cocina', 'cocina@test.com']]) {
     await s.llamar('POST', '/api/usuarios', { nombre: `Usuario ${rol}`, email, password: 'clave1234', rol }, s.tokenAdmin);
   }
@@ -23,11 +28,12 @@ before(async () => {
 after(async () => {
   await navegador?.close();
   await s?.cerrar();
+  await arca?.cerrar();
 });
 
 // Página nueva que registra errores de JavaScript (deben quedar en cero)
 async function nuevaPagina() {
-  const contexto = await navegador.newContext({ serviceWorkers: 'block' });
+  const contexto = await navegador.newContext({ serviceWorkers: 'block', timezoneId: ZONA });
   const page = await contexto.newPage();
   page.errores = [];
   page.on('pageerror', e => page.errores.push(e.message));
@@ -143,12 +149,12 @@ test('venta completa desde la pantalla: abrir caja, tomar pedido en el POS y cob
   // Cobrarlo desde Pedidos
   await ir(page, 'pedidos');
   await page.click(`tr[onclick="Pedidos.verDetalle(${pedido.id})"]`);
-  await page.click(`button[onclick="Pedidos.mostrarPagar(${pedido.id})"]`);
-  await page.selectOption('#pagoMetodo', 'efectivo');
-  await page.fill('#pagoMonto', String(pedido.total + 500));
-  await page.click('#modalContainer form[onsubmit^="Pedidos.confirmarPago"] button[type=submit]');
-  await toast(page, 'success', 'Vuelto');
+  await page.click(`button[onclick="Cobro.abrir(${pedido.id})"]`);
+  await page.fill('#modalContainer input[aria-label="Efectivo recibido"]', String(pedido.total + 500));
+  await page.click('#cobroBtn');
+  await page.waitForSelector('.cobro-vuelto:has-text("Vuelto")');
   assert.equal((await s.q('SELECT estado FROM pedidos WHERE id = ?', [pedido.id]))[0].estado, 'pagado');
+  await page.click('#modalContainer button:has-text("Listo")');
 
   // La caja muestra la venta y el efectivo esperado
   await ir(page, 'caja');
@@ -170,11 +176,47 @@ test('el mozo no ve cobrar, descuentos ni cancelar', async () => {
   await ir(page, 'pedidos');
   await page.click(`tr[onclick="Pedidos.verDetalle(${p.id})"]`);
   await page.waitForSelector(`button[onclick="Pedidos.agregarItem(${p.id})"]`);
-  for (const accion of ['mostrarPagar', 'aplicarDescuentoModal', 'cancelar', 'linkMercadoPago']) {
-    assert.equal(await page.$(`button[onclick="Pedidos.${accion}(${p.id})"]`), null, `sin botón ${accion}`);
+  for (const accion of ['Cobro.abrir', 'Pedidos.aplicarDescuentoModal', 'Pedidos.cancelar', 'Pedidos.linkMercadoPago']) {
+    assert.equal(await page.$(`button[onclick="${accion}(${p.id})"]`), null, `sin botón ${accion}`);
   }
   sinErrores(page);
   await page.context().close();
+});
+
+test('cobro en la mesa: el mozo divide la cuenta entre dos desde su celular', async () => {
+  await s.llamar('PUT', '/api/config', { mozo_cobra_mesa: 1 }, s.tokenAdmin);
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'salon', mesa_id: 9, items: [{ producto_id: 1, cantidad: 2 }] }, s.tokenVendedor);
+  const contexto = await navegador.newContext({ serviceWorkers: 'block', timezoneId: ZONA, viewport: { width: 390, height: 844 }, isMobile: true });
+  const page = await contexto.newPage();
+  page.errores = [];
+  page.on('pageerror', e => page.errores.push(e.message));
+  await ingresarOk(page, 'mozo@test.com', 'clave1234');
+  await page.waitForFunction(() => App.config && Number(App.config.mozo_cobra_mesa) === 1);
+  await page.evaluate(id => Pedidos.verDetalle(id), p.id);
+  await page.click(`button[onclick="Cobro.abrir(${p.id})"]`);
+
+  // Dos personas: la primera paga con tarjeta su mitad
+  await page.click('button[aria-label="Más personas"]');
+  await page.selectOption('#modalContainer .cobro-pago select', 'tarjeta');
+  await page.click('#cobroBtn');
+  await page.waitForSelector('#modalContainer .modal:has-text("Pago parcial registrado")');
+  let [ped] = await s.q('SELECT estado FROM pedidos WHERE id = ?', [p.id]);
+  assert.equal(ped.estado, 'abierto');
+
+  // La segunda paga el resto en efectivo y la mesa se libera
+  await page.click('#modalContainer button:has-text("Cobrar al siguiente")');
+  await page.click('#cobroBtn');
+  await page.waitForSelector('#modalContainer .modal:has-text("Cobro completo")');
+  [ped] = await s.q('SELECT estado, metodo_pago, total FROM pedidos WHERE id = ?', [p.id]);
+  assert.deepEqual([ped.estado, ped.metodo_pago], ['pagado', 'mixto']);
+  const pagos = await s.q('SELECT metodo, monto FROM pagos WHERE pedido_id = ? ORDER BY id', [p.id]);
+  assert.deepEqual(pagos.map(x => x.metodo), ['tarjeta', 'efectivo']);
+  assert.equal(pagos[0].monto + pagos[1].monto, ped.total);
+  assert.equal((await s.q('SELECT estado FROM mesas WHERE id = 9'))[0].estado, 'libre');
+  assert.ok(await page.isVisible('#modalContainer button:has-text("WhatsApp")'));
+  assert.deepEqual(page.errores, [], 'errores de JavaScript en la página');
+  await contexto.close();
+  await s.llamar('PUT', '/api/config', { mozo_cobra_mesa: 0 }, s.tokenAdmin);
 });
 
 test('un nombre de producto malicioso no ejecuta código (XSS)', async () => {
@@ -235,4 +277,156 @@ test('el administrador configura una impresora de red y la prueba', async (t) =>
   assert.ok(recibido.toString('latin1').includes('PRUEBA'), 'la impresora recibió la hoja de prueba');
   await page.waitForSelector('#listaImpresoras .badge-green');
   sinErrores(page);
+});
+
+test('factura A con datos del padrón de ARCA, anulación con nota de crédito y nueva factura', async () => {
+  await s.llamar('PUT', '/api/integraciones/config/afip', { cuit: '20-11111111-2', access_token: 'x', activa: true, iva_tipo: 5 }, s.tokenAdmin);
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', items: [{ producto_id: 1, cantidad: 1 }] }, s.tokenVendedor);
+  const [{ total }] = await s.q('SELECT total FROM pedidos WHERE id = ?', [p.id]);
+  await s.llamar('POST', `/api/pedidos/${p.id}/pagar`, { metodo: 'tarjeta', monto: total }, s.tokenVendedor);
+
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'vendedor@test.com', 'vendedor123');
+  await page.evaluate(id => Pedidos.verDetalle(id), p.id);
+  await page.click('#modalContainer button:has-text("Facturar AFIP")');
+  // El CUIT trae razón social y condición desde ARCA
+  await page.fill('#afipCuitReceptor', '27-30123456-8');
+  await page.click('#modalContainer button:has-text("Buscar en ARCA")');
+  await page.waitForSelector('#afipPadronInfo:has-text("GOMEZ ANA")');
+  assert.match(await page.textContent('#afipPadronInfo'), /Monotributo/);
+  await page.click('button[onclick="Integraciones.facturar(' + p.id + ',1)"]');
+  await toast(page, 'success', 'Factura A emitida');
+  let [c] = await s.q('SELECT * FROM comprobantes_afip WHERE pedido_id = ?', [p.id]);
+  assert.deepEqual([c.condicion_iva_receptor, c.razon_social_receptor], [6, 'GOMEZ ANA']);
+
+  // Anularla con nota de crédito
+  await page.evaluate(id => Pedidos.verDetalle(id), p.id);
+  await page.click('#modalContainer button:has-text("Anular con nota de crédito")');
+  await page.fill('#ncMotivo', 'Error en el CUIT');
+  await page.click('#ncBtn');
+  await toast(page, 'success', 'Nota Crédito A emitida');
+  await page.waitForSelector('#modalContainer .badge:has-text("Anulada")');
+  // Se puede volver a facturar
+  await page.click('#modalContainer button:has-text("Facturar AFIP")');
+  await page.click('button[onclick="Integraciones.facturar(' + p.id + ',6)"]');
+  await toast(page, 'success', 'Factura B emitida');
+  const comps = await s.q('SELECT tipo_comprobante_nombre AS t FROM comprobantes_afip WHERE pedido_id = ? ORDER BY id', [p.id]);
+  assert.deepEqual(comps.map(x => x.t), ['Factura A', 'Nota Crédito A', 'Factura B']);
+  sinErrores(page);
+  await page.context().close();
+});
+
+// La pantalla calculaba "hoy" con la zona del dispositivo: en uno con otra zona, después de las 21 h de Argentina
+// la lista de Pedidos salía vacía. Con navegadores en UTC+14 y UTC-12, al menos uno tiene otra fecha que Argentina.
+test('la lista de pedidos de hoy usa la fecha del negocio aunque el dispositivo esté en otra zona', async () => {
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', cliente: 'Zona horaria', items: [{ producto_id: 1, cantidad: 1 }] }, s.tokenVendedor);
+  for (const zona of ['Pacific/Kiritimati', 'Etc/GMT+12']) {
+    const contexto = await navegador.newContext({ serviceWorkers: 'block', timezoneId: zona });
+    const page = await contexto.newPage();
+    await ingresarOk(page, 'vendedor@test.com', 'vendedor123');
+    await ir(page, 'pedidos');
+    await page.waitForSelector(`tr[onclick="Pedidos.verDetalle(${p.id})"]`, { timeout: 8000 });
+    await contexto.close();
+  }
+});
+
+
+test('el administrador configura WhatsApp Business desde Integraciones', async () => {
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'admin@gastromanager.com', 'admin123');
+  await ir(page, 'integraciones');
+  await page.waitForSelector('#waPhoneId');
+  await page.fill('#waPhoneId', '1234567890');
+  await page.fill('#waToken', 'EAAG-token-de-prueba');
+  await page.fill('#waSecret', 'secreto');
+  await page.fill('#waVerify', 'palabra-secreta');
+  await page.selectOption('#waAvisos', '1');
+  await page.selectOption('#waRecordatorio', '3');
+  await page.selectOption('#waActiva', '1');
+  await page.click('#waCard button[type=submit]');
+  await toast(page, 'success', 'WhatsApp guardado');
+  await page.waitForSelector('#waCard .badge:has-text("Conectada")');
+  const [{ valor }] = await s.q("SELECT valor FROM integraciones_config WHERE clave = 'whatsapp'");
+  const cfg = JSON.parse(valor);
+  assert.deepEqual([cfg.phone_number_id, cfg.access_token, cfg.avisar_pedidos, cfg.recordatorio_horas, cfg.activa],
+    ['1234567890', 'EAAG-token-de-prueba', true, 3, true]);
+  assert.doesNotMatch(await page.content(), /EAAG-token-de-prueba/, 'el token no vuelve a la pantalla');
+  sinErrores(page);
+  await page.context().close();
+});
+
+test('receta desde la pantalla: ingredientes, costo calculado y descuento de stock al cobrar', async () => {
+  const crear = async d => (await s.llamar('POST', '/api/productos', { categoria_id: 1, ...d }, s.tokenAdmin))[1].id;
+  const pan = await crear({ nombre: 'Pan e2e', precio_venta: 0, costo: 200, tracking_stock: 1, stock_actual: 50 });
+  const plato = await crear({ nombre: 'Sandwich e2e', precio_venta: 2000, costo: 0 });
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'admin@gastromanager.com', 'admin123');
+  await page.evaluate(() => App.closeModal());
+  await ir(page, 'productos');
+  await page.click(`button[onclick="Productos.receta(${plato})"]`);
+  await page.selectOption('#recetaCuerpo .receta-linea select', String(pan));
+  await page.fill('#recetaCuerpo .receta-linea input', '2');
+  await page.click('#recetaCuerpo button:has-text("Guardar receta")');
+  await toast(page, 'success', 'Receta guardada');
+  assert.equal((await s.q('SELECT costo FROM productos WHERE id = ?', [plato]))[0].costo, 400);
+
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', items: [{ producto_id: plato, cantidad: 3 }] }, s.tokenVendedor);
+  await s.llamar('POST', `/api/pedidos/${p.id}/pagar`, { metodo: 'efectivo', monto: 6000 }, s.tokenVendedor);
+  assert.equal((await s.q('SELECT stock_actual FROM productos WHERE id = ?', [pan]))[0].stock_actual, 44);
+  sinErrores(page);
+  await page.context().close();
+});
+
+test('PIN de autorización: el encargado define su PIN y autoriza el descuento del cajero sin cerrar el formulario', async () => {
+  await s.llamar('POST', '/api/usuarios', { nombre: 'Encargada', email: 'encargada@test.com', password: 'clave1234', rol: 'encargado' }, s.tokenAdmin);
+  await s.q('UPDATE usuarios SET debe_cambiar_password = 0');
+  await s.llamar('PUT', '/api/config', { pin_autorizacion: 1 }, s.tokenAdmin);
+
+  const enc = await nuevaPagina();
+  await ingresarOk(enc, 'encargada@test.com', 'clave1234');
+  await enc.click('#btnPin');
+  await enc.fill('#miPinPassword', 'clave1234');
+  await enc.fill('#miPinNuevo', '2468');
+  await enc.click('#modalContainer button[type=submit]');
+  await toast(enc, 'success', 'PIN guardado');
+  await enc.context().close();
+
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', items: [{ producto_id: 1, cantidad: 2 }] }, s.tokenVendedor);
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'vendedor@test.com', 'vendedor123');
+  assert.equal(await page.isVisible('#btnPin'), false, 'el cajero no tiene PIN');
+  await page.evaluate(id => Pedidos.verDetalle(id), p.id);
+  await page.click(`button[onclick="Pedidos.aplicarDescuentoModal(${p.id})"]`);
+  await page.fill('#descuentoMonto', '100');
+  await page.click('#modalContainer button[type=submit]');
+  await page.waitForSelector('.pin-overlay #pinAutorizacion');
+  await page.fill('#pinAutorizacion', '2468');
+  await page.click('.pin-overlay button[type=submit]');
+  await toast(page, 'success', 'Descuento aplicado');
+  assert.equal((await s.q('SELECT descuento FROM pedidos WHERE id = ?', [p.id]))[0].descuento, 100);
+  sinErrores(page);
+  await page.context().close();
+  await s.llamar('PUT', '/api/config', { pin_autorizacion: 0 }, s.tokenAdmin);
+});
+
+test('arqueo ciego: el cajero cierra la caja sin ver el efectivo esperado', async () => {
+  await s.llamar('PUT', '/api/config', { arqueo_ciego: 1 }, s.tokenAdmin);
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'vendedor@test.com', 'vendedor123');
+  await ir(page, 'caja');
+  await page.waitForSelector('#view-caja .caja-abierta');
+  const texto = await page.textContent('#view-caja');
+  assert.match(texto, /Arqueo ciego/);
+  assert.doesNotMatch(texto, /Efectivo esperado/);
+  await page.click('button[onclick="Caja.mostrarCierre()"]');
+  assert.doesNotMatch(await page.textContent('#modalContainer'), /esperado/i);
+  await page.fill('#cajaFinal', '12345');
+  await page.click('#modalContainer button[type=submit]');
+  await page.waitForSelector('#modalContainer .modal:has-text("El encargado revisa el arqueo")');
+  const [c] = await s.q('SELECT estado, monto_final_real, diferencia FROM caja ORDER BY id DESC LIMIT 1');
+  assert.deepEqual([c.estado, c.monto_final_real], ['cerrada', 12345]);
+  assert.equal(typeof c.diferencia, 'number');
+  sinErrores(page);
+  await page.context().close();
+  await s.llamar('PUT', '/api/config', { arqueo_ciego: 0 }, s.tokenAdmin);
 });

@@ -1,6 +1,6 @@
 'use strict';
 const {
-  run, get, all, transaccion, errorHttp, errorInterno, autenticar, importe, requiere
+  run, get, all, transaccion, errorHttp, errorInterno, autenticar, importe, requiere, autorizar, controlCaja, esSupervisor
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -54,6 +54,14 @@ async function resumenCaja(caja) {
   };
 }
 
+// Arqueo ciego: quien no es encargado no ve lo que "debería" haber; cuenta y declara.
+// Ve sus movimientos, pero no las ventas por medio de pago, el efectivo esperado ni la diferencia.
+function resumenParaUsuario(resumen, usuario, ciego) {
+  if (!ciego || esSupervisor(usuario)) return resumen;
+  const { monto_inicial, ingresos, egresos, movimientos, cobros } = resumen;
+  return { monto_inicial, ingresos, egresos, movimientos, cobros, ciego: true };
+}
+
 // Ingreso o egreso de efectivo en la caja abierta (cambio, retiro, pago a proveedor...)
 app.post('/api/caja/movimiento', autenticar, requiere('caja.operar'), async (req, res) => {
   try {
@@ -63,6 +71,11 @@ app.post('/api/caja/movimiento', autenticar, requiere('caja.operar'), async (req
     if (!['ingreso', 'egreso'].includes(tipo)) return res.status(400).json({ error: 'Tipo de movimiento inválido' });
     if (!Number.isFinite(monto) || monto <= 0) return res.status(400).json({ error: 'El monto debe ser mayor a cero' });
     if (!concepto) return res.status(400).json({ error: 'Indicá el concepto del movimiento' });
+    // Sacar plata de la caja: con el PIN de autorización activado, lo autoriza un encargado
+    if (tipo === 'egreso') {
+      const a = await autorizar(req, 'caja.operar', 'Egreso de caja');
+      if (!a.ok) return res.status(a.status).json({ error: a.error, ...(a.requiere_pin ? { requiere_pin: true } : {}) });
+    }
     const id = await transaccion(async () => {
       const caja = await get("SELECT id FROM caja WHERE estado = 'abierta'");
       if (!caja) throw errorHttp(400, 'No hay caja abierta');
@@ -96,6 +109,9 @@ app.post('/api/caja/cerrar', autenticar, requiere('caja.operar'), async (req, re
         [req.usuario.id, 'cerrar_caja', `Caja #${caja.id} cerrada. Esperado ${resumen.efectivo_esperado}, contado ${redondear(contado)}, diferencia ${diferencia}`]);
       return { resumen, diferencia };
     });
+    const { ciego } = await controlCaja();
+    if (ciego && !esSupervisor(req.usuario))
+      return res.json({ message: 'Caja cerrada. El encargado revisa el arqueo.', ciego: true, efectivo_contado: redondear(contado) });
     res.json({
       message: 'Caja cerrada',
       total_ventas: resultado.resumen.total_ventas,
@@ -113,7 +129,8 @@ app.get('/api/caja/estado', autenticar, requiere('caja.operar'), async (req, res
   try {
     const caja = await get(`SELECT c.*, u.nombre as usuario_nombre FROM caja c LEFT JOIN usuarios u ON c.usuario_id = u.id WHERE c.estado = 'abierta'`);
     if (!caja) return res.json(null);
-    res.json({ ...caja, resumen: await resumenCaja(caja) });
+    const { ciego } = await controlCaja();
+    res.json({ ...caja, resumen: resumenParaUsuario(await resumenCaja(caja), req.usuario, ciego) });
   } catch (err) {
     errorInterno(res, err);
   }

@@ -107,6 +107,27 @@ const ConfigView = {
                 <option value="0" ${!c.activar_impresion ? 'selected' : ''}>Desactivada</option>
               </select>
             </div>
+            <div class="form-group">
+              <label>Cobro en la mesa</label>
+              <select id="cfgMozoCobra" title="Con esto activado, los mozos cobran (y facturan) sus mesas desde el celular: dividen la cuenta, cargan propina y mandan el comprobante por WhatsApp. No pueden cobrar mostrador ni delivery, ni hacer descuentos.">
+                <option value="0" ${!Number(c.mozo_cobra_mesa) ? 'selected' : ''}>Solo cobra la caja</option>
+                <option value="1" ${Number(c.mozo_cobra_mesa) ? 'selected' : ''}>Los mozos cobran sus mesas</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>PIN de autorización</label>
+              <select id="cfgPin" title="Descuentos, cancelaciones, anular facturas y retiros de caja de cajeros y mozos necesitan el PIN de un encargado. Cada encargado define el suyo en Mi PIN.">
+                <option value="0" ${!Number(c.pin_autorizacion) ? 'selected' : ''}>No pedir PIN</option>
+                <option value="1" ${Number(c.pin_autorizacion) ? 'selected' : ''}>Pedir PIN de un encargado</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Arqueo de caja</label>
+              <select id="cfgArqueoCiego" title="En el arqueo ciego, el cajero cuenta la plata sin ver cuánto debería haber. La diferencia la ve el encargado.">
+                <option value="0" ${!Number(c.arqueo_ciego) ? 'selected' : ''}>El cajero ve el efectivo esperado</option>
+                <option value="1" ${Number(c.arqueo_ciego) ? 'selected' : ''}>Arqueo ciego</option>
+              </select>
+            </div>
           </div>
           <div class="modal-footer">
             <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Guardar cambios</button>
@@ -590,6 +611,9 @@ const ConfigView = {
       tasa_iva: parseInt(document.getElementById('cfgIva').value || 21),
       moneda: document.getElementById('cfgMoneda').value,
       activar_impresion: parseInt(document.getElementById('cfgImpresion').value),
+      mozo_cobra_mesa: parseInt(document.getElementById('cfgMozoCobra').value),
+      pin_autorizacion: parseInt(document.getElementById('cfgPin').value),
+      arqueo_ciego: parseInt(document.getElementById('cfgArqueoCiego').value),
       setup_completado: 1
     };
     if (this._tipoSeleccionado) {
@@ -598,7 +622,7 @@ const ConfigView = {
       if (p) { data.modulos_activos = p.modulos; data.terminologia = p.terminologia; }
     }
     try {
-      await API.updateConfig(data);
+      App.config = await API.updateConfig(data);
       App.showToast('Configuración guardada', 'success');
       this.render();
     } catch (err) {

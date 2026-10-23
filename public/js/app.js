@@ -99,6 +99,13 @@ const App = {
         if (App.currentView === 'caja') Caja.render();
       });
 
+      // Cuenta dividida: se cobró una parte y la mesa sigue abierta
+      this.socket.on('pedido:pago_parcial', () => {
+        if (App.currentView === 'mesas') Mesas.render();
+        if (App.currentView === 'pedidos') Pedidos.render();
+        if (App.currentView === 'caja') Caja.render();
+      });
+
       // Pedido cancelado
       this.socket.on('pedido:cancelado', (data) => {
         this.showToast(`Pedido ${data.numero_pedido || ''} cancelado`, 'warning');
@@ -253,6 +260,8 @@ const App = {
     document.getElementById('app').style.display = 'flex';
     document.getElementById('userName').textContent = this.usuario.nombre;
     document.getElementById('userRole').textContent = this.usuario.rol_nombre || this.usuario.rol;
+    // Encargados y administradores tienen PIN para autorizar acciones de otros
+    document.getElementById('btnPin').style.display = this.puede('caja.historial') ? '' : 'none';
 
     // Mostrar solo las secciones permitidas para el rol
     this.aplicarPermisos();
@@ -278,6 +287,7 @@ const App = {
   async cargarModulos() {
     try {
       const config = await API.getConfig();
+      this.config = config;
       const modulos = Array.isArray(config.modulos_activos) && config.modulos_activos.length
         ? config.modulos_activos : null;
       if (modulos) this.aplicarModulos(modulos);
@@ -442,10 +452,43 @@ const App = {
   },
 
   setupLogout() {
+    document.getElementById('btnPin').addEventListener('click', () => this.mostrarMiPin());
     document.getElementById('btnLogout').addEventListener('click', () => {
       API.clearToken();
       window.location.reload();
     });
+  },
+
+  mostrarMiPin() {
+    this.showModal(`
+      <form onsubmit="App.guardarMiPin(event)">
+        <p>Con tu PIN autorizás descuentos, cancelaciones, anulación de facturas y retiros de caja de otros usuarios,
+          cuando el control con PIN está activado en Configuración. No lo compartas.</p>
+        <p>${this.usuario.tiene_pin ? '<span class="badge badge-green">Ya tenés PIN</span> Podés cambiarlo.' : '<span class="badge badge-orange">Todavía no tenés PIN</span>'}</p>
+        <div class="form-group">
+          <label>Tu contraseña</label>
+          <input type="password" id="miPinPassword" autocomplete="current-password" required>
+        </div>
+        <div class="form-group">
+          <label>PIN nuevo (4 a 6 números)</label>
+          <input type="password" id="miPinNuevo" inputmode="numeric" maxlength="6" pattern="[0-9]{4,6}" autocomplete="off" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="App.closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-key"></i> Guardar PIN</button>
+        </div>
+      </form>
+    `, { title: 'Mi PIN de autorización' });
+  },
+
+  async guardarMiPin(e) {
+    e.preventDefault();
+    try {
+      await API.definirPin(document.getElementById('miPinPassword').value, document.getElementById('miPinNuevo').value);
+      this.usuario.tiene_pin = true;
+      this.closeModal();
+      this.showToast('PIN guardado', 'success');
+    } catch (err) { this.showToast(err.message, 'error'); }
   },
 
   showModal(html, options = {}) {

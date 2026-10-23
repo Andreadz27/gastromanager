@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GastroManager - Sistema de Gestion Gastronomica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="topbar">El sistema GastroManager ya esta en linea para tu negocio &mdash; <a href="https://containers-wow-watson-root.trycloudflare.com/" target="_blank">Ingresa aca</a></div>
+<nav class="navbar" id="navbar">
+  <a href="#" class="navbar-logo"><div class="logo-icon">GM</div><span>GastroManager</span></a>
+  <ul class="navbar-links">
+    <li><a href="#beneficios">Beneficios</a></li>
+    <li><a href="#modulos">Modulos</a></li>
+    <li><a href="#cobros">Cobros</a></li>
+    <li><a href="#pantallas">Pantallas</a></li>
+    <li><a href="#flujo">Como funciona</a></li>
+    <li><a href="#comparativa">Todo incluido</a></li>
+    <li><a href="#faq">Preguntas</a></li>
+  </ul>
+  <div class="navbar-cta">
+    <a href="https://containers-wow-watson-root.trycloudflare.com/" target="_blank" class="btn btn-outline">Ingresar</a>
+    <a href="https://containers-wow-watson-root.trycloudflare.com/" target="_blank" class="btn btn-primary">Ver la demo</a>
+  </div>
+  <button class="hamburger" id="hamburger-btn" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
+  <div class="mobile-nav" id="mobile-nav">
+    <a href="#beneficios">Beneficios</a>
+    <a href="#modulos">Modulos</a>
+    <a href="#cobros">Cobros</a>
+    <a href="#pantallas">Pantallas</a>
+    <a href="#flujo">Como funciona</a>
+    <a href="#comparativa">Todo incluido</a>
+    <a href="#faq">Preguntas</a>
+    <a href="https://containers-wow-watson-root.trycloudflare.com/" target="_blank" class="btn btn-primary">Ver la demo</a>
+  </div>
+</nav>
+<section class="hero" id="inicio">
+  <div class="container">
+    <div class="hero-inner">
+      <div class="hero-text">
+        <div class="hero-badge reveal">Sistema de Gestion Gastronomica</div>
+        <h1 class="reveal d1">Control total de tu<br><span class="accent">restaurante, en un solo lugar</span></h1>
+        <p class="hero-sub reveal d2">Mesas, pedidos, cocina, delivery, cobros, facturacion ARCA, inventario y mas. Todo integrado, en tiempo real, desde cualquier dispositivo.</p>
+        <div class="hero-btns reveal d3">
+          <a href="https://containers-wow-watson-root.trycloudflare.com/" target="_blank" class="btn btn-primary btn-lg">Ver la demo</a>
+          <a href="#pantallas" class="btn btn-ghost btn-lg">Ver pantallas</a>
+        </div>
+        <div class="hero-checks reveal d3">
+          <span>&#10003; 21 modulos</span>
+          <span>&#10003; Sin instalaciones</span>
+          <span>&#10003; Tiempo real</span>
+          <span>&#10003; Multi-dispositivo</span>
+        </div>
+      </div>
+      <div class="hero-visual reveal d2">
+        <div class="browser-mockup">
+          <div class="browser-bar-row">
+            <span class="bdot" style="background:#ff5f57"></span>
+            <span class="bdot" style="background:#febc2e"></span>
+            <span class="bdot" style="background:#28c840"></span>
+            <span class="browser-url">containers-wow-watson-root.trycloudflare.com</span>
+          </div>
+          <div class="app-mock">
+            <div class="app-sidebar">
+              <div class="app-logo-sm">GM</div>
+              <div class="slink active">Dashboard</div>
+              <div class="slink">POS</div>
+              <div class="slink">Mesas</div>
+              <div class="slink">Cocina</div>
+              <div class="slink">Delivery</div>
+              <div class="slink">Caja</div>
+              <div class="slink">Inventario</div>
+            </div>
+            <div class="app-content">
+              <div class="app-header-bar"><span class="app-title">Dashboard</span><span class="app-user">Admin</span></div>
+              <div class="kpi-strip">
+                <div class="kpi"><div class="kpi-l">Ventas hoy</div><div class="kpi-v">$284.500</div><div class="kpi-t up">+18%</div></div>
+                <div class="kpi"><div class="kpi-l">Pedidos</div><div class="kpi-v">47</div><div class="kpi-t up">+5</div></div>
+                <div class="kpi"><div class="kpi-l">Mesas</div><div class="kpi-v">12/18</div><div class="kpi-t">67%</div></div>
+              </div>
+              <div class="orders-preview">
+                <div class="op-row"><span>Mesa 4</span><span class="badge-g">Listo</span></div>
+                <div class="op-row"><span>Delivery #23</span><span class="badge-y">En camino</span></div>
+                <div class="op-row"><span>Mesa 7</span><span class="badge-b">Cocina</span></div>
+                <div class="op-row"><span>Mesa 2</span><span class="badge-r">Pendiente</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="benefits" id="beneficios">
+  <div class="container">
+    <div class="text-center reveal">
+      <div class="section-tag">Por que GastroManager?</div>
+      <h2 class="section-title">Gestion inteligente, resultados inmediatos</h2>
+      <p class="section-sub">Toma decisiones con datos en tiempo real y ahorra horas de trabajo manual cada dia.</p>
+    </div>
+    <div class="benefits-grid">
+      <div class="benefit-card reveal d1"><div class="benefit-icon">&#127758;</div><h3>Sin instalaciones</h3><p>Accedes desde cualquier compu, tablet o celular. Solo abris el navegador y listo.</p></div>
+      <div class="benefit-card reveal d2"><div class="benefit-icon">&#9889;</div><h3>Tiempo real en cocina</h3><p>Los pedidos llegan al display de cocina al instante. Sin papel, sin errores.</p></div>
+      <div class="benefit-card reveal d3"><div class="benefit-icon">&#128202;</div><h3>Control financiero completo</h3><p>Caja, ingresos, egresos y reportes. Sabes exactamente cuanto ganas y en que gastas.</p></div>
+    </div>
+  </div>
+</section>
+<section class="feature-section">
+  <div class="container">
+    <div class="features-split">
+      <div class="reveal">
+        <div class="section-tag">Panel de control</div>
+        <h2 class="section-title">El poder de saber que pasa en tu local</h2>
+        <p class="section-sub-sm">Metricas de ventas, mesas, pedidos y caja en una pantalla. Toma decisiones con datos en tiempo real.</p>
+        <div class="feature-list">
+          <div class="feature-item"><div class="fi-icon">&#10003;</div><div><h4>Dashboard con metricas en vivo</h4><p>Ventas del dia, ticket promedio, mesas ocupadas y mas.</p></div></div>
+          <div class="feature-item"><div class="fi-icon">&#10003;</div><div><h4>Roles y usuarios diferenciados</h4><p>Admin, mozo, cajero, cocinero. Cada uno ve lo que necesita.</p></div></div>
+          <div class="feature-item"><div class="fi-icon">&#10003;</div><div><h4>Estado de cada pedido</h4><p>Pendiente, en cocina, listo, entregado o cancelado.</p></div></div>
+          <div class="feature-item"><div class="fi-icon">&#10003;</div><div><h4>Acciones rapidas</h4><p>Abri mesa, nuevo pedido o cerra caja en segundos.</p></div></div>
+        </div>
+        <a href="https://containers-wow-watson-root.trycloudflare.com/" target="_blank" class="btn btn-primary mt">Probalo ahora</a>
+      </div>
+      <div class="reveal d2">
+        <div class="visual-card">
+          <div class="widget"><div class="widget-label">Ventas de hoy</div><div class="widget-row"><span class="widget-val">$284.500</span><span class="pill pill-green">+18%</span></div></div>
+          <div class="widget"><div class="widget-label">Mesas activas</div><div class="widget-row"><span class="widget-val">12 de 18</span><span class="pill pill-orange">67%</span></div></div>
+          <div class="widget"><div class="widget-label">Pedidos en cocina</div><div class="widget-row"><span class="widget-val">5 activos</span><span class="pill pill-blue">3 listos</span></div></div>
+          <div class="widget"><div class="widget-label">Delivery activos</div><div class="widget-row"><span class="widget-val">9 pedidos</span><span class="pill pill-green">3 en camino</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="feature-section feature-alt">
+  <div class="container">
+    <div class="features-split features-reverse">
+      <div class="reveal d2">
+        <div class="visual-card">
+          <div class="form-mock">
+            <div class="fm-title">Nuevo pedido - Mesa 5</div>
+            <div class="fm-row"><span>Milanesa completa</span><span class="fm-price">$3.800</span></div>
+            <div class="fm-row"><span>Gaseosa 500ml x2</span><span class="fm-price">$1.200</span></div>
+            <div class="fm-row fm-total"><span>Total</span><span class="fm-price">$5.000</span></div>
+            <div class="fm-actions"><button class="fm-btn-send">Enviar a cocina</button><button class="fm-btn-pay">Cobrar</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="section-tag">Punto de Venta y Pedidos</div>
+        <h2 class="section-title">El poder de ahorrar tiempo y no perder nada</h2>
+        <p class="section-sub-sm">Cada pedido que entra cae automaticamente en cocina. El equipo confirma y organiza en segundos.</p>
+        <div class="feature-list">
+          <div class="feature-item"><div class="fi-icon">&#10003;</div><div><h4>POS tactil con carta digital</h4><p>Toma pedidos por mesa, mostrador o delivery desde cualquier dispositivo.</p></div></div>
+          <div class="feature-item"><div class="fi-icon">&#10003;</div><div><h4>Display de cocina (KDS)</h4><p>Pantalla en tiempo real para el equipo. Sin papel ni gritos.</p></div></div>
+          <div class="feature-item"><div class="fi-icon">&#10003;</div><div><h4>Control de cobros y caja</h4><p>Efectivo, tarjeta o QR. La caja se actualiza automaticamente.</p></div></div>
+          <div class="feature-item"><div class="fi-icon">&#10003;</div><div><h4>Stock que se descuenta solo</h4><p>Cada pedido confirmado descuenta insumos del inventario.</p></div></div>
+        </div>
+        <a href="https://containers-wow-watson-root.trycloudflare.com/" target="_blank" class="btn btn-primary mt">Empeza hoy</a>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="feature-section" id="cobros">
+  <div class="container">
+    <div class="features-split">
+      <div class="reveal">
+        <div class="section-tag">Cobro y facturacion en la mesa</div>
+        <h2 class="section-title">Un sistema para comandar, cobrar y facturar. No tres.</h2>
+        <p class="section-sub-sm">El mozo toma el pedido, cobra y emite la factura electronica ARCA desde el mismo celular o terminal. Cada venta impacta al instante en la caja, sin cierres de lote ni conciliacion manual.</p>
+        <div class="feature-list">
+          <div class="feature-item"><div class="fi-icon">&#10003;</div><div><h4>Cobro en la mesa</h4><p>Efectivo, tarjeta, transferencia o QR de Mercado Pago en la pantalla del mozo. El cliente no espera la cuenta.</p></div></div>
+          <div class="feature-item"><div class="fi-icon">&#10003;</div><div><h4>Factura electronica ARCA (ex AFIP)</h4><p>Factura A, B o C con CAE al momento de cobrar. El comprobante se manda por WhatsApp.</p></div></div>
+          <div class="feature-item"><div class="fi-icon">&#10003;</div><div><h4>Conciliacion automatica</h4><p>Cada pago entra a la caja en su medio de pago, ligado a su pedido y su factura. El arqueo cuadra solo.</p></div></div>
+          <div class="feature-item"><div class="fi-icon">&#10003;</div><div><h4>Dividir cuenta y propinas</h4><p>En partes iguales o montos libres, con varios medios de pago. La propina se suma en el mismo cobro.</p></div></div>
+        </div>
+        <a href="https://containers-wow-watson-root.trycloudflare.com/" target="_blank" class="btn btn-primary mt">Ver la demo</a>
+      </div>
+      <div class="reveal d2">
+        <div class="visual-card">
+          <div class="form-mock">
+            <div class="fm-title">Mesa 5 &middot; Cobro en la mesa</div>
+            <div class="fm-row"><span>Milanesa completa</span><span class="fm-price">$3.800</span></div>
+            <div class="fm-row"><span>Gaseosa 500ml x2</span><span class="fm-price">$1.200</span></div>
+            <div class="fm-row"><span>Propina 10%</span><span class="fm-price">$500</span></div>
+            <div class="fm-row fm-total"><span>Total</span><span class="fm-price">$5.500</span></div>
+          </div>
+          <div class="widget"><div class="widget-label">Pago</div><div class="widget-row"><span class="widget-val">Tarjeta debito</span><span class="pill pill-green">Aprobado</span></div></div>
+          <div class="widget"><div class="widget-label">Comprobante</div><div class="widget-row"><span class="widget-val">Factura B 0003-00001245</span><span class="pill pill-blue">CAE OK</span></div></div>
+          <div class="widget"><div class="widget-label">Caja</div><div class="widget-row"><span class="widget-val">Conciliado</span><span class="pill pill-orange">Al instante</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="modules-section" id="modulos">
+  <div class="container">
+    <div class="text-center reveal">
+      <div class="section-tag mod-tag">21 modulos integrados</div>
+      <h2 class="section-title" style="color:#fff">Todo lo que tu restaurante necesita</h2>
+      <p class="section-sub" style="color:rgba(255,255,255,.65)">Cada modulo esta conectado. Los datos fluyen solos entre mesas, cocina, caja e inventario.</p>
+    </div>
+    <div class="modules-grid">
+      <div class="module-card reveal d1"><div class="m-icon">&#128202;</div><h4>Dashboard</h4><p>Metricas en vivo y acciones rapidas.</p></div>
+      <div class="module-card reveal d2"><div class="m-icon">&#128722;</div><h4>Punto de Venta</h4><p>POS tactil para mesas y mostrador.</p></div>
+      <div class="module-card reveal d3"><div class="m-icon">&#127860;</div><h4>Mesas</h4><p>Plano del salon con estado en vivo.</p></div>
+      <div class="module-card reveal d1"><div class="m-icon">&#128104;&#8205;&#127859;</div><h4>Cocina KDS</h4><p>Display de pedidos para el equipo.</p></div>
+      <div class="module-card reveal d2"><div class="m-icon">&#128665;</div><h4>Delivery</h4><p>Pedidos externos con seguimiento.</p></div>
+      <div class="module-card reveal d3"><div class="m-icon">&#128181;</div><h4>Caja</h4><p>Apertura, cierre y control de efectivo.</p></div>
+      <div class="module-card reveal d1"><div class="m-icon">&#128230;</div><h4>Inventario</h4><p>Stock con alertas de minimos.</p></div>
+      <div class="module-card reveal d2"><div class="m-icon">&#128200;</div><h4>Reportes</h4><p>Ventas, ranking y analisis financiero.</p></div>
+      <div class="module-card reveal d3"><div class="m-icon">&#127978;</div><h4>Proveedores</h4><p>Contactos, compras y deudas.</p></div>
+      <div class="module-card reveal d1"><div class="m-icon">&#128101;</div><h4>Clientes</h4><p>Base con historial de consumo.</p></div>
+      <div class="module-card reveal d2"><div class="m-icon">&#128197;</div><h4>Reservas</h4><p>Agenda de mesas con confirmacion.</p></div>
+      <div class="module-card reveal d3"><div class="m-icon">&#128241;</div><h4>Menu QR</h4><p>Carta digital con QR para las mesas.</p></div>
+      <div class="module-card reveal d1"><div class="m-icon">&#128279;</div><h4>Integraciones</h4><p>Mercado Pago, impresoras y mas.</p></div>
+      <div class="module-card reveal d2"><div class="m-icon">&#9881;</div><h4>Configuracion</h4><p>Usuarios, roles y parametros del local.</p></div>
+      <div class="module-card reveal d3"><div class="m-icon">&#129534;</div><h4>Facturacion ARCA</h4><p>Factura electronica A, B y C incluida.</p></div>
+      <div class="module-card reveal d1"><div class="m-icon">&#128179;</div><h4>Cobro en la mesa</h4><p>Pedido, cobro y factura en un dispositivo.</p></div>
+      <div class="module-card reveal d2"><span class="soon-tag">Pronto</span><div class="m-icon">&#11088;</div><h4>Fidelizacion</h4><p>Puntos, cupones y gift cards.</p></div>
+      <div class="module-card reveal d3"><span class="soon-tag">Pronto</span><div class="m-icon">&#128336;</div><h4>Personal</h4><p>Turnos, fichaje y reparto de propinas.</p></div>
+      <div class="module-card reveal d1"><span class="soon-tag">Pronto</span><div class="m-icon">&#129302;</div><h4>Asistente IA</h4><p>Pedidos y reservas por WhatsApp 24/7.</p></div>
+      <div class="module-card reveal d2"><span class="soon-tag">Pronto</span><div class="m-icon">&#128225;</div><h4>Modo sin conexion</h4><p>Segui vendiendo si se corta internet.</p></div>
+      <div class="module-card reveal d3"><span class="soon-tag">Pronto</span><div class="m-icon">&#127970;</div><h4>Multi-sucursal</h4><p>Varios locales, reportes consolidados.</p></div>
+    </div>
+  </div>
+</section>
+<section class="screenshots-section" id="pantallas">
+  <div class="container">
+    <div class="text-center reveal">
+      <div class="section-tag">Asi se ve por dentro</div>
+      <h2 class="section-title">Pantallas reales del sistema</h2>
+      <p class="section-sub">Toca cada pestana y mira como se ve en accion.</p>
+    </div>
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="pos">Punto de Venta</button>
+      <button class="tab-btn" data-tab="mesas">Mesas</button>
+      <button class="tab-btn" data-tab="cocina">Cocina KDS</button>
+      <button class="tab-btn" data-tab="reportes">Reportes</button>
+      <button class="tab-btn" data-tab="inventario">Inventario</button>
+    </div>
+    <div class="tab-panels">
+      <div class="tab-panel active" id="tab-dashboard">
+        <div class="mock-screen">
+          <div class="mock-topbar"><div class="sdot"></div><span>Dashboard - Hoy</span><span class="htag">Turno Noche</span></div>
+          <div class="mock-body">
+            <div class="mock-kpis">
+              <div class="mk"><div class="mk-l">Ventas hoy</div><div class="mk-v">$284.500</div><div class="mk-t up">+18%</div></div>
+              <div class="mk"><div class="mk-l">Pedidos</div><div class="mk-v">47</div><div class="mk-t up">+5</div></div>
+              <div class="mk"><div class="mk-l">Ticket prom.</div><div class="mk-v">$6.053</div><div class="mk-t up">+$320</div></div>
+              <div class="mk"><div class="mk-l">Delivery</div><div class="mk-v">9</div><div class="mk-t">3 activos</div></div>
+            </div>
+            <table class="mock-table"><thead><tr><th>#</th><th>Producto</th><th>Unidades</th><th>Ingresos</th><th>Estado</th></tr></thead><tbody>
+              <tr><td>1</td><td>Milanesa completa</td><td>23</td><td>$87.400</td><td><span class="badge-g">Activo</span></td></tr>
+              <tr><td>2</td><td>Hamburguesa doble</td><td>18</td><td>$63.000</td><td><span class="badge-g">Activo</span></td></tr>
+              <tr><td>3</td><td>Pasta del dia</td><td>12</td><td>$42.000</td><td><span class="badge-y">Stock bajo</span></td></tr>
+              <tr><td>4</td><td>Gaseosa 500ml</td><td>54</td><td>$32.400</td><td><span class="badge-g">Activo</span></td></tr>
+              <tr><td>5</td><td>Postre del dia</td><td>8</td><td>$12.000</td><td><span class="badge-r">Agotado</span></td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-pos">
+        <div class="mock-screen">
+          <div class="mock-topbar"><div class="sdot"></div><span>Punto de Venta - Mesa 5</span></div>
+          <div class="mock-body">
+            <div class="pos-layout">
+              <div><div class="mock-sublabel">Carta</div>
+                <div class="pos-grid">
+                  <div class="pos-item">&#129385;<br>Milanesa<br><b>$3.800</b></div>
+                  <div class="pos-item">&#127828;<br>Hambur.<br><b>$3.500</b></div>
+                  <div class="pos-item">&#127837;<br>Pasta<br><b>$3.200</b></div>
+                  <div class="pos-item">&#129380;<br>Gaseosa<br><b>$600</b></div>
+                  <div class="pos-item">&#127866;<br>Cerveza<br><b>$1.200</b></div>
+                  <div class="pos-item pos-ago">&#129520;<br>Postre<br><b style="color:#ef4444">Agotado</b></div>
+                </div>
+              </div>
+              <div><div class="mock-sublabel">Pedido actual</div>
+                <div class="pos-order">
+                  <div class="pos-row"><span>Milanesa x1</span><span>$3.800</span></div>
+                  <div class="pos-row"><span>Gaseosa x2</span><span>$1.200</span></div>
+                  <div class="pos-total"><span>Total</span><span>$5.000</span></div>
+                  <div class="pos-btns"><button class="pbtn-send">Enviar a cocina</button><button class="pbtn-pay">Cobrar</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-mesas">
+        <div class="mock-screen">
+          <div class="mock-topbar"><div class="sdot"></div><span>Mesas - Plano del salon</span></div>
+          <div class="mock-body">
+            <div class="mesas-legend"><span class="badge-g">Libre (6)</span><span class="badge-r">Ocupada (7)</span><span class="badge-y">Con pedido (3)</span><span class="badge-b">Reservada (2)</span></div>
+            <div class="mesas-fg">
+              <div class="mesa libre">M1<br>Libre</div><div class="mesa ocupada">M2<br>4 pers.</div>
+              <div class="mesa pedido">M3<br>Pedido</div><div class="mesa reserva">M4<br>Reserva</div>
+              <div class="mesa ocupada">M5<br>2 pers.</div><div class="mesa libre">M6<br>Libre</div>
+              <div class="mesa pedido">M7<br>Pedido</div><div class="mesa ocupada">M8<br>3 pers.</div>
+              <div class="mesa libre">M9<br>Libre</div><div class="mesa ocupada">M10<br>6 pers.</div>
+              <div class="mesa pedido">M11<br>Pedido</div><div class="mesa reserva">M12<br>Reserva</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-cocina">
+        <div class="mock-screen">
+          <div class="mock-topbar"><div class="sdot"></div><span>Cocina KDS</span><span class="htag">5 pedidos activos</span></div>
+          <div class="mock-body">
+            <div class="kds-grid">
+              <div class="kds-card kds-new"><div class="kds-head"><b>Mesa 2</b><span class="badge-r">Nuevo</span></div><div class="kds-items"><div>x2 Milanesas</div><div>x1 Ensalada</div></div><div class="kds-time">Hace 2 min</div></div>
+              <div class="kds-card kds-cooking"><div class="kds-head"><b>Mesa 5</b><span class="badge-y">En cocina</span></div><div class="kds-items"><div>x1 Pasta</div><div>x1 Agua</div></div><div class="kds-time">Hace 8 min</div></div>
+              <div class="kds-card kds-ready"><div class="kds-head"><b>Delivery #23</b><span class="badge-g">Listo</span></div><div class="kds-items"><div>x2 Hamburguesas</div><div>x2 Gaseosas</div></div><div class="kds-time">Hace 15 min</div></div>
+              <div class="kds-card kds-new"><div class="kds-head"><b>Mesa 8</b><span class="badge-r">Nuevo</span></div><div class="kds-items"><div>x3 Pizzas</div><div>x2 Cervezas</div></div><div class="kds-time">Hace 1 min</div></div>
+              <div class="kds-card kds-cooking"><div class="kds-head"><b>Mesa 10</b><span class="badge-y">En cocina</span></div><div class="kds-items"><div>x4 Empanadas</div></div><div class="kds-time">Hace 5 min</div></div>
+              <div class="kds-empty">Sin pedido</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-reportes">
+        <div class="mock-screen">
+          <div class="mock-topbar"><div class="sdot"></div><span>Reportes - Semana actual</span></div>
+          <div class="mock-body">
+            <div class="mock-kpis">
+              <div class="mk"><div class="mk-l">Ingresos semana</div><div class="mk-v">$1.42M</div><div class="mk-t up">+22%</div></div>
+              <div class="mk"><div class="mk-l">Pedidos</div><div class="mk-v">312</div><div class="mk-t up">+34</div></div>
+              <div class="mk"><div class="mk-l">Ticket prom.</div><div class="mk-v">$4.551</div><div class="mk-t up">+$210</div></div>
+              <div class="mk"><div class="mk-l">Mejor dia</div><div class="mk-v">Sabado</div><div class="mk-t">$310k</div></div>
+            </div>
+            <div class="bar-chart">
+              <div class="bar-wrap"><div class="bar" style="height:60%"></div><span>Lun</span></div>
+              <div class="bar-wrap"><div class="bar" style="height:80%"></div><span>Mar</span></div>
+              <div class="bar-wrap"><div class="bar" style="height:50%"></div><span>Mie</span></div>
+              <div class="bar-wrap"><div class="bar" style="height:90%"></div><span>Jue</span></div>
+              <div class="bar-wrap"><div class="bar" style="height:70%"></div><span>Vie</span></div>
+              <div class="bar-wrap"><div class="bar bar-hi" style="height:100%"></div><span>Sab</span></div>
+              <div class="bar-wrap"><div class="bar" style="height:45%"></div><span>Dom</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-inventario">
+        <div class="mock-screen">
+          <div class="mock-topbar"><div class="sdot"></div><span>Inventario - Stock actual</span></div>
+          <div class="mock-body">
+            <table class="mock-table"><thead><tr><th>Producto</th><th>Categoria</th><th>Stock</th><th>Minimo</th><th>Estado</th></tr></thead><tbody>
+              <tr><td>Carne vacuna</td><td>Proteinas</td><td>12 kg</td><td>5 kg</td><td><span class="badge-g">OK</span></td></tr>
+              <tr><td>Harina</td><td>Secos</td><td>3 kg</td><td>5 kg</td><td><span class="badge-r">Bajo</span></td></tr>
+              <tr><td>Gaseosa</td><td>Bebidas</td><td>48</td><td>12</td><td><span class="badge-g">OK</span></td></tr>
+              <tr><td>Aceite</td><td>Secos</td><td>4 lt</td><td>4 lt</td><td><span class="badge-y">Minimo</span></td></tr>
+              <tr><td>Cerveza</td><td>Bebidas</td><td>24</td><td>10</td><td><span class="badge-g">OK</span></td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="flow-section" id="flujo">
+  <div class="container">
+    <div class="text-center reveal">
+      <div class="section-tag">Asi funciona</div>
+      <h2 class="section-title">Del pedido a la caja sin fricciones</h2>
+      <p class="section-sub">Todo conectado en tiempo real, sin papel y sin errores.</p>
+    </div>
+    <div class="flow-steps">
+      <div class="flow-step reveal d1"><div class="step-num">1</div><h4>El mozo toma el pedido</h4><p>Desde el POS en tablet o celular. El pedido queda registrado con mesa y productos.</p></div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step reveal d2"><div class="step-num">2</div><h4>Llega a cocina al instante</h4><p>El display KDS muestra el pedido en segundos. Sin papel ni gritos.</p></div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step reveal d3"><div class="step-num">3</div><h4>Cocina confirma el estado</h4><p>El equipo marca En preparacion y luego Listo. El mozo ve la notificacion.</p></div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step reveal d4"><div class="step-num">4</div><h4>Se cobra, factura y cierra</h4><p>Cobro con efectivo, tarjeta o QR, incluso en la mesa. La factura ARCA y la caja se actualizan solas.</p></div>
+    </div>
+    <div class="flow-checks reveal">
+      <span>&#10003; Acceso para todo el equipo</span>
+      <span>&#10003; 21 modulos integrados</span>
+      <span>&#10003; Se adapta a tu negocio</span>
+    </div>
+  </div>
+</section>
+<section class="compare-section" id="comparativa">
+  <div class="container">
+    <div class="text-center reveal">
+      <div class="section-tag">Todo incluido</div>
+      <h2 class="section-title">Sin modulos que se pagan aparte</h2>
+      <p class="section-sub">En otros sistemas las mesas, la facturacion o el delivery se cobran como extra. En GastroManager vienen en el mismo plan.</p>
+    </div>
+    <div class="compare-wrap reveal d1">
+      <table class="compare-table">
+        <thead><tr><th>Funcion</th><th class="ct-gm">GastroManager</th><th>Otros sistemas</th></tr></thead>
+        <tbody>
+          <tr><td>Gestion de mesas y plano del salon</td><td class="ct-gm"><span class="ct-yes">Incluido</span></td><td><span class="ct-extra">Modulo pago aparte</span></td></tr>
+          <tr><td>Facturacion electronica ARCA</td><td class="ct-gm"><span class="ct-yes">Incluido</span></td><td><span class="ct-extra">Modulo pago aparte</span></td></tr>
+          <tr><td>Pedidos de apps de delivery</td><td class="ct-gm"><span class="ct-yes">Incluido</span></td><td><span class="ct-extra">Modulo pago aparte</span></td></tr>
+          <tr><td>Recetas: stock de ingredientes y costo real de cada plato</td><td class="ct-gm"><span class="ct-yes">Incluido</span></td><td><span class="ct-extra">Solo planes intermedios</span></td></tr>
+          <tr><td>Arqueo ciego y PIN del encargado para descuentos y retiros</td><td class="ct-gm"><span class="ct-yes">Incluido</span></td><td><span class="ct-extra">Solo plan mas caro</span></td></tr>
+          <tr><td>Contabilidad: estado de resultados, IVA y libro diario</td><td class="ct-gm"><span class="ct-yes">Incluido</span></td><td><span class="ct-extra">Solo plan mas caro</span></td></tr>
+          <tr><td>Cobro, factura y cuenta dividida desde el celular del mozo</td><td class="ct-gm"><span class="ct-yes">Incluido</span></td><td><span class="ct-extra">Factura paga aparte</span></td></tr>
+          <tr><td>WhatsApp oficial: comprobante, pedido listo y recordatorio de reservas</td><td class="ct-gm"><span class="ct-yes">Incluido</span></td><td><span class="ct-extra">Segun el plan</span></td></tr>
+          <tr><td>Fidelizacion: puntos, cupones y gift cards</td><td class="ct-gm"><span class="ct-soon">Proximamente</span></td><td><span class="ct-no">No disponible</span></td></tr>
+          <tr><td>Personal: turnos, fichaje y reparto de propinas</td><td class="ct-gm"><span class="ct-soon">Proximamente</span></td><td><span class="ct-no">No disponible</span></td></tr>
+          <tr><td>Modo sin conexion</td><td class="ct-gm"><span class="ct-soon">Proximamente</span></td><td><span class="ct-no">No disponible</span></td></tr>
+          <tr><td>Soporte en horario de servicio nocturno</td><td class="ct-gm"><span class="ct-yes">Hasta el cierre</span></td><td><span class="ct-extra">Horario comercial</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+<section class="faq-section" id="faq">
+  <div class="container">
+    <div class="text-center reveal">
+      <div class="section-tag">Preguntas frecuentes</div>
+      <h2 class="section-title">Todo lo que necesitas saber</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item"><button class="faq-q">Que es GastroManager? <span class="faq-icon">+</span></button><div class="faq-a"><p>Es una plataforma de gestion gastronomica que centraliza mesas, pedidos, cocina, delivery, caja, inventario y reportes en un solo lugar. Funciona desde el navegador, sin instalar nada.</p></div></div>
+      <div class="faq-item"><button class="faq-q">Necesito instalar algo? <span class="faq-icon">+</span></button><div class="faq-a"><p>No. Se abre directo en Chrome, Edge o cualquier navegador moderno, desde computadora, tablet o celular. No hay app que descargar ni software que instalar.</p></div></div>
+      <div class="faq-item"><button class="faq-q">Como funciona el display de cocina? <span class="faq-icon">+</span></button><div class="faq-a"><p>El modulo Cocina (KDS) muestra en tiempo real todos los pedidos activos. Cuando el mozo confirma un pedido, aparece al instante en la pantalla de cocina.</p></div></div>
+      <div class="faq-item"><button class="faq-q">Puedo facturar electronicamente con ARCA (ex AFIP)? <span class="faq-icon">+</span></button><div class="faq-a"><p>Si. Cada venta puede emitir factura A, B o C con CAE al momento de cobrar, sin modulos extra. El comprobante se envia al cliente por WhatsApp o mail.</p></div></div>
+      <div class="faq-item"><button class="faq-q">Se puede cobrar en la mesa? <span class="faq-icon">+</span></button><div class="faq-a"><p>Si. El mozo toma el pedido, cobra con tarjeta o QR y emite la factura desde el mismo dispositivo. El pago queda conciliado con la caja al instante, sin cierres de lote.</p></div></div>
+      <div class="faq-item"><button class="faq-q">Se puede dividir la cuenta? <span class="faq-icon">+</span></button><div class="faq-a"><p>Si. En partes iguales o por montos, y cada persona paga con el medio que quiera. La mesa queda abierta hasta que se cobra todo, y recien ahi se emite la factura y se libera.</p></div></div>
+      <div class="faq-item"><button class="faq-q">Como accedo a la demo? <span class="faq-icon">+</span></button><div class="faq-a"><p>Haz clic en Ver la demo y accedes directamente al sistema en containers-wow-watson-root.trycloudflare.com. Podes explorar todos los modulos con datos de ejemplo precargados.</p></div></div>
+      <div class="faq-item"><button class="faq-q">Se pueden gestionar multiples roles? <span class="faq-icon">+</span></button><div class="faq-a"><p>Si. El sistema tiene roles diferenciados: Administrador, Mozo, Cajero, Cocinero y mas. Cada rol ve y puede hacer solo lo que le corresponde.</p></div></div>
+      <div class="faq-item"><button class="faq-q">El inventario se actualiza solo? <span class="faq-icon">+</span></button><div class="faq-a"><p>Si. Cada vez que se confirma un pedido, el sistema descuenta los insumos del inventario. Tambien recibis alertas cuando un producto esta por debajo del stock minimo.</p></div></div>
+    </div>
+  </div>
+</section>
+<section class="cta-final">
+  <div class="container">
+    <h2 class="reveal">Desperta el poder que tu restaurante necesita!</h2>
+    <p class="reveal d1">Explora el sistema completo con datos de ejemplo. Sin registro, sin tarjeta. Solo abris y empezas.</p>
+    <a href="https://containers-wow-watson-root.trycloudflare.com/" target="_blank" class="btn btn-white btn-lg reveal d2">Ver la demo ahora &rarr;</a>
+    <div class="cta-checks reveal d3">
+      <span>&#10003; Sin instalaciones</span>
+      <span>&#10003; 21 modulos integrados</span>
+      <span>&#10003; Tiempo real</span>
+      <span>&#10003; Multi-dispositivo</span>
+    </div>
+  </div>
+</section>
+<footer>
+  <div class="footer-grid container">
+    <div class="footer-brand">
+      <div class="footer-logo"><div class="logo-icon">GM</div>GastroManager</div>
+      <p>Sistema de gestion gastronomica para restaurantes, bares, pizzerias y negocios de comida.</p>
+      <div class="footer-contact">Acceso: <a href="https://containers-wow-watson-root.trycloudflare.com/" target="_blank">containers-wow-watson-root.trycloudflare.com</a></div>
+    </div>
+    <div class="footer-col"><h5>Sistema</h5><ul><li><a href="https://containers-wow-watson-root.trycloudflare.com/">Dashboard</a></li><li><a href="https://containers-wow-watson-root.trycloudflare.com/">Punto de Venta</a></li><li><a href="https://containers-wow-watson-root.trycloudflare.com/">Mesas</a></li><li><a href="https://containers-wow-watson-root.trycloudflare.com/">Cocina KDS</a></li></ul></div>
+    <div class="footer-col"><h5>Modulos</h5><ul><li><a href="https://containers-wow-watson-root.trycloudflare.com/">Delivery</a></li><li><a href="https://containers-wow-watson-root.trycloudflare.com/">Inventario</a></li><li><a href="https://containers-wow-watson-root.trycloudflare.com/">Reportes</a></li><li><a href="https://containers-wow-watson-root.trycloudflare.com/">Caja</a></li></ul></div>
+    <div class="footer-col"><h5>Acceso</h5><ul><li><a href="https://containers-wow-watson-root.trycloudflare.com/">Ingresar al sistema</a></li><li><a href="https://containers-wow-watson-root.trycloudflare.com/">Ver la demo</a></li><li><a href="#faq">Preguntas frecuentes</a></li><li><a href="#inicio">Volver arriba</a></li></ul></div>
+  </div>
+  <div class="footer-bottom">&copy; 2026 GastroManager &middot; Sistema de Gestion Gastronomica</div>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>
