@@ -2,6 +2,9 @@
 function pdM(v){return new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",minimumFractionDigits:0}).format(v||0);}
 function pdE(s){if(s==null)return"";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
+// Desde Morfi Nube la página vive en /l/<local>/: la API también
+const PD_API=(location.pathname.match(/^\/l\/[^/]+/)||[""])[0];
+
 const PedidoOnline={
   categorias:[],productos:[],carrito:[],catActiva:"todas",origen:"web",config:{},
   // Desde el QR de una mesa: clave de la mesa y su estado (pedidos enviados, cuenta)
@@ -15,9 +18,9 @@ const PedidoOnline={
     if(!this.mesaToken)this._badge();
     try{
       const[m,info,mesa]=await Promise.all([
-        fetch("/api/publico/menu").then(r=>r.json()),
-        fetch("/api/publico/info").then(r=>r.json()).catch(()=>({})),
-        this.mesaToken?fetch("/api/publico/mesa/"+this.mesaToken).then(r=>r.ok?r.json():null):null
+        fetch(PD_API+"/api/publico/menu").then(r=>r.json()),
+        fetch(PD_API+"/api/publico/info").then(r=>r.json()).catch(()=>({})),
+        this.mesaToken?fetch(PD_API+"/api/publico/mesa/"+this.mesaToken).then(r=>r.ok?r.json():null):null
       ]);
       if(this.mesaToken&&!mesa){
         document.getElementById("menuItems").innerHTML='<div class="menu-empty"><i class="fas fa-exclamation-triangle"></i><p>Este QR no corresponde a ninguna mesa. Pedile ayuda al mozo.</p></div>';
@@ -29,6 +32,7 @@ const PedidoOnline={
       if(info.nombre){document.getElementById("negocioNombre").textContent=info.nombre;document.title="Pedido | "+info.nombre;}
       if(info.descripcion)document.getElementById("negocioSub").textContent=info.descripcion;
       if(mesa)this._iniciarMesa(mesa);
+      if(info.recibe_pedidos===false&&info.aviso){const av=document.createElement("div");av.className="mesa-seguimiento";av.textContent=info.aviso;document.getElementById("menuItems").before(av);}
       if(info.telefono){
         const wa=document.getElementById("confirmacionWA");
         if(wa){wa.href="https://wa.me/"+info.telefono.replace(/\D/g,"");wa.style.display="";}
@@ -128,7 +132,7 @@ const PedidoOnline={
     const btn=document.getElementById("btnPagarMP");btn.disabled=true;
     btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Abriendo Mercado Pago...';
     try{
-      const r=await fetch("/api/publico/mesa/"+this.mesaToken+"/pagar",{method:"POST",headers:{"Content-Type":"application/json"},
+      const r=await fetch(PD_API+"/api/publico/mesa/"+this.mesaToken+"/pagar",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({partes:o.modo==="todo"?1:k.n,propina:k.propina})});
       const d=await r.json();
       if(!r.ok)throw new Error(d.error||"No se pudo iniciar el pago");
@@ -148,7 +152,7 @@ const PedidoOnline={
   async _volverDePago(id,paymentId,status){
     history.replaceState(null,"",location.pathname+"?mesa="+this.mesaToken);
     try{
-      const r=await fetch("/api/publico/mesa/"+this.mesaToken+"/pago/"+id+"/verificar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({payment_id:paymentId})});
+      const r=await fetch(PD_API+"/api/publico/mesa/"+this.mesaToken+"/pago/"+id+"/verificar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({payment_id:paymentId})});
       const d=await r.json();
       if(!r.ok)throw new Error(d.error||"No se pudo verificar el pago");
       if(d.estado==="aprobado"){
@@ -179,7 +183,7 @@ const PedidoOnline={
     e.preventDefault();
     const btn=document.getElementById("btnComprobante");btn.disabled=true;
     try{
-      const r=await fetch("/api/publico/mesa/"+this.mesaToken+"/pago/"+id+"/comprobante",{method:"POST",headers:{"Content-Type":"application/json"},
+      const r=await fetch(PD_API+"/api/publico/mesa/"+this.mesaToken+"/pago/"+id+"/comprobante",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({telefono:document.getElementById("comprobanteTel").value})});
       const d=await r.json();
       if(!r.ok)throw new Error(d.error||"No se pudo enviar");
@@ -187,7 +191,7 @@ const PedidoOnline={
     }catch(err){alert(err.message);btn.disabled=false;}
   },
   async _refrescarMesa(){
-    try{const r=await fetch("/api/publico/mesa/"+this.mesaToken);if(r.ok)this._pintarMesa(await r.json());}catch(e){}
+    try{const r=await fetch(PD_API+"/api/publico/mesa/"+this.mesaToken);if(r.ok)this._pintarMesa(await r.json());}catch(e){}
   },
   _pintarMesa(estado){
     this.mesa=estado;
@@ -215,7 +219,7 @@ const PedidoOnline={
     const btn=document.getElementById(tipo==="cuenta"?"btnPedirCuenta":"btnLlamarMozo");
     btn.disabled=true;
     try{
-      const r=await fetch("/api/publico/mesa/"+this.mesaToken+"/llamar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tipo,forma})});
+      const r=await fetch(PD_API+"/api/publico/mesa/"+this.mesaToken+"/llamar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tipo,forma})});
       const d=await r.json();
       if(!r.ok)throw new Error(d.error||"No se pudo avisar");
       await this._refrescarMesa();
@@ -373,7 +377,7 @@ const PedidoOnline={
     btn.disabled=true;
     btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Enviando...';
     try{
-      const r=await fetch("/api/publico/pedido",{
+      const r=await fetch(PD_API+"/api/publico/pedido",{
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({cliente:nombre,telefono:tel,tipo,direccion:dir,notas,origen:this.origen,
           items:this.carrito.map(i=>({producto_id:i.producto_id,nombre:i.nombre,cantidad:i.cantidad,notas:i.notas||""}))})
@@ -381,11 +385,35 @@ const PedidoOnline={
       const data=await r.json();
       if(!r.ok)throw new Error(data.error||"Error al enviar");
       this._confirmar(data,nombre);
+      if(data.pendiente)this._seguirNube(data.codigo,nombre);
     }catch(err){
       alert("Error: "+err.message);
       btn.disabled=false;
       btn.innerHTML='<i class="fas fa-paper-plane"></i> Enviar pedido';
     }
+  },
+  // Por Morfi Nube el pedido llega al local en unos segundos: el cliente ve cuándo lo recibió y con qué número
+  _seguirNube(codigo,nombre){
+    const msg=document.getElementById("confirmacionMsg"),num=document.getElementById("confirmacionNumero");
+    const tit=document.getElementById("confirmacionTitulo"),titulo=t=>{if(tit)tit.textContent=t;};
+    titulo("Pedido enviado");
+    if(msg)msg.textContent="Enviando tu pedido al local...";
+    if(num)num.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
+    const hasta=Date.now()+35*60000;
+    const mirar=async()=>{
+      try{
+        const r=await fetch(PD_API+"/api/publico/pedido/"+codigo);const d=await r.json();
+        if(d.estado==="recibido"){
+          titulo("Pedido recibido!");
+          if(msg)msg.textContent="Gracias "+nombre+"! El local recibió tu pedido y en breve te contactamos.";
+          if(num)num.innerHTML="Numero de pedido: <strong>"+pdE(d.numero_pedido)+"</strong>";
+          return;
+        }
+        if(d.estado!=="pendiente"){titulo("No se pudo tomar el pedido");if(msg)msg.textContent=d.mensaje||"El local no pudo tomar el pedido.";if(num)num.innerHTML="";return;}
+      }catch(e){}
+      if(Date.now()<hasta)setTimeout(mirar,4000);
+    };
+    mirar();
   },
   async _enviarMesa(nombre,notas){
     if(!this.carrito.length){alert("Agrega al menos un producto.");return;}
@@ -393,7 +421,7 @@ const PedidoOnline={
     btn.disabled=true;
     btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Enviando...';
     try{
-      const r=await fetch("/api/publico/mesa/"+this.mesaToken+"/pedido",{
+      const r=await fetch(PD_API+"/api/publico/mesa/"+this.mesaToken+"/pedido",{
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({cliente:nombre,notas,items:this.carrito.map(i=>({producto_id:i.producto_id,cantidad:i.cantidad,notas:i.notas||""}))})
       });

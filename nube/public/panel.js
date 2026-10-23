@@ -76,6 +76,7 @@
       return `<div class="tarjeta local"><span class="punto ${clase}" aria-hidden="true"></span><div>
         <strong>${esc(l.nombre)}</strong>${conCuenta ? ` <small class="vacio">— ${esc(l.cuenta)} (${esc(l.cliente)})</small>` : ''}
         <p>${datos}</p>
+        ${l.carta_online ? `<p>Carta y pedidos online: <a href="${esc(location.origin + l.carta_online)}" target="_blank" rel="noopener">${esc(location.host + l.carta_online)}</a></p>` : ''}
         ${l.alertas.length ? `<ul>${l.alertas.map(a => `<li>${esc(a)}</li>`).join('')}</ul>` : '<p>Todo en orden</p>'}
       </div></div>`;
     }).join('');

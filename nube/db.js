@@ -1,6 +1,7 @@
 'use strict';
 // Morfi Nube: base de datos (SQLite). Cuentas (un dueño o empresa), sus locales, los usuarios del panel
-// y las ventas que manda cada local. No se guardan datos personales de los clientes: solo productos e importes.
+// y las ventas que manda cada local (solo productos e importes), la carta pública de cada local y los pedidos online
+// en camino al local. Los datos del cliente de un pedido online se borran apenas el local lo recibe.
 const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3');
@@ -46,6 +47,17 @@ const listo = (async () => {
   await run(`CREATE TABLE IF NOT EXISTS ventas_items (
     local_id INTEGER NOT NULL, pedido_id INTEGER NOT NULL, producto TEXT NOT NULL, cantidad REAL NOT NULL, subtotal REAL NOT NULL)`);
   await run('CREATE INDEX IF NOT EXISTS idx_items_pedido ON ventas_items(local_id, pedido_id)');
+  // Etapa 2: carta pública de cada local y pedidos online que el local viene a buscar
+  const cols = (await all('PRAGMA table_info(locales)')).map(c => c.name);
+  if (!cols.includes('ultimo_pedido_poll')) await run('ALTER TABLE locales ADD COLUMN ultimo_pedido_poll TEXT');
+  await run(`CREATE TABLE IF NOT EXISTS cartas (
+    local_id INTEGER PRIMARY KEY, datos TEXT NOT NULL, actualizado_en TEXT DEFAULT CURRENT_TIMESTAMP)`);
+  // datos (nombre, teléfono, dirección del cliente) se borra apenas el local recibe el pedido
+  await run(`CREATE TABLE IF NOT EXISTS pedidos_online (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, local_id INTEGER NOT NULL, codigo TEXT NOT NULL UNIQUE, datos TEXT,
+    estado TEXT NOT NULL DEFAULT 'pendiente', numero TEXT, total REAL, error TEXT,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP, recibido_en TEXT)`);
+  await run('CREATE INDEX IF NOT EXISTS idx_pedidos_online_local ON pedidos_online(local_id, estado)');
 })();
 
 const cerrar = () => new Promise(r => db.close(r));
