@@ -17,6 +17,8 @@ module.exports = {
   ...require('./limites'),
   ...require('./realtime'),
   ...require('./servicios/pedidos'),
+  ...require('./servicios/pedido-online'),
+  ...require('./servicios/sync-nube'),
   ...require('./servicios/integraciones'),
   ...require('./servicios/backups'),
   ...require('./servicios/impresion'),

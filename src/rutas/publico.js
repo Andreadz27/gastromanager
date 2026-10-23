@@ -1,7 +1,6 @@
 'use strict';
 const {
-  rateLimit, urlPublica, run, get, all, transaccion, errorHttp, errorInterno, emitEvento, generarNumeroPedido,
-  comandaAutomatica, resolverItems, recalcularTotales, mesaPorToken, estadoMesa, solicitarPedidoMesa, llamarMozo,
+  rateLimit, urlPublica, urlCartaNube, get, all, errorInterno, crearPedidoOnline, mesaPorToken, estadoMesa, solicitarPedidoMesa, llamarMozo,
   iniciarPagoMesa, verificarPagoMesa, pedirComprobanteMesa
 } = require('../contexto');
 const QRCode = require('qrcode');
@@ -47,12 +46,18 @@ app.get('/api/publico/info', async (req, res) => {
     // Sin BASE_URL no hay links: el navegador arma los suyos con la dirección por la que entró
     // (antes salían con localhost y el QR impreso en las mesas no abría en ningún celular)
     const base = urlPublica();
+    // Con Morfi Nube la carta tiene link fijo en la nube: anda aunque cambie la conexión o la PC del local
+    const nube = urlCartaNube();
     res.json({
       nombre: config?.nombre_negocio || 'Morfi',
       descripcion: config?.direccion ? `Dirección: ${config.direccion}` : '',
       telefono: config?.telefono || '',
       email: config?.email || '',
-      links: base ? {
+      links: nube ? {
+        carta:     `${nube}/pedido.html`,
+        whatsapp:  `${nube}/pedido.html?origen=whatsapp`,
+        instagram: `${nube}/pedido.html?origen=instagram`
+      } : base ? {
         carta:     `${base}/menu.html`,
         whatsapp:  `${base}/pedido.html?origen=whatsapp`,
         instagram: `${base}/pedido.html?origen=instagram`
@@ -62,56 +67,11 @@ app.get('/api/publico/info', async (req, res) => {
 });
 
 const pedidoOnlineLimiter = rateLimit({ windowMs: 60000, max: 10 });
-// Topes del pedido online (sin login): nadie pide 30 platos distintos ni 50 de uno por la web
-const MAX_ITEMS_ONLINE = 30;
-const MAX_CANTIDAD_ONLINE = 50;
 app.post('/api/publico/pedido', pedidoOnlineLimiter, async (req, res) => {
   try {
-    const { tipo, direccion, notas, origen, items } = req.body || {};
-    const cliente = String((req.body && req.body.cliente) || '').trim().slice(0, 80);
-    const telefono = String((req.body && req.body.telefono) || '').trim().slice(0, 30);
-    if (!cliente || !telefono)
-      return res.status(400).json({ error: 'Nombre y teléfono son obligatorios' });
-    if (!Array.isArray(items) || !items.length)
-      return res.status(400).json({ error: 'El pedido no tiene ítems' });
-    if (items.length > MAX_ITEMS_ONLINE || items.some(i => !i || !(Number(i.cantidad) >= 1) || Number(i.cantidad) > MAX_CANTIDAD_ONLINE))
-      return res.status(400).json({ error: `Para pedidos grandes llamá al local (máximo ${MAX_CANTIDAD_ONLINE} unidades por producto)` });
-    const tipoFin  = tipo === 'delivery' ? 'delivery' : 'takeaway';
-    const orig     = ['whatsapp','instagram','web'].includes(origen) ? origen : 'web';
-    const { pid, numero, total } = await transaccion(async () => {
-      // Precio y nombre salen de la base (nunca del navegador); por la web no se venden insumos sin precio
-      const resueltos = await resolverItems(items.map(i => ({ ...i, cantidad: parseInt(i.cantidad, 10), notas: String(i.notas || '').slice(0, 200) })));
-      if (resueltos.some(i => !(i.precio > 0))) throw errorHttp(400, 'Producto no disponible');
-      const numero   = await generarNumeroPedido();
-      const result   = await run(
-        `INSERT INTO pedidos (numero_pedido,tipo,cliente,usuario_id,notas,descuento,propina,origen)
-         VALUES (?,?,?,NULL,?,0,0,?)`,
-        [numero, tipoFin, `${cliente} (${telefono})`, String(notas || '').slice(0, 500), orig]);
-      const pid = result.id;
-      for (const item of resueltos) {
-        await run(
-          `INSERT INTO pedido_items
-           (pedido_id,producto_id,nombre_producto,cantidad,precio_unitario,subtotal,notas)
-           VALUES (?,?,?,?,?,?,?)`,
-          [pid, item.producto_id, item.nombre, item.cantidad, item.precio, item.subtotal, item.notas]);
-      }
-      const { total } = await recalcularTotales(pid);
-      // La entrega guarda el teléfono: con eso sale el aviso de WhatsApp "listo" o "en camino"
-      if (tipoFin === 'takeaway' || direccion) {
-        await run(
-          `INSERT INTO entregas (pedido_id,tipo,direccion,telefono,costo_envio,estado,plataforma,codigo_externo)
-           VALUES (?,?,?,?,0,'pendiente',?,'') `,
-          [pid, tipoFin, String(direccion || '').slice(0, 200), telefono, orig]);
-      }
-      emitEvento('pedido:nuevo',{id:pid,numero_pedido:numero,tipo:tipoFin,origen:orig,cliente});
-      emitEvento('cocina:actualizar',{pedido_id:pid,accion:'creado'});
-      emitEvento('dashboard:actualizar',{motivo:'pedido_creado'});
-      emitEvento('delivery:actualizar',{pedido_id:pid,accion:'creado'});
-      return { pid, numero, total };
-    });
-    await comandaAutomatica(pid).catch(() => false);
-    const label = {whatsapp:'WhatsApp',instagram:'Instagram',web:'Web'}[orig]||orig;
-    res.status(201).json({id:pid,numero_pedido:numero,subtotal:total,total,origen:label});
+    const { pid, numero, total, origen } = await crearPedidoOnline(req.body);
+    const label = { whatsapp: 'WhatsApp', instagram: 'Instagram', web: 'Web' }[origen] || origen;
+    res.status(201).json({ id: pid, numero_pedido: numero, subtotal: total, total, origen: label });
   } catch (err) { errorInterno(res, err); }
 });
 

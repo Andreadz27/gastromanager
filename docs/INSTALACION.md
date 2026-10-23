@@ -162,6 +162,20 @@ El alta del local muestra **una sola vez** su `NUBE_TOKEN`. En el `.env` del loc
 `NUBE_TOKEN=...` y reiniciar Morfi. A los 2 minutos manda todo su historial de ventas (en tandas) y queda al día.
 Una cadena con varias sucursales es una cuenta con varios locales: el dueño las ve juntas.
 
+**Carta y pedidos online con link fijo:** con Morfi Nube configurada, la carta online de cada local queda en
+`https://<tu nube>/l/<cliente>` (el mismo nombre de cliente del alta). Ese link no cambia aunque cambie la PC, la
+conexión o se caiga el túnel: es el que va en Instagram, Google Maps, el QR de la vidriera y la landing. El sistema
+del local lo usa solo en Menú QR para los links de WhatsApp e Instagram.
+
+- La carta se actualiza sola en la nube a los 2 minutos de cambiar un precio o un producto.
+- El pedido queda en la nube y el local lo trae en unos 10 segundos: sale la comanda y el aviso en pantalla como
+  cualquier pedido online. El cliente ve en su celular cuando el local lo recibió y con qué número.
+- El precio que vale es el del local. Si un producto se dio de baja, el pedido se rechaza y el cliente lo ve.
+- **Si el local no está conectado** (sin internet o PC apagada), la carta se sigue viendo pero no toma pedidos:
+  muestra el teléfono del local. Así nadie pide algo que nadie ve en la cocina.
+- Nombre, teléfono y dirección del cliente quedan en la nube solo hasta que el local recibe el pedido.
+- El pedido desde la mesa (QR de cada mesa) sigue yendo directo al local por el WiFi.
+
 ## 5. Acceso remoto y pagos online (Cloudflare Tunnel)
 
 Necesario para que el dueño vea el sistema desde afuera y para recibir avisos de Mercado Pago y Tienda Nube.

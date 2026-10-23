@@ -37,9 +37,14 @@ const ruta = fn => async (req, res, next) => {
 
 const app = express();
 app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : 'loopback');
-app.use(helmet({ contentSecurityPolicy: { useDefaults: false, directives: {
+const politica = extra => helmet({ contentSecurityPolicy: { useDefaults: false, directives: {
   defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'data:'],
-  connectSrc: ["'self'"], objectSrc: ["'none'"], baseUri: ["'self'"], frameAncestors: ["'none'"], formAction: ["'self'"] } } }));
+  fontSrc: ["'self'", 'data:'], connectSrc: ["'self'"], objectSrc: ["'none'"], baseUri: ["'self'"], frameAncestors: ["'none'"],
+  formAction: ["'self'"], ...extra } } });
+const politicaPanel = politica({});
+// La carta pública es la misma página del local (public/pedido.html), que usa onclick en el HTML
+const politicaCarta = politica({ scriptSrcAttr: ["'unsafe-inline'"] });
+app.use((req, res, next) => (req.path.startsWith('/l/') ? politicaCarta : politicaPanel)(req, res, next));
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/', rateLimit({ windowMs: 60000, max: 600, standardHeaders: true, legacyHeaders: false }));
@@ -102,6 +107,10 @@ app.post('/api/sync/estado', autenticarLocal, ruta(async (req, res) => {
   await run('UPDATE locales SET estado = ?, ultima_sync = CURRENT_TIMESTAMP WHERE id = ?', [JSON.stringify(estado), req.local.id]);
   res.json({ ok: true });
 }));
+
+// Carta online de cada local (/l/<cliente>) y sus pedidos
+const tienda = require('./tienda');
+tienda(app, { ruta, errorHttp, autenticarLocal, r2 });
 
 // ============ PANEL ============
 
@@ -173,8 +182,9 @@ app.get('/api/panel/resumen', autenticarUsuario, ruta(async (req, res) => {
 
 // Salud de cada local: si manda datos, copias, facturas trabadas. Alertas para actuar antes de que llame el cliente.
 const MIN_SIN_SYNC = 15;
-function alertas(l, estado, minutos) {
+function alertas(l, estado, minutos, trabados) {
   const a = [];
+  if (trabados) a.push(`${trabados} pedido(s) online sin recibir en el local`);
   if (minutos === null) a.push('Nunca se conectó a la nube');
   else if (minutos > MIN_SIN_SYNC) a.push(`Sin noticias hace ${minutos >= 120 ? Math.round(minutos / 60) + ' h' : minutos + ' min'} (sin internet o PC apagada)`);
   if (estado.ultima_copia && Date.now() - new Date(estado.ultima_copia).getTime() > 26 * 3600000) a.push('Sin copia de seguridad hace más de 26 h');
@@ -189,8 +199,11 @@ async function estadoLocales(locales) {
     const estado = JSON.parse(l.estado || '{}');
     const minutos = l.ultima_sync ? Math.max(0, Math.round((Date.now() - new Date(l.ultima_sync.replace(' ', 'T') + 'Z').getTime()) / 60000)) : null;
     const cuenta = await get('SELECT nombre FROM cuentas WHERE id = ?', [l.cuenta_id]);
+    const carta = await get('SELECT 1 AS si FROM cartas WHERE local_id = ?', [l.id]);
+    const trabados = await tienda.pedidosTrabados(l.id);
     return { id: l.id, nombre: l.nombre, cliente: l.cliente, cuenta: cuenta && cuenta.nombre, ultima_sync: l.ultima_sync,
-      minutos_sin_sync: minutos, estado, alertas: alertas(l, estado, minutos) };
+      minutos_sin_sync: minutos, estado, carta_online: carta ? `/l/${encodeURIComponent(l.cliente)}` : null,
+      alertas: alertas(l, estado, minutos, trabados) };
   }));
 }
 

@@ -53,3 +53,4 @@ main { max-width: 960px; margin: 0 auto; padding: 14px 16px 32px; }
 .local p { margin: 4px 0 0; color: var(--suave); font-size: 13px; }
 .vacio, .nota { color: var(--suave); font-size: 14px; }
 .nota { text-align: center; }
+.local a { color: var(--acento); word-break: break-all; }
