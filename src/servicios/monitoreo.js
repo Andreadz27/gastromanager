@@ -20,10 +20,15 @@ async function estadoSalud() {
   const horas = ultima ? Math.round((Date.now() - new Date(ultima.fecha).getTime()) / 36e5 * 10) / 10 : null;
   const copiaOk = horas !== null && horas <= HORAS_MAX_SIN_COPIA;
   const nubeOk = !estadoNube.activa || (estadoNube.ultima ? estadoNube.ultima.ok : true);
+  // En un local (producción), sin copia fuera de la PC un disco roto se lleva todo: es una falla, no una opción.
+  // BACKUP_SOLO_LOCAL=1 lo acepta a sabiendas (ej. el local guarda las copias en BACKUP_COPIA_DIR sincronizada).
+  const faltaNube = process.env.NODE_ENV === 'production' && process.env.GM_DEMO !== '1' &&
+    !estadoNube.activa && process.env.BACKUP_SOLO_LOCAL !== '1';
   const problemas = [
     base !== 'ok' && 'la base de datos no responde',
     !copiaOk && `no hay copia de seguridad de las últimas ${HORAS_MAX_SIN_COPIA} horas`,
-    !nubeOk && 'falló la última subida de la copia a la nube'
+    !nubeOk && 'falló la última subida de la copia a la nube',
+    faltaNube && 'la copia fuera del local no está configurada (BACKUP_S3_* en el .env)'
   ].filter(Boolean);
   return {
     ok: problemas.length === 0,

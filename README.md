@@ -187,8 +187,9 @@ Se configuran en **Configuración → Impresoras térmicas**. Papel de 58 u 80 m
 
 - Copia automática al iniciar y cada 24 horas en `data/backups/`.
 - Desde **Configuración → Copias de seguridad** se crea una copia manual y se descarga.
-- **Restaurar:** detener el servidor, reemplazar `data/gastromanager.db` por la copia (y borrar
-  `gastromanager.db-wal` y `gastromanager.db-shm` si existen) y volver a iniciarlo.
+- Con `BACKUP_S3_*` cada copia se sube a la nube, cifrada con `BACKUP_CLAVE` (ver `docs/INSTALACION.md`).
+- **Restaurar:** `pm2 stop gastromanager`, `npm run restaurar -- --listar` y `npm run restaurar -- <copia>`
+  (o `--nube <copia>`), y `pm2 start gastromanager`. Verifica la copia y guarda la base actual antes de reemplazarla.
 - La base usa modo WAL: no copiar `gastromanager.db` a mano con el servidor en marcha; usar las copias del sistema.
 
 ## Actualizaciones y migraciones

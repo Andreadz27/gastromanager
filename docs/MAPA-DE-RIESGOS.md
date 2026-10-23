@@ -140,14 +140,25 @@ El descuento de stock del cobro pasa por `descontarStockItemTx` (dentro de la tr
 ### 10. Copias de seguridad — `src/servicios/backups.js` · riesgo BAJO
 - **Bugs corregidos:** dos copias en el mismo segundo daban error 500 (nombre repetido); una copia con el sistema en
   uso podía fallar. Tests en `fechas-backups.test.js` y `regresiones.test.js`.
-- Con `BACKUP_S3_*` cada copia se sube a la nube (Backblaze B2 / S3). Sin eso, quedan en la misma computadora:
-  si se rompe el disco, se pierden base y copias. El monitoreo avisa si falla la subida.
+- Con `BACKUP_S3_*` cada copia se sube a la nube (R2 / Backblaze B2 / S3), **cifrada** si hay `BACKUP_CLAVE`
+  (AES-256-GCM; la base lleva el certificado de ARCA y los tokens). Sin la clave no se restaura: el instalador la
+  muestra para guardarla fuera del local. En producción, sin copia en la nube `/api/salud` da 503 y el Dashboard del
+  administrador lo muestra (salvo `BACKUP_SOLO_LOCAL=1`). Test en `nube-monitoreo.test.js`.
+- **Restaurar:** `scripts/restaurar.js` (local o `--nube`). Se niega con el servidor andando, verifica la copia
+  (`integrity_check` y tablas) antes de tocar nada y guarda la base actual. Test en `restaurar.test.js`.
+
+### 11. Actualizador — `scripts/actualizar.js` · riesgo ALTO
+- **Lo rompe:** correr `npm ci` con el servidor andando (en Windows el `.node` de sqlite3 está en uso y npm falla a
+  la mitad) o dejar un paso después del `merge` fuera del `try` (sin vuelta atrás: código nuevo con dependencias a
+  medio instalar). **Lo protege:** `actualizar.test.js` (falla simulada de npm → vuelve a la versión anterior).
+- La parte real de npm y pm2 solo se prueba en una PC con Windows: probar el instalador y una actualización con
+  cambio de dependencias en una VM limpia antes del primer cliente.
 
 ## Lo que todavía depende de que nadie se equivoque
 
-- **Scripts de una sola vez** en la raíz y en `scripts/` (`write_menu.js`, `check_db.js`, `patch-*.js`, `ps*.js`,
-  `build-*.js`, `inspect_*.js`...): ya se aplicaron y algunos escriben en la base o en el código. Correr uno por error
-  puede pisar datos. Conviene moverlos a `_retirado/` (no se hizo sin tu OK). El lint los ignora.
+- **Arranque como SYSTEM con `PM2_HOME` compartido** (`instalar.ps1`): no lo cubre ningún test automático. Probarlo en
+  una VM limpia (reiniciar sin iniciar sesión y abrir `/api/salud` desde otro equipo; `pm2 list` desde un
+  administrador tiene que mostrar el proceso).
 - **Contraseñas viejas en texto plano:** el login todavía las acepta y las convierte a hash. Se puede quitar cuando
   ninguna instalación tenga usuarios de antes de 2026-09.
 - **Validación en los bordes:** cada ruta valida a mano; no hay un esquema compartido entre frontend y backend.
