@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ea580c">
+  <title>Morfi Nube</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <section id="ingreso" class="ingreso" hidden>
+    <form id="form-ingreso" class="tarjeta ingreso-caja">
+      <div class="marca"><img src="favicon.svg" alt="" width="44" height="44"><div><strong>Morfi Nube</strong><small>Tu negocio, a punto.</small></div></div>
+      <label>Email<input type="email" id="email" autocomplete="username" required></label>
+      <label>Contraseña<input type="password" id="password" autocomplete="current-password" required></label>
+      <p id="error-ingreso" class="error" role="alert"></p>
+      <button type="submit" class="boton">Ingresar</button>
+    </form>
+  </section>
+
+  <section id="panel" hidden>
+    <header class="barra">
+      <div class="marca"><img src="favicon.svg" alt="" width="32" height="32"><div><strong>Morfi Nube</strong><small id="cuenta"></small></div></div>
+      <button id="salir" class="boton-sec" type="button">Salir</button>
+    </header>
+    <nav class="pestanas" role="tablist">
+      <button type="button" data-vista="ventas" class="activa">Ventas</button>
+      <button type="button" data-vista="locales">Locales</button>
+      <button type="button" data-vista="soporte" id="pestana-soporte" hidden>Soporte</button>
+    </nav>
+
+    <main>
+      <div id="vista-ventas">
+        <div class="periodos" id="periodos">
+          <button type="button" data-p="hoy" class="activa">Hoy</button>
+          <button type="button" data-p="ayer">Ayer</button>
+          <button type="button" data-p="7">7 días</button>
+          <button type="button" data-p="30">30 días</button>
+          <button type="button" data-p="mes">Este mes</button>
+        </div>
+        <div class="kpis" id="kpis"></div>
+        <div class="tarjeta"><h2>Por local</h2><div id="por-local"></div></div>
+        <div class="tarjeta"><h2>Ventas por día</h2><div id="por-dia" class="barras"></div></div>
+        <div class="tarjeta"><h2>Lo más vendido</h2><div id="productos"></div></div>
+      </div>
+      <div id="vista-locales" hidden><div id="lista-locales"></div></div>
+      <div id="vista-soporte" hidden><div id="lista-soporte"></div></div>
+      <p class="nota" id="actualizado"></p>
+    </main>
+  </section>
+  <script src="panel.js"></script>
+</body>
+</html>

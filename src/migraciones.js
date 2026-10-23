@@ -169,6 +169,8 @@ async function migrarEsquema() {
   await agregarColumna('pedidos', 'descuento_puntos', 'REAL DEFAULT 0');
   await agregarColumna('pedidos', 'cupon_id', 'INTEGER');
   await agregarColumna('pedidos', 'descuento_cupon', 'REAL DEFAULT 0');
+  // Morfi Nube: estado con el que el pedido se mandó a la nube (si cambia, por ej. se cancela, se vuelve a mandar)
+  await agregarColumna('pedidos', 'sincronizado_nube', 'TEXT');
   // Puntos: 1 punto cada $puntos_cada consumidos; cada punto vale $puntos_valor al canjear (desde puntos_minimo)
   await agregarColumna('configuracion', 'puntos_activo', 'INTEGER DEFAULT 0');
   await agregarColumna('configuracion', 'puntos_cada', 'REAL DEFAULT 1000');

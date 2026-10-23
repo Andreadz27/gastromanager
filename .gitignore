@@ -28,3 +28,4 @@ _retirado/
 # Demo generada (npm run demo / demo:video / demo:presentacion)
 demo/datos/
 demo/salida/
+nube/datos/

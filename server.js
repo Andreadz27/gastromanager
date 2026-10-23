@@ -14,6 +14,7 @@ const { backupSiCorresponde, crearBackup } = require('./src/servicios/backups');
 const { iniciarMonitoreo } = require('./src/servicios/monitoreo');
 const { iniciarRecordatoriosWhatsApp } = require('./src/servicios/whatsapp');
 const { iniciarModoSinConexion } = require('./src/servicios/sin-conexion');
+const { iniciarSyncNube } = require('./src/servicios/sync-nube');
 
 iniciarRealtime(server);
 
@@ -37,6 +38,8 @@ migrarConRespaldo({ respaldar: crearBackup }).then(() => server.listen(PORT, () 
   iniciarRecordatoriosWhatsApp();
   // Aviso de "sin internet" y facturas en espera que se emiten solas al volver la conexión
   iniciarModoSinConexion();
+  // Ventas y estado del local al panel Morfi Nube (si NUBE_URL y NUBE_TOKEN están en el .env)
+  iniciarSyncNube();
 })).catch(err => {
   console.error('Error al migrar la base de datos:', err);
   process.exit(1);

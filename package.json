@@ -19,7 +19,8 @@
     "check": "npm run lint && node scripts/verificar-nombres.js . && npm test",
     "prueba:fuego": "node scripts/prueba-de-fuego.js",
     "actualizar": "node scripts/actualizar.js",
-    "restaurar": "node scripts/restaurar.js"
+    "restaurar": "node scripts/restaurar.js",
+    "nube": "node nube/servidor.js"
   },
   "engines": {
     "node": ">=22"
