@@ -1,6 +1,6 @@
 'use strict';
 const {
-  get, errorHttp, errorInterno, autenticar, esAdmin, emitEvento, actualizarParcial
+  get, errorHttp, errorInterno, autenticar, esAdmin, emitEvento, actualizarParcial, MODOS_QR_MESA
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -41,8 +41,10 @@ app.put('/api/config', autenticar, esAdmin, async (req, res) => {
     if (b.modulos_activos !== undefined) b.modulos_activos = JSON.stringify(Array.isArray(b.modulos_activos) ? b.modulos_activos : []);
     if (b.terminologia !== undefined) b.terminologia = JSON.stringify(b.terminologia && typeof b.terminologia === 'object' ? b.terminologia : {});
     if (b.nombre_negocio !== undefined && !String(b.nombre_negocio).trim()) throw errorHttp(400, 'El nombre del negocio es obligatorio');
+    if (b.qr_mesa_modo !== undefined && !MODOS_QR_MESA.includes(b.qr_mesa_modo)) throw errorHttp(400, 'Modo de pedido por QR inválido');
     await actualizarParcial('configuracion', 1, b, ['nombre_negocio', 'direccion', 'telefono', 'email', 'cuit', 'tasa_iva',
-      'moneda', 'activar_impresion', 'tipo_negocio', 'modulos_activos', 'terminologia', 'setup_completado', 'mozo_cobra_mesa', 'pin_autorizacion', 'arqueo_ciego']);
+      'moneda', 'activar_impresion', 'tipo_negocio', 'modulos_activos', 'terminologia', 'setup_completado', 'mozo_cobra_mesa', 'pin_autorizacion', 'arqueo_ciego',
+      'qr_mesa_modo']);
     const config = await get('SELECT * FROM configuracion WHERE id = 1');
     if (config) {
       try { config.modulos_activos = JSON.parse(config.modulos_activos || '[]'); } catch(e) { config.modulos_activos = []; }

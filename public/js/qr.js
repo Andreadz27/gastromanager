@@ -35,6 +35,19 @@ const QRView = {
         </div>
       </div>
 
+      ${App.puede('catalogo') ? `
+      <div class="card mb-20">
+        <div class="card-header">
+          <span class="card-title"><i class="fas fa-chair"></i> QR de cada mesa: pedir desde la mesa</span>
+          <span class="card-subtitle">El cliente escanea, pide, llama al mozo o pide la cuenta. El mozo confirma desde Mesas.</span>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;padding:0 16px 16px;">
+          <button class="btn btn-primary" onclick="QRView.imprimirQrMesas()"><i class="fas fa-print"></i> Imprimir QR de las mesas</button>
+          <button class="btn btn-outline" onclick="QRView.listaQrMesas()"><i class="fas fa-list"></i> Ver por mesa / QR nuevo</button>
+          <button class="btn btn-outline" onclick="App.navigateTo('config')"><i class="fas fa-cog"></i> Cómo llegan los pedidos (Configuración)</button>
+        </div>
+      </div>` : ''}
+
       <div class="qr-page-grid">
 
         <!-- Panel QR -->
@@ -224,6 +237,63 @@ const QRView = {
     a.rel = 'noopener';
     a.click();
     App.showToast('Descargando QR...', 'success');
+  },
+
+  // ===== QR de cada mesa (los genera el servidor: no dependen de un servicio externo) =====
+  async _qrMesas() {
+    // Sin dirección pública, la que usa este navegador: tiene que ser la de la red del local, no localhost
+    const base = window.location.origin;
+    const qrs = await API.getQrMesas(base);
+    if (qrs.length && /^https?:\/\/(localhost|127\.|\[::1\])/.test(qrs[0].url))
+      App.showToast('Estos QR apuntan a esta computadora y no abren en los celulares. Entrá con la dirección de la red del local.', 'warning', 10000);
+    return qrs;
+  },
+
+  async imprimirQrMesas() {
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) { App.showToast('Habilitá las ventanas emergentes para imprimir', 'warning'); return; }
+    try {
+      const qrs = await this._qrMesas();
+      const negocio = (App.config && App.config.nombre_negocio) || '';
+      // El SVG lo arma el servidor con la librería qrcode (solo figuras, sin texto del usuario)
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR de las mesas</title><style>
+        body{font-family:Arial,sans-serif;margin:0;padding:10mm;}
+        .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm;}
+        .qr{border:1px dashed #999;border-radius:4mm;padding:5mm;text-align:center;break-inside:avoid;}
+        .qr svg{width:45mm;height:45mm;}
+        .mesa{font-size:20pt;font-weight:bold;margin:2mm 0;}
+        .ayuda{font-size:10pt;color:#333;}
+      </style></head><body><div class="grid">${qrs.map(q => `
+        <div class="qr"><div class="ayuda">${esc(negocio)}</div><div class="mesa">${esc(q.nombre)}</div>${q.svg}
+        <div class="ayuda">Escaneá para pedir, llamar al mozo o pedir la cuenta</div></div>`).join('')}
+      </div><script>window.onload=function(){window.print();};<\/script></body></html>`);
+      win.document.close();
+    } catch (err) {
+      win.close();
+      App.showToast(err.message, 'error');
+    }
+  },
+
+  async listaQrMesas() {
+    try {
+      const qrs = await this._qrMesas();
+      App.showModal(`
+        <p class="text-muted">Si alguien se llevó una foto del QR de una mesa, generá uno nuevo: el anterior deja de funcionar y hay que reimprimirlo.</p>
+        <div class="table-wrap"><table><thead><tr><th>Mesa</th><th>Link</th><th></th></tr></thead><tbody>
+        ${qrs.map(q => `<tr><td><strong>${esc(q.nombre)}</strong></td>
+          <td><a href="${esc(q.url)}" target="_blank" rel="noopener">Abrir</a></td>
+          <td><button class="btn btn-outline btn-sm" onclick="QRView.nuevoQrMesa(${q.id}, ${jsArg(q.nombre)})"><i class="fas fa-sync-alt"></i> QR nuevo</button></td></tr>`).join('')}
+        </tbody></table></div>`, { title: 'QR de cada mesa' });
+    } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
+  async nuevoQrMesa(id, nombre) {
+    if (!confirm(`¿Generar un QR nuevo para ${nombre}? El que está impreso deja de funcionar.`)) return;
+    try {
+      await API.nuevoQrMesa(id);
+      App.showToast(`QR nuevo para ${nombre}: imprimilo y reemplazá el de la mesa`, 'success', 8000);
+      this.listaQrMesas();
+    } catch (err) { App.showToast(err.message, 'error'); }
   },
 
   _copiar(elId) {

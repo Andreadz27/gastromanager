@@ -209,3 +209,17 @@
 @media(min-width:769px) {
   .carrito-flotante { display:none !important; }
 }
+/* Pedido desde la mesa (QR de cada mesa) */
+.mesa-panel { max-width:1200px;margin:16px auto 0;padding:0 16px; }
+.mesa-acciones { display:flex;gap:10px;flex-wrap:wrap; }
+.mesa-acciones .btn { flex:1;min-width:150px;justify-content:center; }
+.mesa-seguimiento { margin-top:12px;background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 2px 12px rgba(0,0,0,.08); }
+.mesa-seguimiento h4 { margin:0 0 8px;font-size:.95rem;color:#1f2937; }
+.mesa-sol { display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:.88rem; }
+.mesa-sol:last-child { border-bottom:none; }
+.mesa-sol-estado { font-weight:600;white-space:nowrap; }
+.mesa-sol-estado.pendiente { color:#d97706; }
+.mesa-sol-estado.confirmada, .mesa-sol-estado.atendida { color:#16a34a; }
+.mesa-sol-estado.rechazada { color:#dc2626; }
+.mesa-cuenta-total { display:flex;justify-content:space-between;font-weight:700;margin-top:8px;padding-top:8px;border-top:2px solid #f3f4f6; }
+.mesa-aviso { background:#dcfce7;color:#166534;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-weight:600; }

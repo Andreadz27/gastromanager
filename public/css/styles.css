@@ -2160,3 +2160,12 @@ tr:hover td {
 .pin-overlay { z-index: 3000; }
 .pin-modal { max-width: 360px; }
 .pin-input { font-size: 24px; letter-spacing: 8px; text-align: center; }
+
+/* Pedidos y llamados desde el QR de la mesa */
+.mesa-card.con-solicitud { box-shadow: 0 0 0 3px var(--warning); }
+.solicitudes-mesa { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; padding: 12px; }
+.solicitud-mesa { border: 1px solid var(--border); border-left: 4px solid var(--warning); border-radius: 8px; padding: 10px 12px; }
+.solicitud-mesa.solicitud-mozo, .solicitud-mesa.solicitud-cuenta { border-left-color: var(--info); }
+.solicitud-cabecera { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.solicitud-items { margin: 4px 0 6px 18px; padding: 0; }
+.solicitud-acciones { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }

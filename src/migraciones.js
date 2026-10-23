@@ -64,6 +64,29 @@ async function migrarEsquema() {
   await agregarColumna('configuracion', 'arqueo_ciego', 'INTEGER DEFAULT 0');
   // Cobro en la mesa: los mozos pueden cobrar y facturar sus mesas (apagado por defecto)
   await agregarColumna('configuracion', 'mozo_cobra_mesa', 'INTEGER DEFAULT 0');
+  // Pedido desde el QR de la mesa: confirmar (el mozo revisa), directo (va a cocina) o solo_carta (no se pide)
+  await agregarColumna('configuracion', 'qr_mesa_modo', "TEXT DEFAULT 'confirmar'");
+  // Clave del QR de cada mesa: con el número de mesa solo, cualquiera podría pedir a nombre de otra
+  await agregarColumna('mesas', 'qr_token', 'TEXT');
+  await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_mesas_qr_token ON mesas(qr_token)');
+  for (const m of await all('SELECT id FROM mesas WHERE qr_token IS NULL'))
+    await run('UPDATE mesas SET qr_token = ? WHERE id = ?', [crypto.randomBytes(12).toString('hex'), m.id]);
+  // Lo que piden los clientes desde la mesa (pedido, llamar al mozo, la cuenta) hasta que el mozo lo resuelve
+  await run(`CREATE TABLE IF NOT EXISTS solicitudes_mesa (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mesa_id INTEGER NOT NULL,
+    tipo TEXT NOT NULL,
+    items TEXT DEFAULT '[]',
+    notas TEXT DEFAULT '',
+    cliente TEXT DEFAULT '',
+    estado TEXT DEFAULT 'pendiente',
+    motivo TEXT DEFAULT '',
+    pedido_id INTEGER,
+    usuario_id INTEGER,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP,
+    resuelto_en TEXT
+  )`);
+  await run('CREATE INDEX IF NOT EXISTS idx_solicitudes_mesa ON solicitudes_mesa(estado, mesa_id)');
   // Arqueo de caja
   await agregarColumna('caja', 'monto_esperado', 'REAL');
   await agregarColumna('caja', 'diferencia', 'REAL');

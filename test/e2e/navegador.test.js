@@ -469,3 +469,44 @@ test('mesa reservada: "Ocupar" lleva al POS con la mesa elegida y el pedido qued
   sinErrores(page);
   await page.context().close();
 });
+
+test('pedido desde el QR de la mesa: el cliente pide, el mozo recibe el aviso y confirma, el cliente lo ve', async () => {
+  const token = 'e2e0'.repeat(6);
+  const [mesa] = await s.q("INSERT INTO mesas (nombre, capacidad, sector, orden, qr_token) VALUES ('Mesa QR E2E', 4, 'Principal', 60, ?) RETURNING id", [token]);
+  const mozo = await nuevaPagina();
+  await ingresarOk(mozo, 'mozo@test.com', 'clave1234');
+  await ir(mozo, 'mesas');
+
+  const cliente = await nuevaPagina();
+  await cliente.goto(`${s.base}/pedido.html?mesa=${token}`);
+  await cliente.waitForSelector('#origenBadge:has-text("Mesa QR E2E")');
+  await (await cliente.waitForSelector('.btn-agregar')).click();
+  await cliente.click('#btnConfirmar');
+  assert.equal(await cliente.isVisible('#clienteTelefono'), false, 'desde la mesa no se pide teléfono');
+  await cliente.fill('#clienteNombre', 'Sofi');
+  await cliente.fill('#clienteNotas', 'sin hielo');
+  await cliente.click('#btnEnviar');
+  await cliente.waitForSelector('#mesaAviso:has-text("El mozo lo confirma")');
+  assert.equal(await cliente.isVisible('#confirmacionScreen'), false, 'no tapa la carta');
+  await cliente.waitForSelector('#mesaEstado :text("Esperando al mozo")');
+
+  // El mozo recibe el aviso en vivo y lo ve en Mesas
+  await toast(mozo, 'warning', 'Mesa QR E2E hizo un pedido');
+  await mozo.waitForSelector('#navBadgeMesas:has-text("1")');
+  await mozo.click('.solicitud-mesa:has-text("Mesa QR E2E") button:has-text("Confirmar")');
+  await toast(mozo, 'success', 'va a cocina');
+  const [p] = await s.q("SELECT id, notas, cliente FROM pedidos WHERE mesa_id = ? AND estado = 'abierto'", [mesa.id]);
+  assert.deepEqual([p.cliente, p.notas], ['Sofi', 'sin hielo']);
+  await cliente.waitForSelector('#mesaEstado :text("Confirmado, en preparación")', { timeout: 15000 });
+  await cliente.waitForSelector('#mesaEstado :text("Tu cuenta")');
+
+  // Llamar al mozo: le aparece y lo marca atendido
+  await cliente.click('#btnLlamarMozo');
+  await toast(mozo, 'warning', 'Mesa QR E2E llama al mozo');
+  await mozo.click('.solicitud-mesa:has-text("Mesa QR E2E") button:has-text("Ya fui")');
+  await mozo.waitForSelector('.solicitud-mesa', { state: 'detached' });
+  sinErrores(cliente);
+  sinErrores(mozo);
+  await cliente.context().close();
+  await mozo.context().close();
+});
