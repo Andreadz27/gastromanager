@@ -29,10 +29,22 @@
     <div class="mesa-aviso" id="mesaAviso" style="display:none"></div>
     <div class="mesa-acciones">
       <button class="btn btn-outline" id="btnLlamarMozo" onclick="PedidoOnline.llamar('mozo')"><i class="fas fa-hand-paper"></i> Llamar al mozo</button>
-      <button class="btn btn-outline" id="btnPedirCuenta" onclick="PedidoOnline.llamar('cuenta')"><i class="fas fa-receipt"></i> Pedir la cuenta</button>
+      <button class="btn btn-outline" id="btnPedirCuenta" onclick="PedidoOnline.abrirCuenta()"><i class="fas fa-receipt"></i> Pedir la cuenta</button>
     </div>
+    <div id="mesaComprobante"></div>
     <div id="mesaEstado"></div>
   </section>
+
+  <!-- Pagar desde la mesa: Mercado Pago (toda la cuenta o mi parte, con propina) o avisar al mozo cómo se paga -->
+  <div id="pagoModal" class="pedido-form-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Pagar la cuenta">
+    <div class="pedido-form-modal">
+      <div class="pedido-form-header">
+        <h3><i class="fas fa-receipt"></i> La cuenta</h3>
+        <button onclick="PedidoOnline.cerrarCuenta()" class="btn-cerrar" aria-label="Cerrar">&times;</button>
+      </div>
+      <div id="pagoContenido"></div>
+    </div>
+  </div>
 
   <!-- Cats sticky -->
   <nav class="mobile-cat-nav" id="mobileCatNav" aria-label="Categorias">

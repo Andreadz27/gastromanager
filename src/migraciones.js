@@ -87,6 +87,22 @@ async function migrarEsquema() {
     resuelto_en TEXT
   )`);
   await run('CREATE INDEX IF NOT EXISTS idx_solicitudes_mesa ON solicitudes_mesa(estado, mesa_id)');
+  // Pago desde la mesa con Mercado Pago: cada link que abre un cliente (toda la cuenta o su parte, con su propina)
+  await run(`CREATE TABLE IF NOT EXISTS pagos_mesa (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pedido_id INTEGER NOT NULL,
+    mesa_id INTEGER NOT NULL,
+    monto REAL NOT NULL,
+    propina REAL DEFAULT 0,
+    partes INTEGER DEFAULT 1,
+    estado TEXT DEFAULT 'pendiente',
+    preferencia_id TEXT DEFAULT '',
+    payment_id TEXT DEFAULT '',
+    telefono TEXT DEFAULT '',
+    comprobante_enviado INTEGER DEFAULT 0,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await run('CREATE INDEX IF NOT EXISTS idx_pagos_mesa_pedido ON pagos_mesa(pedido_id)');
   // Arqueo de caja
   await agregarColumna('caja', 'monto_esperado', 'REAL');
   await agregarColumna('caja', 'diferencia', 'REAL');

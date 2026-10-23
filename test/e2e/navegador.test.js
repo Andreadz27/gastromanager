@@ -510,3 +510,68 @@ test('pedido desde el QR de la mesa: el cliente pide, el mozo recibe el aviso y 
   await cliente.context().close();
   await mozo.context().close();
 });
+
+test('pago desde la mesa: divide entre dos con propina, paga en Mercado Pago, vuelve y el mozo recibe el aviso', async () => {
+  // Mercado Pago simulado y un servidor con dirección pública HTTPS (sin ella no se ofrece pagar desde la mesa)
+  const mp = { preferencias: [], pagos: {} };
+  const falso = require('http').createServer((req, res) => {
+    let cuerpo = '';
+    req.on('data', d => { cuerpo += d; });
+    req.on('end', () => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      if (req.url.startsWith('/checkout/preferences')) { mp.preferencias.push(JSON.parse(cuerpo)); return res.end(JSON.stringify({ id: 'pref', sandbox_init_point: 'https://mp.test/pagar' })); }
+      res.end(JSON.stringify(mp.pagos[req.url.split('/').pop()] || {}));
+    });
+  });
+  await new Promise(ok => falso.listen(0, '127.0.0.1', ok));
+  const srv = await iniciarServidor({ BASE_URL: 'https://local.test', GM_MP_API_URL: `http://127.0.0.1:${falso.address().port}` });
+  try {
+    await srv.llamar('PUT', '/api/integraciones/config/mercadopago', { access_token: 'TEST-x', activa: true }, srv.tokenAdmin);
+    await srv.llamar('POST', '/api/usuarios', { nombre: 'Mozo Pago', email: 'mozo-pago@test.com', password: 'clave1234', rol: 'mozo' }, srv.tokenAdmin);
+    await srv.q('UPDATE usuarios SET debe_cambiar_password = 0');
+    const [mesa] = await srv.q('SELECT id, qr_token FROM mesas ORDER BY id LIMIT 1');
+    const [prod] = await srv.q('SELECT id FROM productos WHERE activo = 1 ORDER BY id LIMIT 1');
+    await srv.q('UPDATE productos SET precio_venta = 1000 WHERE id = ?', [prod.id]);
+    const [, sol] = await srv.llamar('POST', `/api/publico/mesa/${mesa.qr_token}/pedido`, { items: [{ producto_id: prod.id, cantidad: 2 }] });
+    await srv.llamar('POST', `/api/mesas/solicitudes/${sol.id}/confirmar`, {}, srv.tokenAdmin);
+
+    const mozo = await nuevaPagina();
+    await mozo.goto(srv.base + '/');
+    await mozo.fill('#loginEmail', 'mozo-pago@test.com');
+    await mozo.fill('#loginPassword', 'clave1234');
+    await mozo.click('#loginForm button[type=submit]');
+    await mozo.waitForSelector('#app', { state: 'visible' });
+
+    const cliente = await nuevaPagina();
+    await cliente.route('https://mp.test/**', r => r.fulfill({ contentType: 'text/html', body: '<h1>Mercado Pago</h1>' }));
+    await cliente.goto(`${srv.base}/pedido.html?mesa=${mesa.qr_token}`);
+    await cliente.waitForSelector('#mesaEstado :text("Tu cuenta")');
+    await cliente.click('#btnPedirCuenta');
+    await cliente.waitForSelector('#pagoModal', { state: 'visible' });
+    await cliente.click('#pagoPartes'); // tocar el número elige "Mi parte"
+    assert.equal(await cliente.inputValue('#pagoPartes'), '2');
+    await cliente.click('.pago-chip:has-text("10%")');
+    assert.match(await cliente.textContent('#pagoTotal'), /1\.100/, 'mitad de $2000 + 10%');
+    await cliente.click('#btnPagarMP');
+    await cliente.waitForURL('https://mp.test/**');
+    const pref = mp.preferencias[0];
+    assert.equal(pref.items[0].unit_price, 1100);
+
+    // Mercado Pago aprueba y devuelve al cliente a su mesa
+    mp.pagos['777'] = { id: 777, status: 'approved', external_reference: pref.external_reference, transaction_amount: 1100 };
+    await cliente.goto(pref.back_urls.success.replace('https://local.test', srv.base) + '&payment_id=777&status=approved');
+    await cliente.waitForSelector('#mesaAviso:has-text("Pago aprobado")');
+    await cliente.waitForSelector('#mesaEstado :text("Falta pagar")');
+    assert.ok(!(await cliente.url()).includes('payment_id'), 'la URL queda limpia');
+    await toast(mozo, 'success', 'pagó con Mercado Pago');
+    const [p] = await srv.q("SELECT propina, total FROM pedidos WHERE mesa_id = ? AND estado = 'abierto'", [mesa.id]);
+    assert.deepEqual([p.propina, p.total], [100, 2100]);
+    sinErrores(cliente);
+    sinErrores(mozo);
+    await cliente.context().close();
+    await mozo.context().close();
+  } finally {
+    await srv.cerrar();
+    await new Promise(ok => falso.close(ok));
+  }
+});

@@ -1,7 +1,8 @@
 'use strict';
 const {
   rateLimit, urlPublica, run, get, all, transaccion, errorHttp, errorInterno, emitEvento, generarNumeroPedido,
-  comandaAutomatica, resolverItems, recalcularTotales, mesaPorToken, estadoMesa, solicitarPedidoMesa, llamarMozo
+  comandaAutomatica, resolverItems, recalcularTotales, mesaPorToken, estadoMesa, solicitarPedidoMesa, llamarMozo,
+  iniciarPagoMesa, verificarPagoMesa, pedirComprobanteMesa
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -124,7 +125,23 @@ app.post('/api/publico/mesa/:token/pedido', mesaLimiter, conMesa(async (req, res
 }));
 
 app.post('/api/publico/mesa/:token/llamar', mesaLimiter, conMesa(async (req, res, mesa) => {
-  res.status(201).json(await llamarMozo(mesa, req.body && req.body.tipo));
+  const { tipo, forma } = req.body || {};
+  res.status(201).json(await llamarMozo(mesa, tipo, forma));
+}));
+
+// Pagar desde la mesa con Mercado Pago: toda la cuenta o una parte, con propina
+app.post('/api/publico/mesa/:token/pagar', mesaLimiter, conMesa(async (req, res, mesa) => {
+  const { partes, propina } = req.body || {};
+  res.status(201).json(await iniciarPagoMesa(mesa, req.params.token, { partes, propina }));
+}));
+
+// Al volver de Mercado Pago (payment_id viene en la URL de vuelta): se consulta y se acredita
+app.post('/api/publico/mesa/:token/pago/:id/verificar', mesaLimiter, conMesa(async (req, res, mesa) => {
+  res.json(await verificarPagoMesa(mesa, Number(req.params.id), req.body && req.body.payment_id));
+}));
+
+app.post('/api/publico/mesa/:token/pago/:id/comprobante', mesaLimiter, conMesa(async (req, res, mesa) => {
+  res.json(await pedirComprobanteMesa(mesa, Number(req.params.id), req.body && req.body.telefono));
 }));
 
 };
