@@ -29,7 +29,14 @@ async function iniciarArcaSimulado() {
           return responder({ FECAESolicitarResult: { FeDetResp: { FECAEDetResponse: {
             Resultado: 'R', Observaciones: { Obs: { Code: 10013, Msg: arca.rechazar } } } } } });
         }
-        arca.ultimo[params.FeCAEReq.FeCabReq.CbteTipo] = params.FeCAEReq.FeDetReq.FECAEDetRequest.CbteDesde;
+        // Como ARCA: el número tiene que ser exactamente el siguiente al último autorizado
+        const tipo = params.FeCAEReq.FeCabReq.CbteTipo;
+        const numero = params.FeCAEReq.FeDetReq.FECAEDetRequest.CbteDesde;
+        if (numero !== (arca.ultimo[tipo] || 0) + 1) {
+          return responder({ FECAESolicitarResult: { FeDetResp: { FECAEDetResponse: {
+            Resultado: 'R', Observaciones: { Obs: { Code: 10016, Msg: 'El numero de comprobante no es el proximo a autorizar' } } } } } });
+        }
+        arca.ultimo[tipo] = numero;
         return responder({ FECAESolicitarResult: { FeDetResp: { FECAEDetResponse: {
           Resultado: 'A', CAE: String(74000000000000 + arca.pedidos.length), CAEFchVto: '20261201' } } } });
       }

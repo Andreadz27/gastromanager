@@ -13,6 +13,8 @@ const { emitEvento } = require('../realtime');
 const { ZONA_HORARIA } = require('../tiempo');
 const { getIntCfg } = require('./integraciones');
 const { Ticket } = require('./escpos');
+const { facturaVigente } = require('./facturacion');
+const { datosTicketFiscal } = require('./ticket-fiscal');
 const { ES_DEMO } = require('../demo');
 
 const TIEMPO_ESPERA_MS = 8000;
@@ -171,11 +173,10 @@ async function datosPedido(pedidoId) {
     WHERE pi.pedido_id = ? ORDER BY pi.id`, [pedidoId]);
   pedido.pagos = await all('SELECT * FROM pagos WHERE pedido_id = ? ORDER BY id', [pedidoId]);
   pedido.entrega = await get('SELECT * FROM entregas WHERE pedido_id = ?', [pedidoId]);
-  // La factura vigente (una anulada con nota de crédito no va en el ticket)
-  pedido.comprobante = await get(`SELECT * FROM comprobantes_afip f
-    WHERE f.pedido_id = ? AND f.tipo_comprobante IN (1, 6, 11)
-      AND NOT EXISTS (SELECT 1 FROM comprobantes_afip nc WHERE nc.comprobante_asociado_id = f.id)
-    ORDER BY f.id DESC LIMIT 1`, [pedidoId]);
+  // La factura vigente (una anulada con nota de crédito no va en el ticket), con sus datos fiscales y el QR
+  const comprobante = await facturaVigente(pedidoId);
+  pedido.fiscal = comprobante ? datosTicketFiscal(comprobante, await getIntCfg('afip'),
+    await get('SELECT nombre_negocio, direccion FROM configuracion WHERE id = 1')) : null;
   return pedido;
 }
 
@@ -215,11 +216,33 @@ function plantillaComanda(pedido, items, impresora, titulo) {
 // Ticket para el cliente (precuenta o comprobante de pago)
 function plantillaTicket(pedido, negocio, opciones, impresora, extra = {}) {
   const t = new Ticket(impresora.ancho === 58 ? 32 : 48);
+  const f = pedido.fiscal;
   t.alinear('centro').negrita().tamano(2, 2).linea(negocio.nombre_negocio || 'GastroManager').normal().alinear('centro');
-  if (negocio.direccion) t.linea(negocio.direccion);
-  if (negocio.telefono) t.linea(`Tel: ${negocio.telefono}`);
-  if (negocio.cuit) t.linea(`CUIT: ${negocio.cuit}`);
-  t.alinear('izquierda').separador();
+  if (f) {
+    // Encabezado de factura: datos del emisor (RG 1415), letra y número
+    if (f.prueba) t.negrita().linea('*** COMPROBANTE DE PRUEBA ***').linea('SIN VALIDEZ FISCAL').normal().alinear('centro');
+    if (f.emisor.razon_social && f.emisor.razon_social !== negocio.nombre_negocio) t.linea(f.emisor.razon_social);
+    if (f.emisor.domicilio) t.linea(f.emisor.domicilio);
+    if (negocio.telefono) t.linea(`Tel: ${negocio.telefono}`);
+    t.linea(`CUIT: ${f.emisor.cuit}`).linea(f.emisor.condicion);
+    if (f.emisor.iibb) t.linea(`IIBB: ${f.emisor.iibb}`);
+    if (f.emisor.inicio_actividades) t.linea(`Inicio de actividades: ${f.emisor.inicio_actividades}`);
+    t.separador().negrita().tamano(2, 2).linea(`FACTURA ${f.letra}`).normal().alinear('centro');
+    t.linea(`Cód. ${f.codigo}  N° ${f.numero}`).linea(`Fecha: ${f.fecha}`);
+    t.alinear('izquierda').separador();
+    if (f.receptor) {
+      t.linea(`Cliente: ${f.receptor.razon_social}`).linea(`CUIT: ${f.receptor.cuit}`);
+      if (f.receptor.condicion) t.linea(f.receptor.condicion);
+    } else {
+      t.linea('A consumidor final');
+    }
+  } else {
+    if (negocio.direccion) t.linea(negocio.direccion);
+    if (negocio.telefono) t.linea(`Tel: ${negocio.telefono}`);
+    if (negocio.cuit) t.linea(`CUIT: ${negocio.cuit}`);
+    t.alinear('izquierda');
+  }
+  t.separador();
   t.columnas2(`Pedido ${pedido.numero_pedido}`, fechaHora(pedido.cerrado_en || pedido.creado_en));
   if (pedido.mesa_nombre) t.linea(`Mesa: ${pedido.mesa_nombre}`);
   else t.linea(TIPOS[pedido.tipo] || pedido.tipo || '');
@@ -239,12 +262,24 @@ function plantillaTicket(pedido, negocio, opciones, impresora, extra = {}) {
   for (const pago of pedido.pagos) t.columnas2(`Pago ${METODOS[pago.metodo] || pago.metodo}`, moneda(pago.monto));
   if (extra.vuelto > 0) t.columnas2('Vuelto', moneda(extra.vuelto));
   if (pedido.estado !== 'pagado') t.alinear('centro').negrita().linea('*** PRECUENTA ***').normal();
-  t.separador().alinear('centro');
-  if (pedido.comprobante) {
-    const c = pedido.comprobante;
-    t.linea(`${c.tipo_comprobante_nombre} ${String(c.punto_venta).padStart(4, '0')}-${String(c.numero_comprobante).padStart(8, '0')}`);
-    t.linea(`CAE ${c.cae} Vto. ${c.cae_vencimiento}`);
+  t.separador();
+  if (f) {
+    // La propina no se factura: el importe fiscal puede ser menor que el TOTAL cobrado
+    if (Math.abs(f.total - Number(pedido.total)) >= 0.01) t.columnas2('Total facturado', moneda(f.total));
+    if (f.discriminado) {
+      t.columnas2('Neto gravado', moneda(f.discriminado.neto));
+      t.columnas2(`IVA ${f.discriminado.alicuota}%`, moneda(f.discriminado.iva));
+    }
+    if (f.iva_contenido !== null) {
+      t.linea('Régimen de Transparencia Fiscal al');
+      t.linea('Consumidor (Ley 27.743)');
+      t.columnas2('IVA contenido', moneda(f.iva_contenido));
+    }
+    t.separador().alinear('centro').qr(f.qr, impresora.ancho === 58 ? 4 : 6);
+    t.linea(`CAE: ${f.cae}`).linea(`Vto. CAE: ${f.cae_vencimiento}`);
+    if (f.prueba) t.negrita().linea('SIN VALIDEZ FISCAL').normal().alinear('centro');
   } else {
+    t.alinear('centro');
     t.linea('Documento no válido como factura');
   }
   if (opciones.pie) t.linea(opciones.pie);

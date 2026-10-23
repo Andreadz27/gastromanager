@@ -170,3 +170,90 @@ test('la propina no se factura: la factura es por el consumo', async () => {
   const d = detalle(ultimoCAE());
   assert.deepEqual([d.ImpTotal, d.ImpNeto, d.ImpIVA], [1210, 1000, 210]);
 });
+
+// Dos cajas facturando a la vez pedían el mismo número a ARCA y una factura se rechazaba
+test('dos facturas al mismo tiempo salen con números seguidos', async () => {
+  const [p1, p2] = [await pedidoCobrado(), await pedidoCobrado()];
+  const r = await Promise.all([facturar({ pedido_id: p1.id, tipo_comprobante: 6 }), facturar({ pedido_id: p2.id, tipo_comprobante: 6 })]);
+  assert.deepEqual(r.map(x => x[0]), [200, 200], JSON.stringify(r));
+  assert.equal(Math.abs(r[0][1].numero_comprobante - r[1][1].numero_comprobante), 1);
+});
+
+// El ticket solo decía tipo, número y CAE: le faltaban los datos del emisor, el QR de ARCA y el IVA contenido
+test('ticket fiscal: emisor, receptor, IVA contenido (B), IVA discriminado (A), QR de ARCA y marca de prueba', async () => {
+  await s.llamar('PUT', '/api/integraciones/config/afip', { cuit: '20-11111111-2', access_token: 'x', activa: true, iva_tipo: 5, pto_venta: 3,
+    razon_social: 'LA BUENA MESA SA', domicilio: 'Av. Siempre Viva 742', iibb: '901-123456-7', inicio_actividades: '2020-03-01', condicion_iva: 'ri' }, s.tokenAdmin);
+
+  const p = await pedidoCobrado();
+  const [, f] = await facturar({ pedido_id: p.id, tipo_comprobante: 6 });
+  const [, ped] = await s.llamar('GET', `/api/pedidos/${p.id}`, null, s.tokenVendedor);
+  const fis = ped.fiscal;
+  assert.deepEqual([fis.letra, fis.codigo, fis.numero], ['B', '006', `00003-${String(f.numero_comprobante).padStart(8, '0')}`]);
+  assert.deepEqual([fis.emisor.razon_social, fis.emisor.cuit, fis.emisor.condicion, fis.emisor.inicio_actividades],
+    ['LA BUENA MESA SA', '20-11111111-2', 'IVA Responsable Inscripto', '01/03/2020']);
+  assert.equal(fis.receptor, null, 'consumidor final');
+  assert.deepEqual([fis.iva_contenido, fis.discriminado, fis.cae_vencimiento, fis.prueba], [210, null, '01/12/2026', true]);
+  assert.match(fis.qr_svg, /^<svg/);
+  const qr = JSON.parse(Buffer.from(fis.qr.split('?p=')[1], 'base64').toString());
+  assert.deepEqual([qr.ver, qr.cuit, qr.ptoVta, qr.tipoCmp, qr.nroCmp, qr.importe, qr.tipoDocRec, qr.tipoCodAut, qr.codAut],
+    [1, 20111111112, 3, 6, f.numero_comprobante, 1210, 99, 'E', Number(f.cae)]);
+  assert.match(qr.fecha, /^\d{4}-\d{2}-\d{2}$/);
+
+  const pa = await pedidoCobrado();
+  await facturar({ pedido_id: pa.id, tipo_comprobante: 1, cuit_receptor: '30-71234567-1', condicion_iva_receptor: 1, razon_social: 'LA ESQUINA SRL' });
+  const [, a] = await s.llamar('GET', `/api/pedidos/${pa.id}`, null, s.tokenVendedor);
+  assert.deepEqual(a.fiscal.discriminado, { neto: 1000, iva: 210, alicuota: 21 });
+  assert.equal(a.fiscal.iva_contenido, null);
+  assert.deepEqual([a.fiscal.receptor.cuit, a.fiscal.receptor.razon_social], ['30-71234567-1', 'LA ESQUINA SRL']);
+  const qrA = JSON.parse(Buffer.from(a.fiscal.qr.split('?p=')[1], 'base64').toString());
+  assert.deepEqual([qrA.tipoDocRec, qrA.nroDocRec], [80, 30712345671]);
+
+  // Sin factura: no hay datos fiscales
+  const sin = await pedidoCobrado();
+  assert.equal((await s.llamar('GET', `/api/pedidos/${sin.id}`, null, s.tokenVendedor))[1].fiscal, null);
+});
+
+test('ticket térmico de una factura: datos fiscales, IVA contenido y QR nativo de la impresora', async () => {
+  const net = require('net');
+  const trabajos = [];
+  const srv = net.createServer(sock => { const b = []; sock.on('data', d => b.push(d)); sock.on('end', () => { trabajos.push(Buffer.concat(b)); sock.end(); }); });
+  await new Promise(ok => srv.listen(0, '127.0.0.1', ok));
+  try {
+    const [st] = await s.llamar('POST', '/api/impresoras', { nombre: 'Caja AFIP', tipo: 'red', destino: `127.0.0.1:${srv.address().port}`,
+      imprime_comandas: false, imprime_tickets: true }, s.tokenAdmin);
+    assert.equal(st, 201);
+    const p = await pedidoCobrado();
+    await facturar({ pedido_id: p.id, tipo_comprobante: 6 });
+    const antes = trabajos.length;
+    assert.equal((await s.llamar('POST', `/api/pedidos/${p.id}/imprimir/ticket`, null, s.tokenVendedor))[0], 200);
+    for (let t = 0; t < 5000 && trabajos.length === antes; t += 50) await new Promise(r => setTimeout(r, 50));
+    const txt = trabajos[trabajos.length - 1].toString('latin1');
+    for (const esperado of ['FACTURA B', 'IVA contenido', 'Ley 27.743', 'CUIT: 20-11111111-2', 'A consumidor final', 'SIN VALIDEZ FISCAL', 'CAE: 74'])
+      assert.ok(txt.includes(esperado), `falta "${esperado}"`);
+    assert.ok(txt.includes('https://www.afip.gob.ar/fe/qr/?p='), 'QR con la URL de ARCA');
+    assert.ok(txt.includes(Buffer.from([0x1d, 0x28, 0x6b]).toString('latin1')), 'comando QR (GS ( k)');
+    assert.ok(!txt.includes('Documento no válido como factura'));
+  } finally {
+    await s.q("DELETE FROM impresoras WHERE nombre = 'Caja AFIP'");
+    await new Promise(ok => srv.close(ok));
+  }
+});
+
+test('una factura de prueba no impide la real en producción, ni se anula desde producción', async () => {
+  const p = await pedidoCobrado();
+  const [, prueba] = await facturar({ pedido_id: p.id, tipo_comprobante: 6 });
+  const [{ modo }] = await s.q('SELECT modo FROM comprobantes_afip WHERE id = ?', [prueba.id]);
+  assert.equal(modo, 'homologacion');
+  await s.llamar('PUT', '/api/integraciones/config/afip', { cuit: '20-11111111-2', access_token: 'x', activa: true, pto_venta: 3, modo: 'produccion' }, s.tokenAdmin);
+  try {
+    const [st, nc] = await notaCredito({ comprobante_id: prueba.id, motivo: 'x' }, s.tokenAdmin);
+    assert.equal(st, 400);
+    assert.match(nc.error, /prueba/);
+    const [stReal, real] = await facturar({ pedido_id: p.id, tipo_comprobante: 6 });
+    assert.equal(stReal, 200, JSON.stringify(real));
+    assert.equal((await s.q('SELECT modo FROM comprobantes_afip WHERE id = ?', [real.id]))[0].modo, 'produccion');
+    assert.equal((await facturar({ pedido_id: p.id, tipo_comprobante: 6 }))[0], 409, 'la real sí bloquea otra');
+  } finally {
+    await s.llamar('PUT', '/api/integraciones/config/afip', { cuit: '20-11111111-2', access_token: 'x', activa: true, iva_tipo: 5, pto_venta: 3 }, s.tokenAdmin);
+  }
+});

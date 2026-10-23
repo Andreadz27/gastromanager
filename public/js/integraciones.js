@@ -313,6 +313,13 @@ const Integraciones = {
     if (!el) return;
     const extra = (est.afip === 'conectada' || est.afip === 'configurada')
       ? `<div class="mt-20"><div class="card-header"><span class="card-title"><i class="fas fa-list"></i> &Uacute;ltimos comprobantes</span></div><div id="listaComprobantes"><i class="fas fa-spinner fa-spin"></i></div></div>` : '';
+    // Datos obligatorios del emisor en el comprobante impreso (RG 1415)
+    const faltan = [
+      !afip.razon_social && 'raz&oacute;n social',
+      !(afip.domicilio || (App.config && App.config.direccion)) && 'domicilio comercial',
+      !afip.iibb && 'Ingresos Brutos',
+      !afip.inicio_actividades && 'inicio de actividades'
+    ].filter(Boolean);
     el.innerHTML = `
       <div class="integracion-card ${afip.activa ? 'activa' : ''}">
         <div class="integracion-header">
@@ -371,6 +378,32 @@ const Integraciones = {
                   <option value="0" ${!afip.activa?'selected':''}>No</option>
                   <option value="1" ${afip.activa?'selected':''}>S&iacute;</option>
                 </select>
+              </div>
+            </div>
+            <h4 class="mt-20">Datos que se imprimen en la factura</h4>
+            ${faltan.length ? `<div class="card-info mt-10"><i class="fas fa-exclamation-triangle"></i>
+              <div>La factura impresa tiene que mostrar: <strong>${faltan.join(', ')}</strong>. Completalos antes de facturar en producci&oacute;n.</div></div>` : ''}
+            <div class="grid grid-2">
+              <div class="form-group"><label>Raz&oacute;n social</label>
+                <input type="text" id="afipRazonSocial" value="${esc(afip.razon_social||'')}" placeholder="Como figura en ARCA" maxlength="120">
+              </div>
+              <div class="form-group"><label>Condici&oacute;n frente al IVA</label>
+                <select id="afipCondicionIva">
+                  <option value="ri" ${afip.condicion_iva==='ri'?'selected':''}>Responsable Inscripto</option>
+                  <option value="monotributo" ${afip.condicion_iva==='monotributo'?'selected':''}>Monotributo</option>
+                  <option value="exento" ${afip.condicion_iva==='exento'?'selected':''}>Exento</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group"><label>Domicilio comercial</label>
+              <input type="text" id="afipDomicilio" value="${esc(afip.domicilio||'')}" placeholder="Si queda vac&iacute;o se usa la direcci&oacute;n del negocio" maxlength="160">
+            </div>
+            <div class="grid grid-2">
+              <div class="form-group"><label>Ingresos Brutos (N&deg; o &laquo;Convenio Multilateral&raquo;)</label>
+                <input type="text" id="afipIibb" value="${esc(afip.iibb||'')}" maxlength="40">
+              </div>
+              <div class="form-group"><label>Inicio de actividades</label>
+                <input type="date" id="afipInicioActividades" value="${esc(afip.inicio_actividades||'')}">
               </div>
             </div>
             <div class="integracion-actions">
@@ -454,7 +487,7 @@ const Integraciones = {
       cont.innerHTML = `<div class="table-wrap"><table>
         <thead><tr><th>Tipo</th><th>N&uacute;mero</th><th>CAE</th><th>Fecha</th><th>Total</th><th>Pedido</th></tr></thead>
         <tbody>${lista.map(c => `<tr>
-          <td>${esc(c.tipo_comprobante_nombre || c.tipo_comprobante)}</td>
+          <td>${esc(c.tipo_comprobante_nombre || c.tipo_comprobante)}${c.modo === 'homologacion' ? ' <span class="badge badge-orange" title="Emitida en homologación: sin validez fiscal">Prueba</span>' : ''}</td>
           <td class="font-bold">${String(c.punto_venta||'').padStart(4,'0')}-${String(c.numero_comprobante||'').padStart(8,'0')}</td>
           <td><span class="code-inline">${esc(c.cae)}</span></td>
           <td>${fmtFecha(c.fecha_comprobante)}</td>
@@ -506,7 +539,12 @@ const Integraciones = {
         key:          document.getElementById('afipKey').value.trim(),
         pto_venta:    parseInt(document.getElementById('afipPtoVenta').value) || 1,
         iva_tipo:     parseInt(document.getElementById('afipIvaTipo').value) || 5,
-        activa:       document.getElementById('afipActiva').value === '1'
+        activa:       document.getElementById('afipActiva').value === '1',
+        razon_social:       document.getElementById('afipRazonSocial').value.trim(),
+        condicion_iva:      document.getElementById('afipCondicionIva').value,
+        domicilio:          document.getElementById('afipDomicilio').value.trim(),
+        iibb:               document.getElementById('afipIibb').value.trim(),
+        inicio_actividades: document.getElementById('afipInicioActividades').value
       });
       App.showToast('Configuración AFIP guardada', 'success');
       this.render();
