@@ -111,6 +111,7 @@ const API = {
   atenderSolicitudMesa(id) { return this.request('POST', `/mesas/solicitudes/${id}/atender`); },
   getQrMesas(base) { return this.request('GET', `/mesas/qr?base=${encodeURIComponent(base)}`); },
   nuevoQrMesa(id) { return this.request('POST', `/mesas/${id}/qr`); },
+  getRedLocal() { return this.request('GET', '/red-local'); },
 
   // ===== Reservas =====
   getReservas(fecha = null) {

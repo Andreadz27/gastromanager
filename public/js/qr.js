@@ -9,22 +9,31 @@ const QRView = {
   async render() {
     const view = document.getElementById('view-qr');
     view.innerHTML = '<div class="text-center mt-20"><i class="fas fa-spinner fa-spin fa-3x"></i></div>';
+    // Base de los QR: la dirección pública (BASE_URL) o la de la red del local. Entrando desde la misma PC el navegador
+    // ve "localhost", que en un celular no abre: se usa la dirección de la PC en el WiFi del local que informa el servidor.
+    this._base = window.location.origin;
+    if (/^(localhost|127\.|\[::1\])/.test(window.location.hostname) && App.puede('catalogo')) {
+      try {
+        this._red = await API.getRedLocal();
+        if (this._red.direcciones[0]) this._base = this._red.direcciones[0].url;
+      } catch (e) { /* queda localhost, con el aviso */ }
+    }
     try {
       const info = await fetch('/api/publico/info').then(r => r.json()).catch(() => ({}));
       const links = (info && info.links) || {};
-      this._qrUrl = links.carta || (window.location.origin + '/menu.html');
+      this._qrUrl = links.carta || (this._base + '/menu.html');
       this._paint(view, info || {});
     } catch (err) {
-      this._qrUrl = window.location.origin + '/menu.html';
+      this._qrUrl = this._base + '/menu.html';
       this._paint(view, {});
     }
   },
 
   _paint(view, info) {
     const urlMenu    = this._qrUrl;
-    const urlDisplay = window.location.origin + '/cocina-display.html';
-    const urlWA  = (info.links && info.links.whatsapp)  || (window.location.origin + '/pedido.html?origen=whatsapp');
-    const urlIG  = (info.links && info.links.instagram) || (window.location.origin + '/pedido.html?origen=instagram');
+    const urlDisplay = this._base + '/cocina-display.html';
+    const urlWA  = (info.links && info.links.whatsapp)  || (this._base + '/pedido.html?origen=whatsapp');
+    const urlIG  = (info.links && info.links.instagram) || (this._base + '/pedido.html?origen=instagram');
     const waShare = 'https://wa.me/?text=' + encodeURIComponent('\u00a1Mir\u00e1 nuestra carta! ' + urlMenu);
 
     view.innerHTML = `
@@ -46,7 +55,8 @@ const QRView = {
           <button class="btn btn-outline" onclick="QRView.listaQrMesas()"><i class="fas fa-list"></i> Ver por mesa / QR nuevo</button>
           <button class="btn btn-outline" onclick="App.navigateTo('config')"><i class="fas fa-cog"></i> Cómo llegan los pedidos (Configuración)</button>
         </div>
-      </div>` : ''}
+      </div>
+      <div class="card mb-20" id="conectarEquipos"></div>` : ''}
 
       <div class="qr-page-grid">
 
@@ -203,6 +213,7 @@ const QRView = {
 
     this._generarQR();
     this._generarQRMini('qrDisplayMini', urlDisplay, 100);
+    if (App.puede('catalogo')) this.pintarConectarEquipos();
   },
 
   _generarQR() {
@@ -240,11 +251,64 @@ const QRView = {
   // ===== QR de cada mesa (los genera el servidor: no dependen de un servicio externo) =====
   async _qrMesas() {
     // Sin dirección pública, la que usa este navegador: tiene que ser la de la red del local, no localhost
-    const base = window.location.origin;
+    const base = this._base || window.location.origin;
     const qrs = await API.getQrMesas(base);
     if (qrs.length && /^https?:\/\/(localhost|127\.|\[::1\])/.test(qrs[0].url))
       App.showToast('Estos QR apuntan a esta computadora y no abren en los celulares. Entrá con la dirección de la red del local.', 'warning', 10000);
     return qrs;
+  },
+
+  // ===== Conectar celulares y tablets del personal =====
+  // La dirección de esta PC en la red del local (la informa el servidor: desde la misma PC el navegador ve localhost)
+  async pintarConectarEquipos() {
+    const el = document.getElementById('conectarEquipos');
+    if (!el) return;
+    try {
+      const red = this._red || await API.getRedLocal();
+      this._red = red;
+      const dirs = red.direcciones;
+      el.innerHTML = `
+        <div class="card-header">
+          <span class="card-title"><i class="fas fa-mobile-alt"></i> Conectar celulares y tablets del personal</span>
+          <span class="card-subtitle">Con el WiFi del local, escanean el QR y entran con su usuario. Funciona aunque no haya internet.</span>
+        </div>
+        ${dirs.length ? `<div class="conectar-equipos">${dirs.map(d => `
+          <div class="conectar-direccion">
+            <img src="${urlQr(d.url)}" alt="QR para entrar a Morfi" width="140" height="140">
+            <div><strong>${esc(d.url)}</strong><br><small class="text-muted">${esc(d.interfaz)}</small></div>
+          </div>`).join('')}</div>
+          <p class="text-muted conectar-ayuda">${dirs.length > 1 ? 'Esta PC tiene más de una conexión: usá la de la red a la que se conectan los celulares. ' : ''}
+            <strong>Reservá esta IP en el router</strong> (DHCP → reserva por dirección MAC): si cambia, los celulares y tablets dejan de encontrar el sistema (y reservá también la IP de cada impresora de red).</p>
+          <div style="padding:0 16px 16px;"><button class="btn btn-primary" onclick="QRView.imprimirConectarEquipos()"><i class="fas fa-print"></i> Imprimir hoja para el personal</button></div>`
+          : '<p class="text-muted" style="padding:0 16px 16px;">Esta PC no está conectada a una red local (WiFi o cable). Conectala al router del local.</p>'}`;
+    } catch (err) { el.innerHTML = ''; }
+  },
+
+  imprimirConectarEquipos() {
+    const d = (this._red && this._red.direcciones[0]);
+    if (!d) return;
+    const win = window.open('', '_blank', 'width=700,height=900');
+    if (!win) { App.showToast('Habilitá las ventanas emergentes para imprimir', 'warning'); return; }
+    const negocio = (App.config && App.config.nombre_negocio) || '';
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Entrar a Morfi</title><style>
+      body{font-family:Arial,sans-serif;margin:0;padding:18mm;color:#1e293b;text-align:center}
+      .marca{display:flex;gap:10px;align-items:center;justify-content:center;font-size:26pt;font-weight:800}
+      .marca img{width:44px;height:44px;border-radius:23%} .qr{width:70mm;height:70mm;margin:10mm auto 4mm}
+      .dir{font-size:16pt;font-weight:bold} ol{text-align:left;max-width:140mm;margin:10mm auto;font-size:13pt;line-height:1.7}
+    </style></head><body>
+      <div class="marca"><img src="${location.origin}/favicon.svg" alt="">morfi</div>
+      <p>${esc(negocio)}</p>
+      <img class="qr" src="${location.origin}${urlQr(d.url)}" alt="">
+      <div class="dir">${esc(d.url)}</div>
+      <ol>
+        <li>Conectate al <strong>WiFi del local</strong>.</li>
+        <li>Abrí la cámara y escaneá el código (o escribí la dirección en el navegador).</li>
+        <li>Entrá con <strong>tu</strong> email y contraseña (pedíselos al encargado).</li>
+        <li>En el menú del navegador elegí <strong>"Agregar a la pantalla de inicio"</strong>: queda como una app.</li>
+      </ol>
+      <p>Funciona aunque no haya internet, mientras estés en el WiFi del local.</p>
+      <script>window.onload=function(){window.print();};<\/script></body></html>`);
+    win.document.close();
   },
 
   async imprimirQrMesas() {

@@ -100,6 +100,17 @@ test('la copia se sube cifrada; una PC nueva la restaura desde la nube con la cl
   } finally {
     nueva.borrar();
   }
+
+  // PC de reemplazo: la copia más nueva, sin saber cómo se llama (lo usa instalar.ps1 -RestaurarDeLaNube)
+  const reemplazo = pc({ ...nube(), BACKUP_CLAVE: CLAVE });
+  try {
+    const r = await reemplazo.restaurar('--nube', '--ultima');
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, new RegExp(`Copia más nueva de la nube: ${nombre.replace(/\./g, '\\.')}`));
+    assert.match(await reemplazo.q('SELECT nombre_negocio FROM configuracion'), /La Buena Mesa/);
+  } finally {
+    reemplazo.borrar();
+  }
 });
 
 test('restaurar una copia local: guarda la base actual antes y rechaza copias dañadas o con el servidor andando', async () => {

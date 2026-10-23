@@ -6,6 +6,12 @@
 # lo arranca solo AL ENCENDER la PC (aunque nadie inicie sesión: si se corta la luz, vuelve solo),
 # abre el puerto para las tablets de la red local y (opcional) programa la actualización automática de madrugada.
 # Se puede volver a ejecutar: no borra datos ni pisa la configuración existente.
+#
+# PC DE REEMPLAZO (se rompió la del local), todo en un paso: la clave de las copias del gestor de contraseñas y los
+# datos del bucket del local. Instala, baja la copia más nueva de la nube, la verifica y deja el local andando:
+#   powershell -ExecutionPolicy Bypass -File instalar.ps1 -Cliente "la-buena-mesa" -Token "github_pat_..." -RestaurarDeLaNube `
+#     -ClaveCopias "<64 caracteres>" -S3Endpoint "https://<cuenta>.r2.cloudflarestorage.com" -S3Bucket "gm-la-buena-mesa" `
+#     -S3KeyId "<Access Key ID>" -S3Secret "<Secret Access Key>"
 param(
   [Parameter(Mandatory = $true)][string]$Cliente,          # nombre corto del local: carpeta en la nube y en el monitoreo
   [string]$Carpeta,                                        # por defecto C:\Morfi (o C:\GastroManager si ya estaba instalado así)
@@ -13,7 +19,14 @@ param(
   [string]$Repo = 'https://github.com/Andreadz27/gastromanager.git',
   [string]$Token,                                          # token de solo lectura (repositorio privado)
   [int]$Puerto = 3000,
-  [switch]$ActualizacionAutomatica                         # actualiza todos los días a las 05:00 (con copia y vuelta atrás)
+  [switch]$ActualizacionAutomatica,                        # actualiza todos los días a las 05:00 (con copia y vuelta atrás)
+  # Copias en la nube del local (también sirven sin -RestaurarDeLaNube, para dejarlas configuradas al instalar)
+  [switch]$RestaurarDeLaNube,                              # PC de reemplazo: restaura la copia más nueva de la nube
+  [string]$ClaveCopias,                                    # BACKUP_CLAVE del local (la del gestor de contraseñas)
+  [string]$S3Endpoint,
+  [string]$S3Bucket,
+  [string]$S3KeyId,
+  [string]$S3Secret
 )
 $ErrorActionPreference = 'Stop'
 function Paso($t) { Write-Host "`n==> $t" -ForegroundColor Cyan }
@@ -26,6 +39,13 @@ function Tolerante([scriptblock]$b) { $prev = $ErrorActionPreference; $ErrorActi
 $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $admin) { throw 'Abre PowerShell como Administrador y vuelve a ejecutar el instalador.' }
 if ($Cliente -notmatch '^[a-z0-9][a-z0-9-]{1,40}$') { throw 'El nombre del cliente va en minúsculas, sin espacios ni acentos (ej. la-buena-mesa).' }
+# Se revisa todo antes de instalar nada: a mitad de camino, con el local cerrado, no hay que descubrir que faltaba un dato
+if ($ClaveCopias -and $ClaveCopias -notmatch '^[0-9a-fA-F]{64}$') { throw 'La clave de las copias tiene 64 caracteres (0-9 y a-f): copiala completa del gestor de contraseñas.' }
+$datosNube = @($S3Endpoint, $S3Bucket, $S3KeyId, $S3Secret) | Where-Object { $_ }
+if ($datosNube.Count -and $datosNube.Count -lt 4) { throw 'Para las copias en la nube van los cuatro datos: -S3Endpoint, -S3Bucket, -S3KeyId y -S3Secret.' }
+if ($RestaurarDeLaNube -and (-not $ClaveCopias -or $datosNube.Count -lt 4)) {
+  throw 'Para restaurar de la nube hacen falta -ClaveCopias y los cuatro datos -S3* del bucket del local (docs/INSTALACION.md, "PC de reemplazo").'
+}
 
 Paso 'Node.js y Git'
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { winget install --id OpenJS.NodeJS.LTS -e --accept-package-agreements --accept-source-agreements; Revisar 'instalar Node.js'; Refrescar-Path }
@@ -88,6 +108,26 @@ BASE_URL=
   Write-Host "Creado $envFile (completar copias en la nube y monitoreo)."
 } else { Write-Host '.env ya existe: no se toca (salvo agregar la clave de las copias si falta).' }
 
+# Pone CLAVE=valor en el .env (reemplaza la línea si ya estaba)
+function Fijar-Env($clave, $valor) {
+  $lineas = @(Get-Content $envFile | Where-Object { $_ -notmatch "^\s*$clave\s*=" })
+  ($lineas + "$clave=$valor") | Set-Content -Path $envFile -Encoding UTF8
+}
+if ($datosNube.Count -eq 4) {
+  Fijar-Env 'BACKUP_S3_ENDPOINT' $S3Endpoint
+  Fijar-Env 'BACKUP_S3_BUCKET' $S3Bucket
+  Fijar-Env 'BACKUP_S3_KEY_ID' $S3KeyId
+  Fijar-Env 'BACKUP_S3_SECRET' $S3Secret
+}
+if ($ClaveCopias) {
+  # Una clave distinta de la que ya tenía esta PC dejaría ilegibles sus copias de la nube: no se pisa sin revisar
+  $actual = Select-String -Path $envFile -Pattern '^\s*BACKUP_CLAVE\s*=\s*([0-9a-fA-F]{64})' | Select-Object -First 1
+  if ($actual -and $actual.Matches[0].Groups[1].Value.ToLower() -ne $ClaveCopias.ToLower()) {
+    throw "Esta PC ya tiene otra clave de copias en $envFile. Revisá cuál es la correcta antes de cambiarla (las copias de la nube solo se abren con la suya)."
+  }
+  if (-not $actual) { Fijar-Env 'BACKUP_CLAVE' $ClaveCopias.ToLower() }
+}
+
 # Clave para cifrar las copias que se suben a la nube (AES-256). Sin ella no se pueden restaurar.
 $claveNueva = $null
 if (-not (Select-String -Path $envFile -Pattern '^\s*BACKUP_CLAVE\s*=\s*[0-9a-fA-F]{64}' -Quiet)) {
@@ -98,8 +138,23 @@ if (-not (Select-String -Path $envFile -Pattern '^\s*BACKUP_CLAVE\s*=\s*[0-9a-fA
 }
 
 Paso 'Base de datos'
-# data\morfi.db (si todavía se llama gastromanager.db, el sistema la renombra solo al arrancar)
-if (-not (Test-Path (Join-Path $Carpeta 'data\morfi.db')) -and -not (Test-Path (Join-Path $Carpeta 'data\gastromanager.db'))) { npm run init-db; Revisar 'crear la base de datos' } else { Write-Host 'La base ya existe: no se toca.' }
+$restaurada = $null
+if ($RestaurarDeLaNube) {
+  # El servidor no puede estar andando mientras se reemplaza la base (restaurar.js se niega)
+  Tolerante { pm2 delete morfi }
+  Tolerante { pm2 delete gastromanager }
+  # Baja la copia más nueva, la descifra con la clave y la verifica antes de tocar nada (si había una base, la guarda aparte)
+  # (en PowerShell 5.1, lo que el programa escribe en stderr cortaría el script antes de mostrar el motivo)
+  $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  $salida = node scripts\restaurar.js --nube --ultima 2>&1 | ForEach-Object { "$_" }
+  $ErrorActionPreference = $prev
+  $salida | ForEach-Object { Write-Host "  $_" }
+  Revisar 'restaurar la copia de la nube (revisá la clave y los datos del bucket)'
+  $restaurada = ($salida | Select-String 'Copia más nueva de la nube: (.+)').Matches | ForEach-Object { $_.Groups[1].Value } | Select-Object -First 1
+} elseif (-not (Test-Path (Join-Path $Carpeta 'data\morfi.db')) -and -not (Test-Path (Join-Path $Carpeta 'data\gastromanager.db'))) {
+  # data\morfi.db (si todavía se llama gastromanager.db, el sistema la renombra solo al arrancar)
+  npm run init-db; Revisar 'crear la base de datos'
+} else { Write-Host 'La base ya existe: no se toca.' }
 
 Paso 'Rotación de logs de pm2'
 # Sin esto, logs\pm2-*.log crece sin límite hasta llenar el disco
@@ -148,7 +203,13 @@ $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notma
 Write-Host "`nListo. Morfi está corriendo." -ForegroundColor Green
 Write-Host "  En esta PC:            http://localhost:$Puerto"
 Write-Host "  Tablets y celulares:   http://${ip}:$Puerto  (misma red WiFi)"
-Write-Host '  Usuario inicial:       admin@morfi.local / admin123 (pide cambiarla al entrar: hacelo YA)'
+if ($restaurada) {
+  Write-Host "  Datos:                 copia de la nube $restaurada (los mismos usuarios y claves del local)" -ForegroundColor Green
+  Write-Host '  Revisá en Pedidos que estén las ventas del último día: lo vendido después de esa copia no está.'
+  Write-Host '  Los celulares y tablets entran por la IP de la PC vieja: dale a esta la misma IP en el router.'
+} else {
+  Write-Host '  Usuario inicial:       admin@morfi.local / admin123 (pide cambiarla al entrar: hacelo YA)'
+}
 Write-Host '  Conviene fijar la IP de esta PC en el router para que las tablets la encuentren siempre.'
 Write-Host '  En el BIOS: "Restore on AC power loss" = Power On, para que la PC se prenda sola al volver la luz.'
 
