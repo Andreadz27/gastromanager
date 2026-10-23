@@ -2128,3 +2128,21 @@ tr:hover td {
 /* Factura anulada con nota de crédito */
 .comprobante-anulado { opacity: .65; }
 .comprobante-anulado > strong { text-decoration: line-through; }
+
+/* Integraciones */
+.integracion-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; overflow: hidden; }
+.integracion-card.activa { border-color: var(--success); }
+.integracion-header { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.integracion-logo { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; color: #fff; background: var(--primary-light); flex-shrink: 0; }
+.integracion-logo.mp-logo { background: #009ee3; }
+.integracion-logo.delivery-logo { background: var(--accent); }
+.integracion-logo.afip-logo { background: #1e3a8a; }
+.integracion-logo.tn-logo { background: #2c3357; }
+.integracion-logo.wa-logo { background: #25d366; }
+.integracion-info { flex: 1; min-width: 0; }
+.integracion-nombre { font-weight: 700; font-size: 16px; }
+.integracion-desc { color: var(--text-light); font-size: 13px; }
+.integracion-body { padding: 16px 20px; }
+.integracion-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 15px; }
+@media (max-width: 600px) { .integracion-header { flex-wrap: wrap; } }

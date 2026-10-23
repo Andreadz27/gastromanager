@@ -1,7 +1,7 @@
 'use strict';
 const {
   run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, METODOS_PAGO, comandaAutomatica, ticketAlCobrar, requiere, tienePermiso,
-  registrarCobroTx, saldoPedido, requiereCobro, emitirFactura, validarDatosFactura
+  registrarCobroTx, saldoPedido, requiereCobro, emitirFactura, validarDatosFactura, avisarEstadoPedido
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -131,6 +131,8 @@ app.post('/api/cocina/display/:id/listo', autenticar, requiere('cocina'), async 
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado o ya cerrado' });
     // Solo marca como listo en cocina (no paga), lo dejamos abierto para que el mozo lo cierre
     emitEvento('cocina:actualizar', { pedido_id: pedido.id });
+    // Para llevar: aviso por WhatsApp al cliente (si está activado); no demora la respuesta
+    avisarEstadoPedido(pedido.id, 'listo');
     res.json({ ok: true });
   } catch (err) {
     errorInterno(res, err);
@@ -144,6 +146,7 @@ app.put('/api/cocina/:id/listo', autenticar, requiere('cocina'), async (req, res
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado o ya procesado' });
     // Emite evento tiempo real para que el display y otros clientes se actualicen
     emitEvento('cocina:actualizar', { pedido_id: pedido.id, numero_pedido: pedido.numero_pedido });
+    avisarEstadoPedido(pedido.id, 'listo');
     res.json({ ok: true, numero_pedido: pedido.numero_pedido });
   } catch (err) {
     errorInterno(res, err);

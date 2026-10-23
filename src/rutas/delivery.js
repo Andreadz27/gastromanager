@@ -1,6 +1,6 @@
 'use strict';
 const {
-  crypto, PORT, run, get, all, transaccion, LOCAL, fechaLocal, slugificar, parseCfgPlataforma, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, urlPublica, comandaAutomatica, requiere
+  crypto, PORT, run, get, all, transaccion, LOCAL, fechaLocal, slugificar, parseCfgPlataforma, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, urlPublica, comandaAutomatica, requiere, avisarEstadoPedido
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -114,6 +114,8 @@ app.put('/api/delivery/pedidos/:id/estado', autenticar, requiere('delivery'), as
       [estado_envio || 'pendiente', cadete || '', req.params.id]);
     emitEvento('delivery:actualizar', { pedido_id: Number(req.params.id), estado: estado_envio || 'pendiente' });
     emitEvento('dashboard:actualizar', { motivo: 'delivery_actualizado' });
+    // Aviso por WhatsApp al cliente cuando sale el cadete (si está activado); no demora la respuesta
+    if (estado_envio === 'en_camino') avisarEstadoPedido(Number(req.params.id), 'en_camino');
     res.json({ message: 'Estado de entrega actualizado' });
   } catch (err) {
     errorInterno(res, err);

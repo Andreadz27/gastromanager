@@ -97,6 +97,15 @@ Usaba la zona horaria **del dispositivo** y el servidor filtra con `ZONA_HORARIA
 `zona_horaria` y `hoyLocal()` la usa. Test e2e con navegadores en UTC+14 y UTC-12. **Lo rompe:** volver a armar la
 fecha con `new Date()` en el navegador (ojo con `toISOString().slice(0, 10)`, que además es UTC).
 
+### 9c. WhatsApp — `src/servicios/whatsapp.js` · riesgo MEDIO
+Manda mensajes a teléfonos reales.
+- **Lo rompe:** enviar desde dentro de `transaccion()` (HTTP a Meta), sacar el control de "una sola vez" (`unico`,
+  por `motivo` + `referencia`) de los avisos automáticos, aceptar el webhook sin firma, o una ruta nueva bajo
+  `/api/whatsapp/` sin bloquear en la demo (hoy se bloquea todo POST ahí, salvo que se cambie `src/demo.js`).
+- **Recordatorios:** comparan `fecha || ' ' || hora` de la reserva (texto en hora del negocio) con la hora local
+  calculada con `offsetZonaMin()`. Cambiar el formato de fecha u hora de las reservas los rompe.
+- **Lo protege:** `whatsapp.test.js` (API de Meta simulada), `estructura.test.js` (rutas públicas), e2e.
+
 ### 10. Copias de seguridad — `src/servicios/backups.js` · riesgo BAJO
 - **Bugs corregidos:** dos copias en el mismo segundo daban error 500 (nombre repetido); una copia con el sistema en
   uso podía fallar. Tests en `fechas-backups.test.js` y `regresiones.test.js`.

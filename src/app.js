@@ -52,7 +52,11 @@ app.use(cors({
 // o "true" (confiar en cualquiera; solo para hostings donde no se conoce la cadena de proxies).
 const confianzaProxy = v => v === 'true' ? true : /^\d+$/.test(v) ? Number(v) : v;
 app.set('trust proxy', confianzaProxy(process.env.TRUST_PROXY || 'loopback'));
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({
+  limit: '2mb',
+  // El webhook de WhatsApp verifica la firma de Meta sobre el cuerpo tal cual llegó
+  verify: (req, res, buf) => { if (req.originalUrl.startsWith('/api/whatsapp/webhook')) req.rawBody = buf; }
+}));
 // JSON mal formado: 400 en lugar de un error sin manejar
 app.use((err, req, res, next) => {
   if (err && err.type === 'entity.parse.failed') return res.status(400).json({ error: 'JSON inválido' });
@@ -70,7 +74,7 @@ app.use(bloqueoDemo);
 rutasDemo(app);
 
 // Rutas de la API (una por módulo)
-for (const modulo of ["auth","publico","configuracion","usuarios","catalogo","mesas","promociones","pedidos","delivery","caja","contabilidad","proveedores","stock","clientes","reportes","integraciones","backups","impresion","salud"]) {
+for (const modulo of ["auth","publico","configuracion","usuarios","catalogo","mesas","promociones","pedidos","delivery","caja","contabilidad","proveedores","stock","clientes","reportes","integraciones","whatsapp","backups","impresion","salud"]) {
   require('./rutas/' + modulo)(app);
 }
 

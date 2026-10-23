@@ -330,3 +330,27 @@ test('la lista de pedidos de hoy usa la fecha del negocio aunque el dispositivo 
   }
 });
 
+
+test('el administrador configura WhatsApp Business desde Integraciones', async () => {
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'admin@gastromanager.com', 'admin123');
+  await ir(page, 'integraciones');
+  await page.waitForSelector('#waPhoneId');
+  await page.fill('#waPhoneId', '1234567890');
+  await page.fill('#waToken', 'EAAG-token-de-prueba');
+  await page.fill('#waSecret', 'secreto');
+  await page.fill('#waVerify', 'palabra-secreta');
+  await page.selectOption('#waAvisos', '1');
+  await page.selectOption('#waRecordatorio', '3');
+  await page.selectOption('#waActiva', '1');
+  await page.click('#waCard button[type=submit]');
+  await toast(page, 'success', 'WhatsApp guardado');
+  await page.waitForSelector('#waCard .badge:has-text("Conectada")');
+  const [{ valor }] = await s.q("SELECT valor FROM integraciones_config WHERE clave = 'whatsapp'");
+  const cfg = JSON.parse(valor);
+  assert.deepEqual([cfg.phone_number_id, cfg.access_token, cfg.avisar_pedidos, cfg.recordatorio_horas, cfg.activa],
+    ['1234567890', 'EAAG-token-de-prueba', true, 3, true]);
+  assert.doesNotMatch(await page.content(), /EAAG-token-de-prueba/, 'el token no vuelve a la pantalla');
+  sinErrores(page);
+  await page.context().close();
+});

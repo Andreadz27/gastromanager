@@ -22,4 +22,5 @@ module.exports = {
   ...require('./servicios/impresion'),
   ...require('./servicios/facturacion'),
   ...require('./servicios/cobro-mesa'),
+  ...require('./servicios/whatsapp'),
 };
