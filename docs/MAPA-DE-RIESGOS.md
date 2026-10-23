@@ -27,6 +27,12 @@ Pago, cierre del pedido, liberación de la mesa y descuento de stock son una sol
 - **Lo rompe:** sacar el `AND estado = 'abierto'` del UPDATE (cobro doble), mover algo fuera de `transaccion()`,
   o hacer una llamada HTTP (Mercado Pago, AFIP, impresora) **dentro** de la transacción: bloquea a todos los demás.
 - **Lo protege:** `pedidos.test.js`, `flujos.test.js`, `integraciones.test.js` (webhook idempotente).
+- **Cobro en partes (`registrarCobroTx`):** un pedido puede tener pagos y seguir abierto (cuenta dividida). Lo que
+  falta se calcula siempre como total − suma de `pagos` (`saldoPedido`), dentro de la transacción.
+  **Lo rompe:** leer el saldo fuera de la transacción (dos cobros a la vez pagan de más), cancelar un pedido con
+  pagos (plata en la caja sin venta) o un descuento que deje el total debajo de lo cobrado.
+  **Lo protege:** `cobro-mesa.test.js`.
+- **Factura en el cobro:** se emite después del COMMIT (`emitirFactura`, HTTP a AFIP). Si falla, el cobro no se deshace.
 
 ### 2. Precios — `resolverItems` y la carta online (`src/rutas/publico.js`) · riesgo ALTO
 El precio siempre sale de la base, nunca del navegador.

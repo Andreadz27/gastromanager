@@ -129,6 +129,7 @@ const API = {
   addItemToPedido(id, data) { return this.request('POST', `/pedidos/${id}/items`, data); },
   aplicarDescuento(id, descuento) { return this.request('PUT', `/pedidos/${id}/descuento`, { descuento }); },
   pagarPedido(id, data) { return this.request('POST', `/pedidos/${id}/pagar`, data); },
+  cobrarEnMesa(id, data) { return this.request('POST', `/pedidos/${id}/cobro`, data); },
   cancelarPedido(id) { return this.request('PUT', `/pedidos/${id}/cancelar`); },
 
   // ===== Delivery / Plataformas de entrega =====

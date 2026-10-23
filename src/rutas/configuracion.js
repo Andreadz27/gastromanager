@@ -42,7 +42,7 @@ app.put('/api/config', autenticar, esAdmin, async (req, res) => {
     if (b.terminologia !== undefined) b.terminologia = JSON.stringify(b.terminologia && typeof b.terminologia === 'object' ? b.terminologia : {});
     if (b.nombre_negocio !== undefined && !String(b.nombre_negocio).trim()) throw errorHttp(400, 'El nombre del negocio es obligatorio');
     await actualizarParcial('configuracion', 1, b, ['nombre_negocio', 'direccion', 'telefono', 'email', 'cuit', 'tasa_iva',
-      'moneda', 'activar_impresion', 'tipo_negocio', 'modulos_activos', 'terminologia', 'setup_completado']);
+      'moneda', 'activar_impresion', 'tipo_negocio', 'modulos_activos', 'terminologia', 'setup_completado', 'mozo_cobra_mesa']);
     const config = await get('SELECT * FROM configuracion WHERE id = 1');
     if (config) {
       try { config.modulos_activos = JSON.parse(config.modulos_activos || '[]'); } catch(e) { config.modulos_activos = []; }

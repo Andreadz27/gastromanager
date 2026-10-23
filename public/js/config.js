@@ -107,6 +107,13 @@ const ConfigView = {
                 <option value="0" ${!c.activar_impresion ? 'selected' : ''}>Desactivada</option>
               </select>
             </div>
+            <div class="form-group">
+              <label>Cobro en la mesa</label>
+              <select id="cfgMozoCobra" title="Con esto activado, los mozos cobran (y facturan) sus mesas desde el celular: dividen la cuenta, cargan propina y mandan el comprobante por WhatsApp. No pueden cobrar mostrador ni delivery, ni hacer descuentos.">
+                <option value="0" ${!Number(c.mozo_cobra_mesa) ? 'selected' : ''}>Solo cobra la caja</option>
+                <option value="1" ${Number(c.mozo_cobra_mesa) ? 'selected' : ''}>Los mozos cobran sus mesas</option>
+              </select>
+            </div>
           </div>
           <div class="modal-footer">
             <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Guardar cambios</button>
@@ -590,6 +597,7 @@ const ConfigView = {
       tasa_iva: parseInt(document.getElementById('cfgIva').value || 21),
       moneda: document.getElementById('cfgMoneda').value,
       activar_impresion: parseInt(document.getElementById('cfgImpresion').value),
+      mozo_cobra_mesa: parseInt(document.getElementById('cfgMozoCobra').value),
       setup_completado: 1
     };
     if (this._tipoSeleccionado) {
@@ -598,7 +606,7 @@ const ConfigView = {
       if (p) { data.modulos_activos = p.modulos; data.terminologia = p.terminologia; }
     }
     try {
-      await API.updateConfig(data);
+      App.config = await API.updateConfig(data);
       App.showToast('Configuración guardada', 'success');
       this.render();
     } catch (err) {

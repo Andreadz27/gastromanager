@@ -20,4 +20,6 @@ module.exports = {
   ...require('./servicios/integraciones'),
   ...require('./servicios/backups'),
   ...require('./servicios/impresion'),
+  ...require('./servicios/facturacion'),
+  ...require('./servicios/cobro-mesa'),
 };

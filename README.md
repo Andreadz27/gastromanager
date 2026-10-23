@@ -63,11 +63,27 @@ Para instalar en un restaurante: **[docs/INSTALACION.md](docs/INSTALACION.md)** 
 | Administrador | Todo, incluida la contabilidad, usuarios, configuración, integraciones, impresoras y copias de seguridad |
 | Encargado | Toda la operación, carta (productos, mesas, promociones, proveedores), historial de caja, rentabilidad y contabilidad |
 | Cajero | Tomar pedidos, cobrar, descuentos, cancelar, caja, delivery, clientes, stock y reportes de ventas |
-| Mozo | Tomar pedidos, agregar ítems, mesas, reservas y precuenta (no cobra, no descuenta, no cancela, no ve ventas) |
+| Mozo | Tomar pedidos, agregar ítems, mesas, reservas y precuenta (no descuenta, no cancela, no ve ventas). Cobra y factura sus mesas solo si se activa *Cobro en la mesa* |
 | Cocina | Pantalla de cocina y consulta de stock |
 
 Los permisos se controlan en el servidor en cada acción (`src/permisos.js`); el menú muestra solo lo permitido.
 Siempre tiene que quedar al menos un administrador activo.
+
+## Cobro en la mesa
+
+Botón **Cobrar** del pedido (caja o celular del mozo): cobro, propina, cuenta dividida y factura AFIP/ARCA en un paso
+(`POST /api/pedidos/:id/cobro`).
+
+- **Dividir la cuenta:** en partes iguales o por montos; cada parte se registra como un pago. La mesa sigue abierta
+  hasta cubrir el total; ahí se cierra, se libera la mesa y se descuenta el stock (una sola vez).
+- **Varios medios en un cobro:** efectivo (con vuelto) + tarjeta, etc. El pedido queda con `metodo_pago = 'mixto'`.
+- **Factura:** si AFIP está conectada, se emite al completar el total. Si AFIP falla, el cobro queda hecho y se
+  reintenta desde el pedido.
+- **QR de Mercado Pago:** muestra en pantalla el link de pago por lo que falta; el webhook cierra la cuenta solo.
+- **Comprobante por WhatsApp** al cliente, desde el celular del mozo.
+- **Mozos:** Configuración → *Cobro en la mesa*. Apagado por defecto. Solo pedidos de mesa (no mostrador ni delivery)
+  y sin descuentos ni cancelaciones.
+- Con una parte cobrada el pedido no se cancela y un descuento no puede dejar el total por debajo de lo cobrado.
 
 ## Contabilidad
 
@@ -173,6 +189,7 @@ Mercado Pago, Tienda Nube y las impresoras se prueban contra servidores simulado
 |---|---|
 | `flujos.test.js` | Un turno completo (caja, mesa, cocina, cobro, reportes), reservas, carta online, delivery, ABM y configuración |
 | `pedidos.test.js` | Precios desde la base, transacciones, concurrencia, cobros sin duplicar, stock |
+| `cobro-mesa.test.js` | Cuenta dividida, pagos mixtos, sin cobrar de más (también en simultáneo), propina, factura que falla sin perder el cobro, mozos y arqueo |
 | `caja.test.js` | Arqueo: ventas por medio de pago, movimientos, efectivo esperado y diferencias |
 | `contabilidad.test.js` | Gastos, pagos desde la caja, estado de resultados, IVA, libro diario balanceado, anulaciones |
 | `demo.test.js` | Modo demo pública: acciones bloqueadas y el resto del sistema funcionando |

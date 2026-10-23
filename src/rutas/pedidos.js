@@ -1,6 +1,7 @@
 'use strict';
 const {
-  run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, METODOS_PAGO, comandaAutomatica, ticketAlCobrar, requiere, tienePermiso
+  run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, METODOS_PAGO, comandaAutomatica, ticketAlCobrar, requiere, tienePermiso,
+  registrarCobroTx, saldoPedido, requiereCobro, emitirFactura, validarDatosFactura
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -190,7 +191,8 @@ app.get('/api/pedidos/:id', autenticar, requiere('pedidos.ver'), async (req, res
     const entrega = await get('SELECT * FROM entregas WHERE pedido_id = ?', [req.params.id]);
     const comprobantes = await all('SELECT * FROM comprobantes_afip WHERE pedido_id = ? ORDER BY id', [req.params.id]);
 
-    res.json({ ...pedido, items, pagos, entrega, comprobantes });
+    const { pagado, saldo } = await saldoPedido(pedido.id);
+    res.json({ ...pedido, items, pagos, entrega, comprobantes, pagado, saldo });
   } catch (err) {
     errorInterno(res, err);
   }
@@ -227,7 +229,11 @@ app.put('/api/pedidos/:id/descuento', autenticar, requiere('pedidos.descuento'),
       if (!pedido) throw errorHttp(404, 'Pedido no encontrado');
       if (pedido.estado !== 'abierto') throw errorHttp(400, 'El pedido no está abierto');
       await run('UPDATE pedidos SET descuento = ? WHERE id = ?', [importe(req.body.descuento), pedido.id]);
-      return (await recalcularTotales(pedido.id)).total;
+      const { total } = await recalcularTotales(pedido.id);
+      // Con la cuenta dividida, una parte ya se cobró: el total no puede quedar por debajo
+      const { pagado } = await saldoPedido(pedido.id);
+      if (total < pagado - 0.009) throw errorHttp(400, 'El descuento deja el total por debajo de lo ya cobrado');
+      return total;
     });
     res.json({ total, message: 'Descuento aplicado' });
   } catch (err) {
@@ -243,10 +249,10 @@ app.post('/api/pedidos/:id/pagar', autenticar, requiere('pedidos.cobrar'), async
     if (pedido.estado !== 'abierto') return res.status(400).json({ error: 'El pedido ya fue cobrado o cancelado' });
     if (!METODOS_PAGO.includes(metodo)) return res.status(400).json({ error: 'Método de pago inválido' });
 
-    // "monto" es lo que entregó el cliente: debe cubrir el total. Se registra el total
-    // del pedido (el excedente es vuelto) para que la caja cuadre.
+    // "monto" es lo que entregó el cliente: debe cubrir lo que falta pagar. Se registra ese saldo
+    // (el excedente es vuelto) para que la caja cuadre. Sin pagos parciales, el saldo es el total.
     const recibido = Number(req.body.monto);
-    const total = Number(pedido.total) || 0;
+    const total = (await saldoPedido(pedido.id)).saldo;
     if (!Number.isFinite(recibido) || recibido < total - 0.009)
       return res.status(400).json({ error: 'El monto recibido no cubre el total del pedido' });
 
@@ -260,12 +266,76 @@ app.post('/api/pedidos/:id/pagar', autenticar, requiere('pedidos.cobrar'), async
   }
 });
 
+// Cobro en la mesa: uno o varios pagos (cuenta dividida o varios medios), propina
+// y, al completar el total, la factura AFIP/ARCA. Todo en un paso, desde el celular del mozo o la caja.
+// body: { pagos: [{ metodo, monto, referencia?, recibido? }], propina?, factura?: { tipo_comprobante, cuit_receptor? } }
+app.post('/api/pedidos/:id/cobro', autenticar, requiereCobro, async (req, res) => {
+  try {
+    const pedidoId = parseInt(req.params.id, 10);
+    const body = req.body || {};
+    if (!Array.isArray(body.pagos) || !body.pagos.length || body.pagos.length > 20)
+      throw errorHttp(400, 'Indicá al menos un pago');
+    let vuelto = 0;
+    const pagos = body.pagos.map(p => {
+      const metodo = String((p && p.metodo) || '');
+      if (!METODOS_PAGO.includes(metodo)) throw errorHttp(400, 'Método de pago inválido');
+      const monto = Math.round(Number(p.monto) * 100) / 100;
+      if (!Number.isFinite(monto) || monto <= 0) throw errorHttp(400, 'Monto de pago inválido');
+      // En efectivo se puede indicar lo que entregó el cliente para calcular el vuelto
+      if (metodo === 'efectivo' && p.recibido !== undefined && p.recibido !== null && p.recibido !== '') {
+        const recibido = Number(p.recibido);
+        if (!Number.isFinite(recibido) || recibido < monto - 0.009)
+          throw errorHttp(400, 'El efectivo recibido no cubre el monto');
+        vuelto += recibido - monto;
+      }
+      return { metodo, monto, referencia: String(p.referencia || '').slice(0, 100) };
+    });
+    // La factura se valida antes de cobrar: un CUIT mal cargado no deja un cobro a medias
+    const factura = body.factura ? validarDatosFactura(body.factura.tipo_comprobante, body.factura.cuit_receptor) : null;
+    if (!req.puedeCobrarTodo) {
+      const p = await get('SELECT tipo, mesa_id FROM pedidos WHERE id = ?', [pedidoId]);
+      if (p && !(p.tipo === 'salon' && p.mesa_id)) throw errorHttp(403, 'Tu usuario solo puede cobrar pedidos de mesa');
+    }
+
+    const r = await transaccion(() => registrarCobroTx(pedidoId, {
+      pagos, propina: body.propina, usuarioId: req.usuario.id
+    }));
+    await run('INSERT INTO auditoria (usuario_id, accion, detalle) VALUES (?, ?, ?)',
+      [req.usuario.id, 'cobro_mesa', `Pedido ${r.pedido.numero_pedido}: cobrado ${r.cobrado} (${pagos.map(p => p.metodo).join(' + ')})` +
+        (r.cerrado ? ', cerrado' : `, falta ${r.saldo}`)]);
+
+    // Fuera de la transacción: AFIP es una llamada HTTP. Si falla, el cobro queda hecho y se reintenta desde el pedido
+    let resultadoFactura = null;
+    if (r.cerrado && factura) {
+      try {
+        resultadoFactura = await emitirFactura(pedidoId, factura.tipo, factura.cuit);
+      } catch (e) {
+        console.error('[AFIP cobro en mesa]', e.message);
+        resultadoFactura = { ok: false, error: e.message };
+      }
+    }
+    vuelto = Math.round(vuelto * 100) / 100;
+    const impresionTicket = r.cerrado
+      // El cajón se abre si entró efectivo (también en un pago mixto)
+      ? await ticketAlCobrar(pedidoId, { metodo: pagos.some(p => p.metodo === 'efectivo') ? 'efectivo' : pagos[0].metodo, vuelto }).catch(() => false)
+      : false;
+    res.json({
+      cerrado: r.cerrado, total: r.total, cobrado: r.cobrado, saldo: r.saldo, vuelto,
+      factura: resultadoFactura, impresion_ticket: impresionTicket
+    });
+  } catch (err) {
+    errorInterno(res, err);
+  }
+});
+
 app.put('/api/pedidos/:id/cancelar', autenticar, requiere('pedidos.cancelar'), async (req, res) => {
   try {
     await transaccion(async () => {
       const pedido = await get('SELECT * FROM pedidos WHERE id = ?', [req.params.id]);
       if (!pedido) throw errorHttp(404, 'Pedido no encontrado');
-      // Un pedido cobrado no se cancela desde acá: descuadraría la caja
+      // Un pedido cobrado (o con una parte cobrada) no se cancela desde acá: descuadraría la caja
+      const pago = await get('SELECT 1 AS x FROM pagos WHERE pedido_id = ? LIMIT 1', [pedido.id]);
+      if (pago) throw errorHttp(400, 'El pedido tiene una parte cobrada: no se puede cancelar');
       const { changes } = await run(
         `UPDATE pedidos SET estado = 'cancelado', cerrado_en = CURRENT_TIMESTAMP WHERE id = ? AND estado = 'abierto'`, [pedido.id]);
       if (!changes) throw errorHttp(400, 'Solo se pueden cancelar pedidos abiertos');

@@ -29,6 +29,8 @@ async function migrarEsquema() {
   await agregarColumna('pedidos', 'origen', "TEXT DEFAULT ''");
   await agregarColumna('pedidos', 'metodo_pago', "TEXT DEFAULT ''");
   await agregarColumna('pedidos', 'mp_payment_id', "TEXT DEFAULT ''");
+  // Cobro en la mesa: los mozos pueden cobrar y facturar sus mesas (apagado por defecto)
+  await agregarColumna('configuracion', 'mozo_cobra_mesa', 'INTEGER DEFAULT 0');
   // Arqueo de caja
   await agregarColumna('caja', 'monto_esperado', 'REAL');
   await agregarColumna('caja', 'diferencia', 'REAL');

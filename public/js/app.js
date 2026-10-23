@@ -99,6 +99,13 @@ const App = {
         if (App.currentView === 'caja') Caja.render();
       });
 
+      // Cuenta dividida: se cobró una parte y la mesa sigue abierta
+      this.socket.on('pedido:pago_parcial', () => {
+        if (App.currentView === 'mesas') Mesas.render();
+        if (App.currentView === 'pedidos') Pedidos.render();
+        if (App.currentView === 'caja') Caja.render();
+      });
+
       // Pedido cancelado
       this.socket.on('pedido:cancelado', (data) => {
         this.showToast(`Pedido ${data.numero_pedido || ''} cancelado`, 'warning');
@@ -278,6 +285,7 @@ const App = {
   async cargarModulos() {
     try {
       const config = await API.getConfig();
+      this.config = config;
       const modulos = Array.isArray(config.modulos_activos) && config.modulos_activos.length
         ? config.modulos_activos : null;
       if (modulos) this.aplicarModulos(modulos);

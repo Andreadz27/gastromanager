@@ -147,6 +147,7 @@ const Pedidos = {
               ${p.descuento ? `<p><strong>Descuento:</strong> -${fmtMoneda(p.descuento)}</p>` : ''}
               ${p.propina ? `<p><strong>Propina:</strong> ${fmtMoneda(p.propina)}</p>` : ''}
               <p class="font-bold text-success"><strong>TOTAL:</strong> ${fmtMoneda(p.total)}</p>
+              ${esAbierto && p.pagado > 0 ? `<p><strong>Ya cobrado:</strong> ${fmtMoneda(p.pagado)} &middot; <strong>Falta:</strong> ${fmtMoneda(p.saldo)}</p>` : ''}
             </div>
           </div>
         </div>
@@ -168,14 +169,15 @@ const Pedidos = {
           esAbierto ? `
           ${App.puede('pedidos.tomar') ? `<button class="btn btn-primary" onclick="Pedidos.agregarItem(${p.id})"><i class="fas fa-plus"></i> Item</button>` : ''}
           ${App.puede('pedidos.descuento') ? `<button class="btn btn-warning" onclick="Pedidos.aplicarDescuentoModal(${p.id})"><i class="fas fa-percent"></i> Descuento</button>` : ''}
-          ${App.puede('pedidos.cancelar') ? `<button class="btn btn-danger" onclick="Pedidos.cancelar(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>` : ''}
+          ${App.puede('pedidos.cancelar') && !(p.pagado > 0) ? `<button class="btn btn-danger" onclick="Pedidos.cancelar(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>` : ''}
           ${App.puede('pedidos.cobrar') ? `
-          <button class="btn btn-outline" onclick="Pedidos.linkMercadoPago(${p.id})"><i class="fas fa-link"></i> Link Mercado Pago</button>
-          <button class="btn btn-success" onclick="Pedidos.mostrarPagar(${p.id})"><i class="fas fa-dollar-sign"></i> Cobrar</button>` : ''}
+          <button class="btn btn-outline" onclick="Pedidos.linkMercadoPago(${p.id})"><i class="fas fa-link"></i> Link Mercado Pago</button>` : ''}
+          ${Cobro.puedeCobrar(p) ? `
+          <button class="btn btn-success" onclick="Cobro.abrir(${p.id})"><i class="fas fa-dollar-sign"></i> Cobrar</button>` : ''}
           ` : ''
         }
         ${
-          p.estado === 'pagado' && !(p.comprobantes && p.comprobantes.length) && App.puede('pedidos.cobrar')
+          p.estado === 'pagado' && !(p.comprobantes && p.comprobantes.length) && Cobro.puedeCobrar(p)
             ? `<button class="btn btn-primary" onclick="Integraciones.abrirModalFacturar(${p.id}, ${Number(p.total) || 0})"><i class="fas fa-file-invoice"></i> Facturar AFIP</button>`
             : ''
         }
@@ -317,57 +319,6 @@ async abrirPedidoDeMesa(mesaId) {
       await API.cancelarPedido(id);
       App.closeModal();
       App.showToast('Pedido cancelado', 'success');
-      this.render();
-    } catch (err) {
-      App.showToast(err.message, 'error');
-    }
-  },
-
-  async mostrarPagar(id) {
-    const p = await this.cargarPedido(id).catch(() => null);
-    if (!p) return;
-    App.showModal(`
-      <form onsubmit="Pedidos.confirmarPago(event, ${id})">
-        <div class="totales-cliente">
-          <div><span>Total a cobrar:</span><strong>${fmtMoneda(p.total)}</strong></div>
-        </div>
-        <div class="form-group">
-          <label>M\u00e9todo de pago</label>
-          <select id="pagoMetodo">
-            <option value="efectivo">Efectivo</option>
-            <option value="tarjeta">Tarjeta</option>
-            <option value="mercadopago">Mercado Pago</option>
-            <option value="transferencia">Transferencia</option>
-            <option value="otro">Otro</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Monto recibido</label>
-          <input type="number" id="pagoMonto" min="${Number(p.total) || 0}" step="0.01" value="${p.total}" required>
-        </div>
-        <div class="form-group">
-          <label>Referencia (opcional)</label>
-          <input type="text" id="pagoReferencia" placeholder="Ej: n\u00famero de operaci\u00f3n">
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-danger" onclick="App.closeModal()">Cancelar</button>
-          <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> Confirmar cobro</button>
-        </div>
-      </form>
-    `, { title: `Cobrar pedido ${p.numero_pedido}` });
-  },
-
-  async confirmarPago(e, id) {
-    e.preventDefault();
-    const data = {
-      metodo: document.getElementById('pagoMetodo').value,
-      monto: parseFloat(document.getElementById('pagoMonto').value),
-      referencia: document.getElementById('pagoReferencia').value
-    };
-    try {
-      const res = await API.pagarPedido(id, data);
-      App.closeModal();
-      App.showToast(res.vuelto > 0 ? `Pago registrado. Vuelto: ${fmtMoneda(res.vuelto)}` : (res.message || 'Pago registrado'), 'success');
       this.render();
     } catch (err) {
       App.showToast(err.message, 'error');

@@ -143,12 +143,12 @@ test('venta completa desde la pantalla: abrir caja, tomar pedido en el POS y cob
   // Cobrarlo desde Pedidos
   await ir(page, 'pedidos');
   await page.click(`tr[onclick="Pedidos.verDetalle(${pedido.id})"]`);
-  await page.click(`button[onclick="Pedidos.mostrarPagar(${pedido.id})"]`);
-  await page.selectOption('#pagoMetodo', 'efectivo');
-  await page.fill('#pagoMonto', String(pedido.total + 500));
-  await page.click('#modalContainer form[onsubmit^="Pedidos.confirmarPago"] button[type=submit]');
-  await toast(page, 'success', 'Vuelto');
+  await page.click(`button[onclick="Cobro.abrir(${pedido.id})"]`);
+  await page.fill('#modalContainer input[aria-label="Efectivo recibido"]', String(pedido.total + 500));
+  await page.click('#cobroBtn');
+  await page.waitForSelector('.cobro-vuelto:has-text("Vuelto")');
   assert.equal((await s.q('SELECT estado FROM pedidos WHERE id = ?', [pedido.id]))[0].estado, 'pagado');
+  await page.click('#modalContainer button:has-text("Listo")');
 
   // La caja muestra la venta y el efectivo esperado
   await ir(page, 'caja');
@@ -170,11 +170,47 @@ test('el mozo no ve cobrar, descuentos ni cancelar', async () => {
   await ir(page, 'pedidos');
   await page.click(`tr[onclick="Pedidos.verDetalle(${p.id})"]`);
   await page.waitForSelector(`button[onclick="Pedidos.agregarItem(${p.id})"]`);
-  for (const accion of ['mostrarPagar', 'aplicarDescuentoModal', 'cancelar', 'linkMercadoPago']) {
-    assert.equal(await page.$(`button[onclick="Pedidos.${accion}(${p.id})"]`), null, `sin botón ${accion}`);
+  for (const accion of ['Cobro.abrir', 'Pedidos.aplicarDescuentoModal', 'Pedidos.cancelar', 'Pedidos.linkMercadoPago']) {
+    assert.equal(await page.$(`button[onclick="${accion}(${p.id})"]`), null, `sin botón ${accion}`);
   }
   sinErrores(page);
   await page.context().close();
+});
+
+test('cobro en la mesa: el mozo divide la cuenta entre dos desde su celular', async () => {
+  await s.llamar('PUT', '/api/config', { mozo_cobra_mesa: 1 }, s.tokenAdmin);
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'salon', mesa_id: 9, items: [{ producto_id: 1, cantidad: 2 }] }, s.tokenVendedor);
+  const contexto = await navegador.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 }, isMobile: true });
+  const page = await contexto.newPage();
+  page.errores = [];
+  page.on('pageerror', e => page.errores.push(e.message));
+  await ingresarOk(page, 'mozo@test.com', 'clave1234');
+  await page.waitForFunction(() => App.config && Number(App.config.mozo_cobra_mesa) === 1);
+  await page.evaluate(id => Pedidos.verDetalle(id), p.id);
+  await page.click(`button[onclick="Cobro.abrir(${p.id})"]`);
+
+  // Dos personas: la primera paga con tarjeta su mitad
+  await page.click('button[aria-label="Más personas"]');
+  await page.selectOption('#modalContainer .cobro-pago select', 'tarjeta');
+  await page.click('#cobroBtn');
+  await page.waitForSelector('#modalContainer .modal:has-text("Pago parcial registrado")');
+  let [ped] = await s.q('SELECT estado FROM pedidos WHERE id = ?', [p.id]);
+  assert.equal(ped.estado, 'abierto');
+
+  // La segunda paga el resto en efectivo y la mesa se libera
+  await page.click('#modalContainer button:has-text("Cobrar al siguiente")');
+  await page.click('#cobroBtn');
+  await page.waitForSelector('#modalContainer .modal:has-text("Cobro completo")');
+  [ped] = await s.q('SELECT estado, metodo_pago, total FROM pedidos WHERE id = ?', [p.id]);
+  assert.deepEqual([ped.estado, ped.metodo_pago], ['pagado', 'mixto']);
+  const pagos = await s.q('SELECT metodo, monto FROM pagos WHERE pedido_id = ? ORDER BY id', [p.id]);
+  assert.deepEqual(pagos.map(x => x.metodo), ['tarjeta', 'efectivo']);
+  assert.equal(pagos[0].monto + pagos[1].monto, ped.total);
+  assert.equal((await s.q('SELECT estado FROM mesas WHERE id = 9'))[0].estado, 'libre');
+  assert.ok(await page.isVisible('#modalContainer button:has-text("WhatsApp")'));
+  assert.deepEqual(page.errores, [], 'errores de JavaScript en la página');
+  await contexto.close();
+  await s.llamar('PUT', '/api/config', { mozo_cobra_mesa: 0 }, s.tokenAdmin);
 });
 
 test('un nombre de producto malicioso no ejecuta código (XSS)', async () => {
