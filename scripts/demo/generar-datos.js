@@ -62,7 +62,7 @@ const puertoLibre = () => new Promise((ok, mal) => {
   const base = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 100; i++) { try { if ((await fetch(base + '/')).ok) break; } catch (e) {} await esperar(100); }
 
-  const db = new sqlite3.Database(path.join(DESTINO, 'gastromanager.db'));
+  const db = new sqlite3.Database(path.join(DESTINO, 'morfi.db'));
   db.configure('busyTimeout', 10000);
   const q = (sql, p = []) => new Promise((ok, mal) => db.all(sql, p, (e, r) => e ? mal(e) : ok(r)));
   const clave = fs.readFileSync(path.join(DESTINO, '.secret_key'), 'utf8').trim();

@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Configuración
+// MORFI - Configuración
 // Datos del negocio y preferencias (solo admin)
 // =============================================
 

@@ -57,7 +57,7 @@ async function arrancarYCerrar(dir) {
 
 test('una migración que falla no deja la base a medias (transacción única)', async () => {
   const dir = nuevaBase();
-  const archivo = path.join(dir, 'gastromanager.db');
+  const archivo = path.join(dir, 'morfi.db');
   try {
     assert.ok(!(await columnas(archivo, 'productos')).includes('tn_variant_id'), 'la base nueva todavía no tiene la columna');
     // Se migra y se fuerza un error al final: nada de lo migrado tiene que quedar guardado
@@ -78,7 +78,7 @@ test('una migración que falla no deja la base a medias (transacción única)', 
 
 test('antes de migrar se hace una copia, y restaurarla funciona (rollback probado)', async () => {
   const dir = nuevaBase();
-  const archivo = path.join(dir, 'gastromanager.db');
+  const archivo = path.join(dir, 'morfi.db');
   try {
     // Una venta cargada antes de la actualización
     await consultar(archivo, "INSERT INTO pedidos (numero_pedido, tipo, estado, subtotal, total) VALUES ('ANTES-1', 'takeaway', 'pagado', 500, 500)");

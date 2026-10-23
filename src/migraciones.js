@@ -330,7 +330,7 @@ async function migrarEsquema() {
 // 1. Si este archivo cambió desde la última vez (hay migraciones nuevas) y la base ya tenía datos,
 //    se hace una copia de seguridad ANTES de migrar: esa copia es la marcha atrás.
 // 2. Todas las migraciones corren en UNA transacción: si una falla, la base queda como estaba.
-// Restaurar a mano: detener el servidor y reemplazar data/gastromanager.db por la copia (ver README).
+// Restaurar: npm run restaurar (ver docs/INSTALACION.md).
 const HUELLA_MIGRACIONES = crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex').slice(0, 16);
 
 async function migrarConRespaldo({ respaldar } = {}) {

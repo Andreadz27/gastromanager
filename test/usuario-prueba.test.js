@@ -14,16 +14,16 @@ const crear = (...args) => execFileSync(process.execPath, [path.join(__dirname, 
 
 test('el usuario de prueba entra y opera sin cambiar la contraseña', async () => {
   assert.match(crear(), /creado/);
-  const [st, r] = await s.llamar('POST', '/api/auth/login', { email: 'prueba@gastromanager.com', password: 'Prueba2026!' });
+  const [st, r] = await s.llamar('POST', '/api/auth/login', { email: 'prueba@morfi.local', password: 'Prueba2026!' });
   assert.equal(st, 200);
   const [st2] = await s.llamar('GET', '/api/usuarios', undefined, r.token);
   assert.equal(st2, 200, 'es administrador y no tiene cambio de clave pendiente');
 });
 
 test('correrlo de nuevo no duplica: reactiva y resetea la clave', async () => {
-  await s.q("UPDATE usuarios SET activo = 0, debe_cambiar_password = 1 WHERE email = 'prueba@gastromanager.com'");
+  await s.q("UPDATE usuarios SET activo = 0, debe_cambiar_password = 1 WHERE email = 'prueba@morfi.local'");
   assert.match(crear(), /actualizado/);
-  const filas = await s.q("SELECT activo, debe_cambiar_password FROM usuarios WHERE email = 'prueba@gastromanager.com'");
+  const filas = await s.q("SELECT activo, debe_cambiar_password FROM usuarios WHERE email = 'prueba@morfi.local'");
   assert.deepEqual(filas.map(f => [f.activo, f.debe_cambiar_password]), [[1, 0]]);
 });
 

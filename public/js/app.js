@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Aplicación Principal
+// MORFI - Aplicación Principal
 // Navegación, login y vistas
 // =============================================
 
@@ -733,7 +733,7 @@ const App = {
         .qr svg { width: 34mm; height: 34mm; }
       </style></head>
       <body>
-        <div class="center bold" style="font-size:15px">${esc(App && App.usuario ? (App.nombreNegocio || 'GastroManager') : 'GastroManager')}</div>
+        <div class="center bold" style="font-size:15px">${esc(App && App.usuario ? (App.nombreNegocio || 'Morfi') : 'Morfi')}</div>
         ${encabezadoFiscal}
         <div class="center">${esc(p.mesa_nombre || '')}</div>
         <div class="sep"></div>

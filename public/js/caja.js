@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Caja
+// MORFI - Caja
 // Apertura, cierre y arqueo de caja
 // =============================================
 

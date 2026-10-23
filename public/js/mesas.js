@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Mesas
+// MORFI - Mesas
 // Gestor visual de mesas del sal\u00f3n
 // =============================================
 

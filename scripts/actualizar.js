@@ -1,4 +1,4 @@
-// Actualiza GastroManager a la última versión de la rama main (la que pasó el CI).
+// Actualiza Morfi a la última versión de la rama main (la que pasó el CI).
 // 1. Si no hay versión nueva, no hace nada.
 // 2. Copia de seguridad de la base ANTES de tocar nada.
 // 3. Baja el código nuevo (git, solo avance rápido: nunca pisa cambios locales).
@@ -61,16 +61,39 @@ function instalarDependencias() {
   // Con el servidor corriendo, Windows no deja reemplazar node_sqlite3.node y npm ci falla a la mitad
   if (!opcion('sin-reiniciar')) {
     log('Deteniendo el servidor para instalar dependencias...');
-    try { correr('pm2', ['stop', 'gastromanager']); } catch (e) { log('pm2 stop: ' + e.message); }
+    detener();
   }
   log('Instalando dependencias...');
   correr('npm', ['ci', '--omit=dev', '--no-audit', '--no-fund'], { timeout: 15 * 60000 });
 }
+
+// El proceso se llama "morfi"; antes del cambio de nombre, "gastromanager". Se manejan los dos: si quedara uno de
+// cada versión, serían dos servidores peleando por el mismo puerto.
+const PROCESOS = ['morfi', 'gastromanager'];
+function detener() {
+  for (const p of PROCESOS) { try { correr('pm2', ['stop', p]); } catch (e) { /* no existe con ese nombre */ } }
+}
+// Se borran los dos y se levanta el de ecosystem.config.js (el nombre de la versión que quedó instalada)
 function reiniciar() {
   if (opcion('sin-reiniciar')) return;
   log('Reiniciando el servidor...');
-  // restart también levanta un proceso detenido
-  correr('pm2', ['restart', 'gastromanager', '--update-env']);
+  for (const p of PROCESOS) { try { correr('pm2', ['delete', p]); } catch (e) { /* no existe con ese nombre */ } }
+  correr('pm2', ['start', path.join(RAIZ, 'ecosystem.config.js'), '--env', 'production', '--update-env']);
+  try { correr('pm2', ['save']); } catch (e) { log('pm2 save: ' + e.message); }
+}
+
+// Volver a una versión de antes del cambio de nombre: esa versión busca data/gastromanager.db. Si la base ya se
+// llama morfi.db, crearía una vacía (el local sin carta ni ventas): se le devuelve el nombre viejo, con su -wal y -shm.
+function devolverNombreBase() {
+  // Las versiones de Morfi abren la base con rutaBase() (src/archivo-base.js); las anteriores, con el nombre fijo
+  if (fs.readFileSync(path.join(RAIZ, 'src', 'db.js'), 'utf8').includes('rutaBase(')) return;
+  const { DATA_DIR } = require('../src/config');
+  const nueva = path.join(DATA_DIR, 'morfi.db');
+  const vieja = path.join(DATA_DIR, 'gastromanager.db');
+  if (!fs.existsSync(nueva) || fs.existsSync(vieja)) return;
+  if (!opcion('sin-reiniciar')) detener();
+  for (const sufijo of ['-wal', '-shm', '']) if (fs.existsSync(nueva + sufijo)) fs.renameSync(nueva + sufijo, vieja + sufijo);
+  log('La versión anterior usa data/gastromanager.db: se le devolvió ese nombre a la base.');
 }
 
 async function main() {
@@ -107,6 +130,7 @@ async function main() {
   }
   git('reset', '--hard', '--quiet', actual);
   try {
+    devolverNombreBase();
     if (cambiaronDeps) instalarDependencias();
     reiniciar();
   } catch (e) {
@@ -115,7 +139,7 @@ async function main() {
   const volvio = opcion('sin-reiniciar') || await saludOk();
   log(volvio
     ? `Se volvió a la versión anterior (${actual.slice(0, 7)}). Avisar a soporte.`
-    : `ATENCIÓN: tampoco arranca la versión anterior. Restaurar la copia ${copia && copia.nombre} (ver README) y avisar a soporte.`);
+    : `ATENCIÓN: tampoco arranca la versión anterior. Restaurar la copia ${copia && copia.nombre} (npm run restaurar, ver docs/INSTALACION.md) y avisar a soporte.`);
   return 'revertido';
 }
 

@@ -1,4 +1,4 @@
-// GASTROMANAGER - Pedido Online (WhatsApp / Instagram)
+// MORFI - Pedido Online (WhatsApp / Instagram)
 function pdM(v){return new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",minimumFractionDigits:0}).format(v||0);}
 function pdE(s){if(s==null)return"";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 

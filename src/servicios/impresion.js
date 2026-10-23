@@ -65,7 +65,7 @@ public class GmRawPrinter {
     if (!OpenPrinter(impresora, out h, IntPtr.Zero))
       throw new Exception("No se encontró la impresora '" + impresora + "' en Windows (error " + Marshal.GetLastWin32Error() + ")");
     try {
-      DOCINFO di = new DOCINFO(); di.pDocName = "GastroManager"; di.pDataType = "RAW";
+      DOCINFO di = new DOCINFO(); di.pDocName = "Morfi"; di.pDataType = "RAW";
       if (StartDocPrinter(h, 1, di) == 0) throw new Exception("La impresora rechazó el trabajo (error " + Marshal.GetLastWin32Error() + ")");
       StartPagePrinter(h);
       int escritos;
@@ -217,7 +217,7 @@ function plantillaComanda(pedido, items, impresora, titulo) {
 function plantillaTicket(pedido, negocio, opciones, impresora, extra = {}) {
   const t = new Ticket(impresora.ancho === 58 ? 32 : 48);
   const f = pedido.fiscal;
-  t.alinear('centro').negrita().tamano(2, 2).linea(negocio.nombre_negocio || 'GastroManager').normal().alinear('centro');
+  t.alinear('centro').negrita().tamano(2, 2).linea(negocio.nombre_negocio || 'Morfi').normal().alinear('centro');
   if (f) {
     // Encabezado de factura: datos del emisor (RG 1415), letra y número
     if (f.prueba) t.negrita().linea('*** COMPROBANTE DE PRUEBA ***').linea('SIN VALIDEZ FISCAL').normal().alinear('centro');

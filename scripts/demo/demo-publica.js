@@ -12,7 +12,7 @@ const os = require('os');
 const path = require('path');
 
 const RAIZ = path.join(__dirname, '..', '..');
-const BASE = process.env.GM_DEMO_DIR || path.join(os.tmpdir(), 'gastromanager-demo-publica');
+const BASE = process.env.GM_DEMO_DIR || path.join(os.tmpdir(), 'morfi-demo-publica');
 const HORAS = Number(process.env.GM_DEMO_REINICIO_HORAS) || 6;
 const PUERTO = process.env.PORT || '3100';
 
@@ -25,8 +25,8 @@ function abrirEspera() {
   espera = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Retry-After': '30' });
     res.end('<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="20">' +
-      '<title>GastroManager</title><body style="font-family:sans-serif;text-align:center;padding:60px">' +
-      '<h2>Preparando la demo de GastroManager…</h2><p>Estamos cargando los datos de ejemplo. Esta página se actualiza sola.</p></body>');
+      '<title>Morfi</title><body style="font-family:sans-serif;text-align:center;padding:60px">' +
+      '<h2>Preparando la demo de Morfi…</h2><p>Estamos cargando los datos de ejemplo. Esta página se actualiza sola.</p></body>');
   }).listen(PUERTO, () => console.log(`[demo] Puerto ${PUERTO} abierto mientras se preparan los datos`));
 }
 const cerrarEspera = () => new Promise(r => { if (!espera) return r(); espera.close(() => r()); espera.closeAllConnections?.(); espera = null; });

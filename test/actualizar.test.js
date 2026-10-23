@@ -44,7 +44,7 @@ test('actualiza a la versión nueva con copia previa; sin cambios no hace nada; 
     assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.equal(git(inst, 'rev-parse', 'HEAD'), nueva);
     assert.ok(fs.existsSync(path.join(inst, 'NOVEDAD.txt')));
-    assert.match(r.stdout, /Copia de seguridad previa: gastromanager_/);
+    assert.match(r.stdout, /Copia de seguridad previa: morfi_/);
     assert.ok(fs.readdirSync(path.join(datos, 'backups')).length >= 1);
     assert.match(fs.readFileSync(path.join(inst, 'logs', 'actualizaciones.log'), 'utf8'), /Actualizado a/);
 

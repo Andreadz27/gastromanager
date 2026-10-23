@@ -1,4 +1,4 @@
-// GASTROMANAGER - Menu Publico (carta QR)
+// MORFI - Menu Publico (carta QR)
 
 function menuMoneda(v){return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',minimumFractionDigits:0}).format(v||0);}
 function menuEsc(s){if(s===null||s===undefined)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}

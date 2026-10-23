@@ -1,4 +1,4 @@
-﻿# GastroManager - instalador para Windows 10/11
+﻿# Morfi (antes GastroManager) - instalador para Windows 10/11
 # Ejecutar en PowerShell COMO ADMINISTRADOR, en la PC o mini PC del restaurante:
 #   powershell -ExecutionPolicy Bypass -File instalar.ps1 -Cliente "la-buena-mesa" -Token "github_pat_..."
 # -Token: token de GitHub de SOLO LECTURA para este repositorio (el repo es privado; ver docs/INSTALACION.md).
@@ -8,7 +8,8 @@
 # Se puede volver a ejecutar: no borra datos ni pisa la configuración existente.
 param(
   [Parameter(Mandatory = $true)][string]$Cliente,          # nombre corto del local: carpeta en la nube y en el monitoreo
-  [string]$Carpeta = 'C:\GastroManager',
+  [string]$Carpeta,                                        # por defecto C:\Morfi (o C:\GastroManager si ya estaba instalado así)
+  # Dirección de antes del cambio de nombre: GitHub la redirige si el repositorio se renombra, así sirve en los dos casos
   [string]$Repo = 'https://github.com/Andreadz27/gastromanager.git',
   [string]$Token,                                          # token de solo lectura (repositorio privado)
   [int]$Puerto = 3000,
@@ -30,7 +31,10 @@ Paso 'Node.js y Git'
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { winget install --id OpenJS.NodeJS.LTS -e --accept-package-agreements --accept-source-agreements; Revisar 'instalar Node.js'; Refrescar-Path }
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { winget install --id Git.Git -e --accept-package-agreements --accept-source-agreements; Revisar 'instalar Git'; Refrescar-Path }
 $major = [int]((node -v).TrimStart('v').Split('.')[0])
-if ($major -lt 22) { throw "GastroManager necesita Node.js 22 o superior (hay $(node -v)). Actualízalo: winget upgrade OpenJS.NodeJS.LTS" }
+if ($major -lt 22) { throw "Morfi necesita Node.js 22 o superior (hay $(node -v)). Actualízalo: winget upgrade OpenJS.NodeJS.LTS" }
+
+# Una instalación de antes del cambio de nombre sigue en su carpeta (no se arma otra al lado)
+if (-not $Carpeta) { $Carpeta = if (Test-Path 'C:\GastroManager\.git') { 'C:\GastroManager' } else { 'C:\Morfi' } }
 
 Paso "Sistema en $Carpeta"
 # Con token, queda guardado en la dirección del repositorio de esta PC: así npm run actualizar puede bajar versiones nuevas
@@ -48,7 +52,9 @@ Set-Location $Carpeta
 
 Paso 'pm2 compartido para toda la PC'
 # Un solo PM2_HOME para la máquina: el pm2 que arranca con Windows (SYSTEM) y el del administrador son el mismo
-$pm2Home = Join-Path $env:ProgramData 'GastroManager\pm2'
+# Si la PC ya tenía uno (instalación de antes del cambio de nombre), se mantiene: ahí están los procesos guardados
+$pm2Home = [Environment]::GetEnvironmentVariable('PM2_HOME', 'Machine')
+if (-not $pm2Home) { $pm2Home = Join-Path $env:ProgramData 'Morfi\pm2' }
 if ($env:PM2_HOME -ne $pm2Home -and (Get-Command pm2 -ErrorAction SilentlyContinue)) {
   Tolerante { pm2 kill }   # el pm2 de una instalación anterior (en la carpeta del usuario): si no, quedarían dos
 }
@@ -65,7 +71,7 @@ Paso 'Configuración (.env)'
 $envFile = Join-Path $Carpeta '.env'
 if (-not (Test-Path $envFile)) {
   @"
-# Configuración de esta instalación de GastroManager ($Cliente). Ver docs/INSTALACION.md
+# Configuración de esta instalación de Morfi ($Cliente). Ver docs/INSTALACION.md
 PORT=$Puerto
 BACKUPS_CONSERVAR=30
 # Copia diaria fuera del local (Cloudflare R2 u otro S3): completar para activarla (docs/INSTALACION.md, un bucket por cliente)
@@ -92,7 +98,8 @@ if (-not (Select-String -Path $envFile -Pattern '^\s*BACKUP_CLAVE\s*=\s*[0-9a-fA
 }
 
 Paso 'Base de datos'
-if (-not (Test-Path (Join-Path $Carpeta 'data\gastromanager.db'))) { npm run init-db; Revisar 'crear la base de datos' } else { Write-Host 'La base ya existe: no se toca.' }
+# data\morfi.db (si todavía se llama gastromanager.db, el sistema la renombra solo al arrancar)
+if (-not (Test-Path (Join-Path $Carpeta 'data\morfi.db')) -and -not (Test-Path (Join-Path $Carpeta 'data\gastromanager.db'))) { npm run init-db; Revisar 'crear la base de datos' } else { Write-Host 'La base ya existe: no se toca.' }
 
 Paso 'Rotación de logs de pm2'
 # Sin esto, logs\pm2-*.log crece sin límite hasta llenar el disco
@@ -103,14 +110,18 @@ Tolerante { pm2 set pm2-logrotate:retain 10 }
 Paso 'Inicio automático al encender la PC'
 $sistema = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
 $ajustes = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 0)
-$bat = Join-Path $Carpeta 'iniciar-gastromanager.bat'
+$bat = Join-Path $Carpeta 'iniciar-morfi.bat'
+# Tareas y regla del firewall con el nombre anterior: se reemplazan por las de Morfi (si no, arrancaría dos veces)
+foreach ($vieja in 'GastroManager', 'GastroManager - actualizar') { Unregister-ScheduledTask -TaskName $vieja -Confirm:$false -ErrorAction SilentlyContinue }
+Remove-NetFirewallRule -DisplayName 'GastroManager' -ErrorAction SilentlyContinue
 $accion = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/c `"`"$bat`" `"$pm2Cmd`"`"" -WorkingDirectory $Carpeta
-Register-ScheduledTask -TaskName 'GastroManager' -Action $accion -Trigger (New-ScheduledTaskTrigger -AtStartup) -Principal $sistema -Settings $ajustes -Force | Out-Null
+Register-ScheduledTask -TaskName 'Morfi' -Action $accion -Trigger (New-ScheduledTaskTrigger -AtStartup) -Principal $sistema -Settings $ajustes -Force | Out-Null
 
 Paso 'Servidor con pm2'
 # Lo levanta la misma tarea del arranque: así el proceso queda en el pm2 de SYSTEM desde el primer día
 Tolerante { pm2 delete gastromanager }
-Start-ScheduledTask -TaskName 'GastroManager'
+Tolerante { pm2 delete morfi }
+Start-ScheduledTask -TaskName 'Morfi'
 $arranco = $false
 for ($i = 0; $i -lt 45 -and -not $arranco; $i++) {
   Start-Sleep -Seconds 2
@@ -125,19 +136,19 @@ if ($ActualizacionAutomatica) {
   $ajustesAct = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 1)
   $npmCmd = (Get-Command npm.cmd).Source
   $accionAct = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/c cd /d `"$Carpeta`" && set `"PATH=$(Split-Path $pm2Cmd);%PATH%`" && `"$npmCmd`" run actualizar" -WorkingDirectory $Carpeta
-  Register-ScheduledTask -TaskName 'GastroManager - actualizar' -Action $accionAct -Trigger (New-ScheduledTaskTrigger -Daily -At 5am) -Principal $sistema -Settings $ajustesAct -Force | Out-Null
+  Register-ScheduledTask -TaskName 'Morfi - actualizar' -Action $accionAct -Trigger (New-ScheduledTaskTrigger -Daily -At 5am) -Principal $sistema -Settings $ajustesAct -Force | Out-Null
 }
 
 Paso "Firewall: puerto $Puerto para tablets y celulares de la red del local"
-if (-not (Get-NetFirewallRule -DisplayName 'GastroManager' -ErrorAction SilentlyContinue)) {
-  New-NetFirewallRule -DisplayName 'GastroManager' -Direction Inbound -Protocol TCP -LocalPort $Puerto -Action Allow -Profile Private,Domain | Out-Null
+if (-not (Get-NetFirewallRule -DisplayName 'Morfi' -ErrorAction SilentlyContinue)) {
+  New-NetFirewallRule -DisplayName 'Morfi' -Direction Inbound -Protocol TCP -LocalPort $Puerto -Action Allow -Profile Private,Domain | Out-Null
 }
 
 $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notmatch '^(127\.|169\.254\.)' -and $_.PrefixOrigin -ne 'WellKnown' } | Select-Object -First 1).IPAddress
-Write-Host "`nListo. GastroManager está corriendo." -ForegroundColor Green
+Write-Host "`nListo. Morfi está corriendo." -ForegroundColor Green
 Write-Host "  En esta PC:            http://localhost:$Puerto"
 Write-Host "  Tablets y celulares:   http://${ip}:$Puerto  (misma red WiFi)"
-Write-Host '  Usuario inicial:       admin@gastromanager.com / admin123 (pide cambiarla al entrar: hacelo YA)'
+Write-Host '  Usuario inicial:       admin@morfi.local / admin123 (pide cambiarla al entrar: hacelo YA)'
 Write-Host '  Conviene fijar la IP de esta PC en el router para que las tablets la encuentren siempre.'
 Write-Host '  En el BIOS: "Restore on AC power loss" = Power On, para que la PC se prenda sola al volver la luz.'
 
@@ -148,7 +159,7 @@ if ($cfg -notmatch '(?m)^\s*BACKUP_S3_ENDPOINT\s*=\s*\S') { $faltan += 'Copia en
 if ($cfg -notmatch '(?m)^\s*MONITOREO_URL\s*=\s*\S') { $faltan += 'Monitoreo (MONITOREO_URL): sin él, nadie se entera si el local se cae.' }
 if ($cfg -notmatch '(?m)^\s*BASE_URL\s*=\s*\S') { $faltan += 'Acceso remoto (scripts\windows\tunel.ps1): lo necesitan Mercado Pago, WhatsApp y el dueño desde afuera.' }
 if ($faltan.Count) {
-  Write-Host "`nFALTA CONFIGURAR en $envFile (después: pm2 restart gastromanager --update-env):" -ForegroundColor Yellow
+  Write-Host "`nFALTA CONFIGURAR en $envFile (después: pm2 restart morfi --update-env):" -ForegroundColor Yellow
   $faltan | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
 }
 if ($claveNueva) {

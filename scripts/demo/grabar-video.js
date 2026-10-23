@@ -166,7 +166,7 @@ const puertoLibre = () => new Promise((ok, mal) => {
 
   // ---------- Recorrido ----------
   await page.goto(base + '/');
-  await page.evaluate(() => window.__gm.placa('GastroManager', 'El sistema de gestión para restaurantes, bares y cafeterías',
+  await page.evaluate(() => window.__gm.placa('Morfi', 'El sistema de gestión para restaurantes, bares y cafeterías',
     ['Punto de venta', 'Mesas y comandas', 'Delivery', 'Caja y arqueo', 'Contabilidad', 'Facturación AFIP']));
   await esperar(4200);
   await page.evaluate(() => window.__gm.ocultarPlaca());
@@ -328,7 +328,7 @@ const puertoLibre = () => new Promise((ok, mal) => {
   await esperar(900);
 
   // Cierre
-  await page.evaluate(() => { window.__gm.ocultarRotulo(); window.__gm.placa('GastroManager', 'Todo tu restaurante en un solo sistema. Sin instalaciones complicadas.',
+  await page.evaluate(() => { window.__gm.ocultarRotulo(); window.__gm.placa('Morfi', 'Todo tu restaurante en un solo sistema. Sin instalaciones complicadas.',
     ['Pedidos', 'Cocina', 'Delivery', 'Caja', 'Contabilidad', 'Stock', 'Reportes', 'AFIP']); });
   await esperar(4500);
 

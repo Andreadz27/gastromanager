@@ -1,6 +1,6 @@
 module.exports = {
   apps: [{
-    name: 'gastromanager',
+    name: 'morfi',
     script: 'server.js',
     cwd: __dirname, // la carpeta donde esté instalado
     exec_mode: 'fork',

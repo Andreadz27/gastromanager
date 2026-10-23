@@ -1,5 +1,5 @@
 /* =============================================
-   GASTROMANAGER - Estilos CSS
+   MORFI - Estilos CSS
    Sistema moderno y responsive
    ============================================= */
 
@@ -1333,7 +1333,7 @@ tr:hover td {
 }
 
 /* ============================================================
-   REDISEÑO PREMIUM v2 - GASTROMANAGER
+   REDISEÑO PREMIUM v2 - MORFI
    ============================================================ */
 
 /* Sidebar con gradiente moderno */
@@ -2201,3 +2201,9 @@ tr:hover td {
 .cobro-cliente-opcion { display: block; width: 100%; text-align: left; border: none; border-bottom: 1px solid var(--border); background: none; padding: 8px 6px; cursor: pointer; }
 .cobro-cliente-opcion:hover { background: rgba(249, 115, 22, .08); }
 .cobro-cliente-opcion small { color: var(--text-light); margin-left: 6px; }
+
+/* Marca Morfi: ícono (favicon.svg) y nombre en minúscula, como en el logo */
+.marca-icono { display: block; flex-shrink: 0; border-radius: 23%; }
+.marca-texto { font-weight: 800; letter-spacing: -0.5px; }
+.login-logo { background: none; width: auto; height: auto; }
+.login-tagline { color: var(--accent); font-weight: 600; }

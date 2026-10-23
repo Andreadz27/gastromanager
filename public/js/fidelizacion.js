@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Fidelización
+// MORFI - Fidelización
 // Programa de puntos, cupones de descuento y gift cards.
 // Canjear puntos y cupones se hace al cobrar (Cobro); acá se configuran y se venden las gift cards.
 // =============================================
