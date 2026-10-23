@@ -1,6 +1,6 @@
 'use strict';
 const {
-  run, get, all, transaccion, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere, requiereCobro, configWhatsApp, pedidoDeSalon, emitirFactura, emitirNotaCredito, consultarPadron, crearAfip, saldoPedido
+  run, get, all, transaccion, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere, requiereCobro, configWhatsApp, requiereAutorizacion, pedidoDeSalon, emitirFactura, emitirNotaCredito, consultarPadron, crearAfip, saldoPedido
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -150,7 +150,7 @@ app.post('/api/integraciones/afip/facturar', autenticar, requiereCobro, async (r
 
 // POST /api/integraciones/afip/nota-credito  { comprobante_id, motivo, cuit_receptor? }
 // Anula una factura ante ARCA; después el pedido se puede volver a facturar (ej. era A y salió B)
-app.post('/api/integraciones/afip/nota-credito', autenticar, requiere('pedidos.cancelar'), async (req, res) => {
+app.post('/api/integraciones/afip/nota-credito', autenticar, requiereAutorizacion('pedidos.cancelar', 'Anular factura'), async (req, res) => {
   const comprobanteId = parseInt(req.body.comprobante_id, 10);
   if (!comprobanteId) return res.status(400).json({ error: 'Faltan datos obligatorios.' });
   try {

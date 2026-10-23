@@ -449,7 +449,9 @@ tr:hover td {
 
 .form-group input,
 .form-group select,
-.form-group textarea {
+.form-group textarea,
+.receta-linea input,
+.receta-linea select {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
@@ -461,6 +463,8 @@ tr:hover td {
 
 .form-group input:focus,
 .form-group select:focus,
+.receta-linea input:focus,
+.receta-linea select:focus,
 .form-group textarea:focus {
   outline: none;
   border-color: var(--info);
@@ -2146,3 +2150,12 @@ tr:hover td {
 .integracion-body { padding: 16px 20px; }
 .integracion-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 15px; }
 @media (max-width: 600px) { .integracion-header { flex-wrap: wrap; } }
+
+/* Receta de un plato */
+.receta-linea { display: grid; grid-template-columns: 2fr 1fr 1.2fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+@media (max-width: 600px) { .receta-linea { grid-template-columns: 1fr 1fr; } }
+
+/* PIN de autorización (encima de cualquier modal) */
+.pin-overlay { z-index: 3000; }
+.pin-modal { max-width: 360px; }
+.pin-input { font-size: 24px; letter-spacing: 8px; text-align: center; }

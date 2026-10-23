@@ -54,6 +54,10 @@ async function migrarEsquema() {
   await agregarColumna('pedidos', 'origen', "TEXT DEFAULT ''");
   await agregarColumna('pedidos', 'metodo_pago', "TEXT DEFAULT ''");
   await agregarColumna('pedidos', 'mp_payment_id', "TEXT DEFAULT ''");
+  // Control de caja: PIN de autorización de encargados y arqueo ciego (apagados por defecto)
+  await agregarColumna('usuarios', 'pin_hash', "TEXT DEFAULT ''");
+  await agregarColumna('configuracion', 'pin_autorizacion', 'INTEGER DEFAULT 0');
+  await agregarColumna('configuracion', 'arqueo_ciego', 'INTEGER DEFAULT 0');
   // Cobro en la mesa: los mozos pueden cobrar y facturar sus mesas (apagado por defecto)
   await agregarColumna('configuracion', 'mozo_cobra_mesa', 'INTEGER DEFAULT 0');
   // Arqueo de caja

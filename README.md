@@ -119,6 +119,27 @@ token permanente, secreto de la app y token de verificación del webhook.
 - **Teléfonos:** se aceptan como los escribe la gente (`011 15-1234-5678`, `+54 9 11...`) y se pasan a `549...`.
 - Todo envío queda en `whatsapp_mensajes` (con error si falló). En la demo pública no se envía nada.
 
+## Recetas e insumos
+
+Botón **Receta** en cada producto (Productos): ingredientes con la cantidad en su unidad (ej. 0.15 kg de carne).
+
+- Al cobrar un plato con receta se descuenta el stock de sus ingredientes (no el del plato). Sin receta, el producto
+  descuenta su propio stock como siempre. Con la cuenta dividida, se descuenta una sola vez, al cerrar.
+- El **costo del plato** es la suma de sus ingredientes y se actualiza solo cuando cambia el costo de un ingrediente.
+  Lo usan la rentabilidad (Reportes) y el costo teórico del estado de resultados (Contabilidad).
+- Sin recetas anidadas: un plato con receta no puede ser ingrediente, y un ingrediente no puede tener receta.
+
+## Control de caja: PIN y arqueo ciego
+
+En **Configuración** (los dos apagados por defecto):
+
+- **PIN de autorización:** descuentos (también al crear el pedido), cancelar pedidos, anular facturas y egresos de caja
+  de cajeros y mozos necesitan el PIN de un encargado o administrador. Con el PIN, un mozo también puede hacerlas.
+  Cada encargado define su PIN en **Mi PIN** (con su contraseña; 4 a 6 números, distinto al de los demás).
+  Cada autorización queda en la auditoría. 5 PIN incorrectos seguidos bloquean a ese usuario 5 minutos.
+- **Arqueo ciego:** el cajero no ve ventas por medio de pago, efectivo esperado ni diferencia; cuenta y declara.
+  El encargado ve el arqueo completo en el historial de caja.
+
 ## Contabilidad
 
 Menú **Contabilidad** (administrador y encargado). Las ventas salen de los cobros: solo se cargan compras y gastos.
@@ -226,6 +247,8 @@ Mercado Pago, Tienda Nube y las impresoras se prueban contra servidores simulado
 | `cobro-mesa.test.js` | Cuenta dividida, pagos mixtos, sin cobrar de más (también en simultáneo), propina, factura que falla sin perder el cobro, mozos y arqueo |
 | `afip.test.js` | Facturas, notas de crédito asociadas y refacturar, padrón (RI, monotributo, consumidor final), CUIT inválido, rechazo de ARCA y permisos, contra AfipSDK simulado |
 | `whatsapp.test.js` | Teléfonos, comprobante, rechazo de Meta, avisos de pedido sin repetir, recordatorios de reservas, webhook firmado y estados en orden, permisos, contra API de Meta simulada |
+| `recetas.test.js` | Costo por receta y margen, descuento de ingredientes al cobrar (una vez con cuenta dividida), costo que sigue al ingrediente, validaciones, costo teórico |
+| `control-caja.test.js` | PIN (alta, unicidad, bloqueo por intentos), autorización de descuentos, cancelaciones, egresos y anulaciones, arqueo ciego |
 | `caja.test.js` | Arqueo: ventas por medio de pago, movimientos, efectivo esperado y diferencias |
 | `contabilidad.test.js` | Gastos, pagos desde la caja, estado de resultados, IVA, libro diario balanceado, anulaciones |
 | `demo.test.js` | Modo demo pública: acciones bloqueadas y el resto del sistema funcionando |

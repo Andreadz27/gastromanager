@@ -23,7 +23,8 @@ function datosSesion(u) {
     rol_nombre: (ROLES[rol] || { nombre: rol }).nombre,
     permisos: permisosDeRol(rol),
     // Para que la pantalla calcule "hoy" con la zona del negocio y no con la del dispositivo
-    zona_horaria: ZONA_HORARIA
+    zona_horaria: ZONA_HORARIA,
+    tiene_pin: !!(u.tiene_pin || u.pin_hash)
   };
 }
 

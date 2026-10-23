@@ -106,6 +106,19 @@ Manda mensajes a teléfonos reales.
   calculada con `offsetZonaMin()`. Cambiar el formato de fecha u hora de las reservas los rompe.
 - **Lo protege:** `whatsapp.test.js` (API de Meta simulada), `estructura.test.js` (rutas públicas), e2e.
 
+### 9d. Recetas — `src/servicios/recetas.js` · riesgo MEDIO
+El descuento de stock del cobro pasa por `descontarStockItemTx` (dentro de la transacción del cobro).
+- **Lo rompe:** descontar fuera de `cerrarPedidoTx` (con cuenta dividida se descontaría en cada parte), permitir
+  recetas anidadas (ciclos), o editar `productos.costo` de un plato con receta sin recalcular.
+- **Ojo:** el costo teórico de Contabilidad usa el costo *actual* de cada producto, no el del día de la venta.
+- **Lo protege:** `recetas.test.js`, e2e.
+
+### 9e. PIN de autorización y arqueo ciego — `src/servicios/autorizacion.js` · riesgo ALTO
+- **Lo rompe:** una acción sensible nueva sin `requiereAutorizacion`/`autorizar`, mostrar `efectivo_esperado` o
+  `diferencia` al cajero con arqueo ciego (`resumenParaUsuario` en `caja.js`), o guardar el PIN sin hash.
+- **Bloqueo por intentos:** en memoria (se reinicia con el servidor). Con PIN de 4 dígitos, 5 intentos cada 5 minutos.
+- **Lo protege:** `control-caja.test.js` y e2e (PIN encima del formulario, caja ciega).
+
 ### 10. Copias de seguridad — `src/servicios/backups.js` · riesgo BAJO
 - **Bugs corregidos:** dos copias en el mismo segundo daban error 500 (nombre repetido); una copia con el sistema en
   uso podía fallar. Tests en `fechas-backups.test.js` y `regresiones.test.js`.
