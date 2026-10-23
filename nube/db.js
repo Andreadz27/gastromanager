@@ -58,6 +58,12 @@ const listo = (async () => {
     estado TEXT NOT NULL DEFAULT 'pendiente', numero TEXT, total REAL, error TEXT,
     creado_en TEXT DEFAULT CURRENT_TIMESTAMP, recibido_en TEXT)`);
   await run('CREATE INDEX IF NOT EXISTS idx_pedidos_online_local ON pedidos_online(local_id, estado)');
+  // Etapa 3: cambios de precio que el dueño hace desde el panel y cada local aplica
+  await run(`CREATE TABLE IF NOT EXISTS cambios_precio (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, local_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, producto TEXT NOT NULL,
+    precio_anterior REAL, precio REAL NOT NULL, estado TEXT NOT NULL DEFAULT 'pendiente', error TEXT, usuario_id INTEGER,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP, aplicado_en TEXT)`);
+  await run('CREATE INDEX IF NOT EXISTS idx_cambios_precio_local ON cambios_precio(local_id, estado)');
 })();
 
 const cerrar = () => new Promise(r => db.close(r));

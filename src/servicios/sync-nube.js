@@ -4,7 +4,8 @@
 // `node nube/alta.js local ...`). Sin internet no pasa nada: lo que falta se manda en la próxima vuelta.
 // De las ventas no se mandan datos de los clientes (nombre, teléfono, CUIT): solo números de pedido, productos e importes.
 // También publica la carta online y trae los pedidos que entran por ella (ver más abajo).
-const { get, all, run } = require('../db');
+const { get, all, run, transaccion } = require('../db');
+const { emitEvento } = require('../realtime');
 const { LOCAL } = require('../tiempo');
 const { listarBackups } = require('./backups');
 const { estadoNube } = require('./copia-nube');
@@ -123,13 +124,48 @@ async function traer() {
   return traidos;
 }
 
+// ============ PRECIOS CENTRALES (etapa 3) ============
+// El dueño de una cadena cambia un precio en el panel de la nube; acá se aplica y queda en la auditoría.
+// Después se manda la carta de nuevo para que la nube (y la carta online) muestren el precio nuevo.
+const plata = n => '$' + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+async function aplicarCambiosDePrecio() {
+  const lista = await enviar('/api/sync/cambios', null, 'GET');
+  let aplicados = 0;
+  for (const c of lista) {
+    const precio = Math.round(Number(c.precio) * 100) / 100;
+    const prod = await get('SELECT id, nombre, precio_venta FROM productos WHERE id = ? AND activo = 1', [c.producto_id]);
+    // Ya aplicado (se cortó antes de avisarle a la nube): solo se confirma
+    if (prod && prod.precio_venta === precio) { await enviar(`/api/sync/cambios/${c.id}`, {}); continue; }
+    if (!prod || !(precio > 0)) {
+      await enviar(`/api/sync/cambios/${c.id}`, { error: prod ? 'Precio inválido' : 'El producto ya no está activo en este local' });
+      continue;
+    }
+    await transaccion(async () => {
+      await run('UPDATE productos SET precio_venta = ? WHERE id = ?', [precio, prod.id]);
+      await run('INSERT INTO auditoria (usuario_id, accion, detalle) VALUES (NULL, ?, ?)', ['precio_desde_nube',
+        `${prod.nombre}: ${plata(prod.precio_venta)} → ${plata(precio)} (${c.usuario || 'dueño'}, desde Morfi Nube)`]);
+    });
+    await enviar(`/api/sync/cambios/${c.id}`, {});
+    aplicados++;
+  }
+  if (aplicados) {
+    emitEvento('productos:actualizar', { motivo: 'precios_nube' });
+    await enviarCarta();
+  }
+  return aplicados;
+}
+
 // Se avisa una vez por tipo de error (sin internet se repite cada vuelta y llenaría el log)
 const ultimoError = {};
+// Si una vuelta tarda más que el intervalo (internet lento), la siguiente no arranca encima
+const enMarcha = {};
 const seguro = (nombre, fn) => async () => {
+  if (enMarcha[nombre]) return;
+  enMarcha[nombre] = true;
   try { await fn(); ultimoError[nombre] = ''; } catch (e) {
     if (e.message !== ultimoError[nombre]) console.error(`[nube] No se pudo ${nombre}:`, e.message);
     ultimoError[nombre] = e.message;
-  }
+  } finally { enMarcha[nombre] = false; }
 };
 
 function iniciarSyncNube() {
@@ -138,12 +174,12 @@ function iniciarSyncNube() {
   const ms = Number(process.env.NUBE_SEGUNDOS) * 1000 || 2 * 60000;
   const msPedidos = Number(process.env.NUBE_PEDIDOS_SEGUNDOS) * 1000 || 10000;
   const vuelta = seguro('sincronizar', async () => { await enviarCarta(); await sincronizar(); });
-  const pedidos = seguro('traer pedidos online', traerPedidos);
+  const pedidos = seguro('traer pedidos online', async () => { await traerPedidos(); await aplicarCambiosDePrecio(); });
   vuelta();
   pedidos();
   setInterval(vuelta, ms).unref();
   setInterval(pedidos, msPedidos).unref();
-  console.log(`[nube] Sincronizando con ${process.env.NUBE_URL} cada ${Math.round(ms / 1000)} s; pedidos online cada ${Math.round(msPedidos / 1000)} s`);
+  console.log(`[nube] Sincronizando con ${process.env.NUBE_URL} cada ${Math.round(ms / 1000)} s; pedidos online y precios cada ${Math.round(msPedidos / 1000)} s`);
 }
 
-module.exports = { iniciarSyncNube, sincronizar, traerPedidos, enviarCarta, estadoLocal, configurada, urlCartaNube };
+module.exports = { iniciarSyncNube, sincronizar, traerPedidos, aplicarCambiosDePrecio, enviarCarta, estadoLocal, configurada, urlCartaNube };

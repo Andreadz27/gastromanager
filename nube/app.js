@@ -135,6 +135,10 @@ const autenticarUsuario = ruta(async (req, res, next) => {
   next();
 });
 
+// Precios centrales para cadenas (el dueño los cambia y cada local los aplica)
+const cartaCentral = require('./carta-central');
+cartaCentral(app, { ruta, errorHttp, autenticarLocal, autenticarUsuario, r2 });
+
 // Locales que ve el usuario: los de su cuenta (soporte: todos, o los de ?cuenta=)
 async function localesVisibles(u, cuentaId) {
   if (u.rol === 'soporte') {
@@ -182,9 +186,11 @@ app.get('/api/panel/resumen', autenticarUsuario, ruta(async (req, res) => {
 
 // Salud de cada local: si manda datos, copias, facturas trabadas. Alertas para actuar antes de que llame el cliente.
 const MIN_SIN_SYNC = 15;
-function alertas(l, estado, minutos, trabados) {
+function alertas(l, estado, minutos, trabados, precios = {}) {
   const a = [];
   if (trabados) a.push(`${trabados} pedido(s) online sin recibir en el local`);
+  if (precios.con_error) a.push(`${precios.con_error} cambio(s) de precio que el local no pudo aplicar`);
+  if (precios.demorados) a.push(`${precios.demorados} cambio(s) de precio esperando al local`);
   if (minutos === null) a.push('Nunca se conectó a la nube');
   else if (minutos > MIN_SIN_SYNC) a.push(`Sin noticias hace ${minutos >= 120 ? Math.round(minutos / 60) + ' h' : minutos + ' min'} (sin internet o PC apagada)`);
   if (estado.ultima_copia && Date.now() - new Date(estado.ultima_copia).getTime() > 26 * 3600000) a.push('Sin copia de seguridad hace más de 26 h');
@@ -201,9 +207,10 @@ async function estadoLocales(locales) {
     const cuenta = await get('SELECT nombre FROM cuentas WHERE id = ?', [l.cuenta_id]);
     const carta = await get('SELECT 1 AS si FROM cartas WHERE local_id = ?', [l.id]);
     const trabados = await tienda.pedidosTrabados(l.id);
+    const precios = await cartaCentral.cambiosTrabados(l.id);
     return { id: l.id, nombre: l.nombre, cliente: l.cliente, cuenta: cuenta && cuenta.nombre, ultima_sync: l.ultima_sync,
       minutos_sin_sync: minutos, estado, carta_online: carta ? `/l/${encodeURIComponent(l.cliente)}` : null,
-      alertas: alertas(l, estado, minutos, trabados) };
+      alertas: alertas(l, estado, minutos, trabados, precios) };
   }));
 }
 
