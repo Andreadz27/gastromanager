@@ -115,6 +115,14 @@ const ConfigView = {
               </select>
             </div>
             <div class="form-group">
+              <label>Pedidos desde el QR de la mesa</label>
+              <select id="cfgQrMesa" title="El cliente escanea el QR de su mesa y pide desde el celular. Los QR se imprimen en Menú QR.">
+                <option value="confirmar" ${!c.qr_mesa_modo || c.qr_mesa_modo === 'confirmar' ? 'selected' : ''}>El mozo confirma cada pedido</option>
+                <option value="directo" ${c.qr_mesa_modo === 'directo' ? 'selected' : ''}>Van directo a cocina</option>
+                <option value="solo_carta" ${c.qr_mesa_modo === 'solo_carta' ? 'selected' : ''}>Solo ver la carta y llamar al mozo</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label>PIN de autorización</label>
               <select id="cfgPin" title="Descuentos, cancelaciones, anular facturas y retiros de caja de cajeros y mozos necesitan el PIN de un encargado. Cada encargado define el suyo en Mi PIN.">
                 <option value="0" ${!Number(c.pin_autorizacion) ? 'selected' : ''}>No pedir PIN</option>
@@ -612,6 +620,7 @@ const ConfigView = {
       moneda: document.getElementById('cfgMoneda').value,
       activar_impresion: parseInt(document.getElementById('cfgImpresion').value),
       mozo_cobra_mesa: parseInt(document.getElementById('cfgMozoCobra').value),
+      qr_mesa_modo: document.getElementById('cfgQrMesa').value,
       pin_autorizacion: parseInt(document.getElementById('cfgPin').value),
       arqueo_ciego: parseInt(document.getElementById('cfgArqueoCiego').value),
       setup_completado: 1

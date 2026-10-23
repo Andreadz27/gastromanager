@@ -125,6 +125,21 @@ const App = {
         if (App.currentView === 'mesas') Mesas.render();
       });
 
+      // Pedido, llamado o cuenta desde el QR de una mesa: aviso con sonido para los mozos
+      this.socket.on('mesa:solicitud', (data) => {
+        if (!App.puede('pedidos.tomar')) return;
+        const que = { pedido: 'hizo un pedido', mozo: 'llama al mozo', cuenta: 'pide la cuenta' }[data.tipo] || 'te necesita';
+        this.showToast(`${data.mesa_nombre} ${que}`, 'warning', 10000);
+        this.sonarAviso();
+        this.contarSolicitudesMesa();
+        if (App.currentView === 'mesas') Mesas.render();
+      });
+      this.socket.on('mesa:solicitud_resuelta', () => {
+        if (!App.puede('pedidos.tomar')) return;
+        this.contarSolicitudesMesa();
+        if (App.currentView === 'mesas') Mesas.render();
+      });
+
       // Dashboard global refresh
       this.socket.on('dashboard:actualizar', () => {
         if (App.currentView === 'dashboard') Dashboard.render();
@@ -133,6 +148,40 @@ const App = {
     } catch (e) {
       console.warn('Socket.IO no disponible:', e.message);
     }
+  },
+
+  // Contador de "Mesas" en el menú: pedidos y llamados del QR sin resolver
+  async contarSolicitudesMesa() {
+    if (!this.puede('pedidos.tomar')) return;
+    try { this.marcarSolicitudesMesa((await API.getSolicitudesMesa()).length); } catch (e) { /* sin conexión: queda el anterior */ }
+  },
+
+  marcarSolicitudesMesa(n) {
+    for (const id of ['navBadgeMesas', 'navBadgeMesasMovil']) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      el.textContent = n > 99 ? '99+' : n;
+      el.style.display = n > 0 ? 'inline-flex' : 'none';
+    }
+  },
+
+  // Dos tonos cortos (sin archivo de sonido). El navegador solo deja sonar después de que el usuario tocó la página.
+  sonarAviso() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      this._audio = this._audio || new Ctx();
+      [0, 0.18].forEach((t, i) => {
+        const osc = this._audio.createOscillator();
+        const vol = this._audio.createGain();
+        osc.frequency.value = i ? 1046 : 784;
+        vol.gain.setValueAtTime(0.2, this._audio.currentTime + t);
+        vol.gain.exponentialRampToValueAtTime(0.001, this._audio.currentTime + t + 0.16);
+        osc.connect(vol).connect(this._audio.destination);
+        osc.start(this._audio.currentTime + t);
+        osc.stop(this._audio.currentTime + t + 0.17);
+      });
+    } catch (e) { /* sin sonido no pasa nada: queda el aviso en pantalla */ }
   },
 
   _setRealtimeStatus(connected) {
@@ -268,6 +317,7 @@ const App = {
 
     // Iniciar conexión Socket.IO realtime
     this.initSocket();
+    this.contarSolicitudesMesa();
 
     // Cargar módulos activos y verificar setup
     this.cargarModulos();

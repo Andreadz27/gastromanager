@@ -5,12 +5,18 @@
 
 const Mesas = {
   mesas: [],
+  solicitudes: [], // pedidos y llamados desde el QR de las mesas, sin resolver
 
   async render() {
     const view = document.getElementById('view-mesas');
-    view.innerHTML = '<div class="text-center mt-20"><i class="fas fa-spinner fa-spin fa-3x"></i></div>';
+    // Sin el spinner si ya hay algo: se refresca solo cada vez que piden desde una mesa
+    if (!view.innerHTML.trim()) view.innerHTML = '<div class="text-center mt-20"><i class="fas fa-spinner fa-spin fa-3x"></i></div>';
     try {
-      this.mesas = await API.getMesas();
+      [this.mesas, this.solicitudes] = await Promise.all([
+        API.getMesas(),
+        App.puede('pedidos.tomar') ? API.getSolicitudesMesa().catch(() => []) : []
+      ]);
+      App.marcarSolicitudesMesa(this.solicitudes.length);
       this.paint(view);
     } catch (err) {
       view.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Error: ${esc(err.message)}</p></div>`;
@@ -26,9 +32,9 @@ const Mesas = {
       const icono = m.estado === 'libre' ? 'fa-chair'
         : (m.estado === 'ocupada' ? 'fa-users' : 'fa-clock');
       return `
-        <div class="${estadoClass}">
+        <div class="${estadoClass}${m.solicitudes_pendientes ? ' con-solicitud' : ''}">
           <div class="mesa-header">
-            <h3>${esc(m.nombre)}</h3>
+            <h3>${esc(m.nombre)}${m.solicitudes_pendientes ? ` <span class="badge badge-orange" title="Pedidos o llamados desde el QR"><i class="fas fa-bell"></i> ${m.solicitudes_pendientes}</span>` : ''}</h3>
             <span class="mesa-capacity"><i class="fas fa-user-friends"></i> ${m.capacidad}</span>
           </div>
           <div class="mesa-body">
@@ -82,8 +88,95 @@ const Mesas = {
           <button class="btn btn-outline" onclick="Mesas.render()"><i class="fas fa-sync-alt"></i> Refrescar</button>
         </div>
       </div>
+      ${this.htmlSolicitudes()}
       <div class="mesa-grid">${cards}</div>
     `;
+  },
+
+  // ===== Pedidos y llamados desde el QR de la mesa =====
+  htmlSolicitudes() {
+    if (!this.solicitudes.length) return '';
+    const TITULOS = { pedido: 'Pedido', mozo: 'Llama al mozo', cuenta: 'Pide la cuenta' };
+    const hora = f => parseFecha(f).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    const filas = this.solicitudes.map(s => {
+      const total = s.items.reduce((t, i) => t + i.precio * i.cantidad, 0);
+      const detalle = s.tipo === 'pedido' ? `
+        <ul class="solicitud-items">${s.items.map(i => `<li>${i.cantidad} x ${esc(i.nombre)}${i.notas ? ` <em>(${esc(i.notas)})</em>` : ''}</li>`).join('')}</ul>
+        ${s.notas ? `<div class="text-muted"><i class="fas fa-comment"></i> ${esc(s.notas)}</div>` : ''}
+        <div class="font-bold">${fmtMoneda(total)}</div>` : '';
+      const acciones = s.tipo === 'pedido' ? `
+        <button class="btn btn-success btn-sm" onclick="Mesas.confirmarSolicitud(${s.id})"><i class="fas fa-check"></i> Confirmar</button>
+        <button class="btn btn-outline btn-sm" onclick="Mesas.corregirSolicitud(${s.id})"><i class="fas fa-edit"></i> Corregir</button>
+        <button class="btn btn-danger btn-sm" onclick="Mesas.rechazarSolicitud(${s.id})"><i class="fas fa-times"></i> Rechazar</button>`
+        : `<button class="btn btn-primary btn-sm" onclick="Mesas.atenderSolicitud(${s.id})"><i class="fas fa-check"></i> Ya fui</button>`;
+      return `
+        <div class="solicitud-mesa solicitud-${s.tipo}">
+          <div class="solicitud-cabecera">
+            <span><strong>${esc(s.mesa_nombre)}</strong> &middot; ${TITULOS[s.tipo] || esc(s.tipo)}${s.cliente ? ` &middot; ${esc(s.cliente)}` : ''}</span>
+            <span class="text-muted">${hora(s.creado_en)}</span>
+          </div>
+          ${detalle}
+          <div class="solicitud-acciones">${acciones}</div>
+        </div>`;
+    }).join('');
+    return `
+      <div class="card mb-20">
+        <div class="card-header"><span class="card-title"><i class="fas fa-bell"></i> Desde las mesas (QR)</span>
+          <span class="card-subtitle">Revis&aacute; el pedido y confirmalo para que vaya a cocina</span></div>
+        <div class="solicitudes-mesa">${filas}</div>
+      </div>`;
+  },
+
+  async confirmarSolicitud(id, items) {
+    try {
+      const r = await API.confirmarSolicitudMesa(id, items);
+      App.closeModal();
+      App.showToast(`Pedido confirmado: va a cocina (${r.numero_pedido})`, 'success');
+    } catch (err) { App.showToast(err.message, 'error'); }
+    this.render();
+  },
+
+  // Antes de confirmar, el mozo cambia cantidades o quita lo que no hay
+  corregirSolicitud(id) {
+    const s = this.solicitudes.find(x => x.id === id);
+    if (!s) return;
+    App.showModal(`
+      <form onsubmit="Mesas.guardarCorreccion(event, ${id})">
+        <p class="text-muted">Pon&eacute; 0 en lo que no se pueda servir.</p>
+        ${s.items.map((i, n) => `
+          <div class="form-group"><label for="corrCant${n}">${esc(i.nombre)}${i.notas ? ` <em>(${esc(i.notas)})</em>` : ''}</label>
+            <input type="number" id="corrCant${n}" value="${i.cantidad}" min="0" max="20" required></div>`).join('')}
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="App.closeModal()">Volver</button>
+          <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> Confirmar corregido</button>
+        </div>
+      </form>`, { title: `Corregir pedido de ${esc(s.mesa_nombre)}` });
+  },
+
+  guardarCorreccion(e, id) {
+    e.preventDefault();
+    const s = this.solicitudes.find(x => x.id === id);
+    if (!s) return;
+    const items = s.items.map((i, n) => ({ producto_id: i.producto_id, notas: i.notas, cantidad: parseInt(document.getElementById('corrCant' + n).value, 10) || 0 }))
+      .filter(i => i.cantidad > 0);
+    if (!items.length) return this.rechazarSolicitud(id);
+    this.confirmarSolicitud(id, items);
+  },
+
+  async rechazarSolicitud(id) {
+    const motivo = prompt('¿Por qué no se puede tomar? (lo ve el cliente)', 'Se terminó un producto, consultá al mozo');
+    if (motivo === null) return;
+    try {
+      await API.rechazarSolicitudMesa(id, motivo);
+      App.closeModal();
+      App.showToast('Pedido rechazado', 'info');
+    } catch (err) { App.showToast(err.message, 'error'); }
+    this.render();
+  },
+
+  async atenderSolicitud(id) {
+    try { await API.atenderSolicitudMesa(id); } catch (err) { App.showToast(err.message, 'error'); }
+    this.render();
   },
 nueva() {
     App.showModal(`

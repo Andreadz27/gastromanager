@@ -24,6 +24,16 @@
     </div>
   </header>
 
+  <!-- Desde el QR de la mesa: llamar al mozo, pedir la cuenta y ver cómo van los pedidos -->
+  <section class="mesa-panel" id="mesaPanel" style="display:none" aria-live="polite">
+    <div class="mesa-aviso" id="mesaAviso" style="display:none"></div>
+    <div class="mesa-acciones">
+      <button class="btn btn-outline" id="btnLlamarMozo" onclick="PedidoOnline.llamar('mozo')"><i class="fas fa-hand-paper"></i> Llamar al mozo</button>
+      <button class="btn btn-outline" id="btnPedirCuenta" onclick="PedidoOnline.llamar('cuenta')"><i class="fas fa-receipt"></i> Pedir la cuenta</button>
+    </div>
+    <div id="mesaEstado"></div>
+  </section>
+
   <!-- Cats sticky -->
   <nav class="mobile-cat-nav" id="mobileCatNav" aria-label="Categorias">
     <div class="mobile-cat-scroll" id="mobileCatScroll"></div>
@@ -95,16 +105,16 @@
       </div>
       <form id="pedidoForm" onsubmit="PedidoOnline.enviarPedido(event)" novalidate>
         <div class="form-group">
-          <label for="clienteNombre">Nombre <span aria-hidden="true">*</span></label>
+          <label for="clienteNombre" id="labelNombre">Nombre <span aria-hidden="true">*</span></label>
           <input type="text" id="clienteNombre" placeholder="Tu nombre"
                  required autocomplete="name">
         </div>
-        <div class="form-group">
+        <div class="form-group" id="grupoTelefono">
           <label for="clienteTelefono">Telefono <span aria-hidden="true">*</span></label>
           <input type="tel" id="clienteTelefono" placeholder="11 1234-5678"
                  required autocomplete="tel">
         </div>
-        <div class="form-group">
+        <div class="form-group" id="grupoTipo">
           <label>Como lo queres?</label>
           <div class="tipo-opciones">
             <label class="tipo-opcion">

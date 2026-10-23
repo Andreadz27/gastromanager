@@ -1,7 +1,7 @@
 'use strict';
 const {
   rateLimit, urlPublica, run, get, all, transaccion, errorHttp, errorInterno, emitEvento, generarNumeroPedido,
-  comandaAutomatica, resolverItems, recalcularTotales
+  comandaAutomatica, resolverItems, recalcularTotales, mesaPorToken, estadoMesa, solicitarPedidoMesa, llamarMozo
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -101,5 +101,30 @@ app.post('/api/publico/pedido', pedidoOnlineLimiter, async (req, res) => {
     res.status(201).json({id:pid,numero_pedido:numero,subtotal:total,total,origen:label});
   } catch (err) { errorInterno(res, err); }
 });
+
+// ============ PEDIDO DESDE LA MESA (QR de cada mesa, sin login) ============
+// En el local todos los celulares salen por la misma IP (el WiFi): el límite por IP es amplio
+// y el tope real es por mesa (pedidos sin confirmar, en el servicio)
+const mesaLimiter = rateLimit({ windowMs: 60000, max: 60 });
+const conMesa = fn => async (req, res) => {
+  try {
+    const mesa = await mesaPorToken(req.params.token);
+    if (!mesa) return res.status(404).json({ error: 'Este QR no corresponde a ninguna mesa. Pedile ayuda al mozo.' });
+    await fn(req, res, mesa);
+  } catch (err) { errorInterno(res, err); }
+};
+
+app.get('/api/publico/mesa/:token', mesaLimiter, conMesa(async (req, res, mesa) => {
+  res.json(await estadoMesa(mesa));
+}));
+
+app.post('/api/publico/mesa/:token/pedido', mesaLimiter, conMesa(async (req, res, mesa) => {
+  const { items, notas, cliente } = req.body || {};
+  res.status(201).json(await solicitarPedidoMesa(mesa, { items, notas, cliente }));
+}));
+
+app.post('/api/publico/mesa/:token/llamar', mesaLimiter, conMesa(async (req, res, mesa) => {
+  res.status(201).json(await llamarMozo(mesa, req.body && req.body.tipo));
+}));
 
 };

@@ -104,6 +104,13 @@ const API = {
   updateMesa(id, data) { return this.request('PUT', `/mesas/${id}`, data); },
   cambiarEstadoMesa(id, estado) { return this.request('PUT', `/mesas/${id}/estado`, { estado }); },
   deleteMesa(id) { return this.request('DELETE', `/mesas/${id}`); },
+  // Pedidos y llamados desde el QR de la mesa
+  getSolicitudesMesa() { return this.request('GET', '/mesas/solicitudes'); },
+  confirmarSolicitudMesa(id, items) { return this.request('POST', `/mesas/solicitudes/${id}/confirmar`, items ? { items } : {}); },
+  rechazarSolicitudMesa(id, motivo) { return this.request('POST', `/mesas/solicitudes/${id}/rechazar`, { motivo }); },
+  atenderSolicitudMesa(id) { return this.request('POST', `/mesas/solicitudes/${id}/atender`); },
+  getQrMesas(base) { return this.request('GET', `/mesas/qr?base=${encodeURIComponent(base)}`); },
+  nuevoQrMesa(id) { return this.request('POST', `/mesas/${id}/qr`); },
 
   // ===== Reservas =====
   getReservas(fecha = null) {

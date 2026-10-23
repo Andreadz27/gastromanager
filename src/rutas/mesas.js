@@ -1,7 +1,9 @@
 'use strict';
 const {
-  run, get, all, actualizarParcial, errorInterno, autenticar, emitEvento, requiere
+  run, get, all, actualizarParcial, errorInterno, autenticar, emitEvento, requiere, urlPublica, nuevoTokenMesa,
+  solicitudesPendientes, confirmarSolicitud, rechazarSolicitud, atenderSolicitud
 } = require('../contexto');
+const QRCode = require('qrcode');
 
 module.exports = function registrarRutas(app) {
 
@@ -9,7 +11,10 @@ module.exports = function registrarRutas(app) {
 
 app.get('/api/mesas', autenticar, requiere('pedidos.ver'), async (req, res) => {
   try {
-    const mesas = await all('SELECT * FROM mesas ORDER BY sector, orden');
+    // Con lo que piden desde el QR sin resolver, para marcar la mesa
+    const mesas = await all(`SELECT m.id, m.nombre, m.capacidad, m.estado, m.sector, m.orden,
+        (SELECT COUNT(*) FROM solicitudes_mesa s WHERE s.mesa_id = m.id AND s.estado = 'pendiente') AS solicitudes_pendientes
+      FROM mesas m ORDER BY m.sector, m.orden`);
     res.json(mesas);
   } catch (err) {
     errorInterno(res, err);
@@ -20,8 +25,8 @@ app.post('/api/mesas', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     const { nombre, capacidad, sector, orden } = req.body;
     const result = await run(
-      'INSERT INTO mesas (nombre, capacidad, sector, orden) VALUES (?, ?, ?, ?)',
-      [nombre, capacidad || 4, sector || 'Principal', orden || 0]
+      'INSERT INTO mesas (nombre, capacidad, sector, orden, qr_token) VALUES (?, ?, ?, ?, ?)',
+      [nombre, capacidad || 4, sector || 'Principal', orden || 0, nuevoTokenMesa()]
     );
     res.status(201).json({ id: result.id, message: 'Mesa creada' });
   } catch (err) {
@@ -66,6 +71,62 @@ app.delete('/api/mesas/:id', autenticar, requiere('catalogo'), async (req, res) 
   } catch (err) {
     errorInterno(res, err);
   }
+});
+
+// ============ QR DE CADA MESA ============
+
+// Dirección del QR: la pública (BASE_URL) o, si no hay, la que usa el navegador del administrador
+function baseQr(req) {
+  const publica = urlPublica();
+  if (publica) return publica;
+  const b = String(req.query.base || '');
+  return /^https?:\/\/[^\s/?#]+$/.test(b) ? b : '';
+}
+
+app.get('/api/mesas/qr', autenticar, requiere('catalogo'), async (req, res) => {
+  try {
+    const base = baseQr(req);
+    if (!base) return res.status(400).json({ error: 'Falta la dirección del sistema para armar los QR' });
+    // Mesas creadas antes por otra vía (sin clave): se les asigna ahora
+    for (const m of await all('SELECT id FROM mesas WHERE qr_token IS NULL'))
+      await run('UPDATE mesas SET qr_token = ? WHERE id = ?', [nuevoTokenMesa(), m.id]);
+    const mesas = await all('SELECT id, nombre, sector, qr_token FROM mesas ORDER BY sector, orden');
+    res.json(await Promise.all(mesas.map(async m => {
+      const url = `${base}/pedido.html?mesa=${m.qr_token}`;
+      return { id: m.id, nombre: m.nombre, sector: m.sector, url,
+        svg: await QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }) };
+    })));
+  } catch (err) { errorInterno(res, err); }
+});
+
+// QR nuevo para una mesa (el anterior deja de funcionar: por si alguien se llevó una foto del QR)
+app.post('/api/mesas/:id/qr', autenticar, requiere('catalogo'), async (req, res) => {
+  try {
+    const r = await run('UPDATE mesas SET qr_token = ? WHERE id = ?', [nuevoTokenMesa(), req.params.id]);
+    if (!r.changes) return res.status(404).json({ error: 'Mesa no encontrada' });
+    res.json({ ok: true });
+  } catch (err) { errorInterno(res, err); }
+});
+
+// ============ PEDIDOS Y LLAMADOS DESDE LA MESA ============
+
+app.get('/api/mesas/solicitudes', autenticar, requiere('pedidos.tomar'), async (req, res) => {
+  try { res.json(await solicitudesPendientes()); } catch (err) { errorInterno(res, err); }
+});
+
+app.post('/api/mesas/solicitudes/:id/confirmar', autenticar, requiere('pedidos.tomar'), async (req, res) => {
+  try {
+    const items = req.body && Array.isArray(req.body.items) ? req.body.items : null;
+    res.json(await confirmarSolicitud(Number(req.params.id), req.usuario.id, items));
+  } catch (err) { errorInterno(res, err); }
+});
+
+app.post('/api/mesas/solicitudes/:id/rechazar', autenticar, requiere('pedidos.tomar'), async (req, res) => {
+  try { res.json(await rechazarSolicitud(Number(req.params.id), req.usuario.id, req.body && req.body.motivo)); } catch (err) { errorInterno(res, err); }
+});
+
+app.post('/api/mesas/solicitudes/:id/atender', autenticar, requiere('pedidos.tomar'), async (req, res) => {
+  try { res.json(await atenderSolicitud(Number(req.params.id), req.usuario.id)); } catch (err) { errorInterno(res, err); }
 });
 
 // ============ RESERVAS DE MESAS ============

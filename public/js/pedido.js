@@ -4,22 +4,31 @@ function pdE(s){if(s==null)return"";return String(s).replace(/&/g,"&amp;").repla
 
 const PedidoOnline={
   categorias:[],productos:[],carrito:[],catActiva:"todas",origen:"web",config:{},
+  // Desde el QR de una mesa: clave de la mesa y su estado (pedidos enviados, cuenta)
+  mesaToken:"",mesa:null,
 
   async init(){
     const p=new URLSearchParams(location.search);
     const o=p.get("origen")||"web";
     this.origen=["whatsapp","instagram","web"].includes(o)?o:"web";
-    this._badge();
+    this.mesaToken=/^[a-f0-9]{24}$/.test(p.get("mesa")||"")?p.get("mesa"):"";
+    if(!this.mesaToken)this._badge();
     try{
-      const[m,info]=await Promise.all([
+      const[m,info,mesa]=await Promise.all([
         fetch("/api/publico/menu").then(r=>r.json()),
-        fetch("/api/publico/info").then(r=>r.json()).catch(()=>({}))
+        fetch("/api/publico/info").then(r=>r.json()).catch(()=>({})),
+        this.mesaToken?fetch("/api/publico/mesa/"+this.mesaToken).then(r=>r.ok?r.json():null):null
       ]);
+      if(this.mesaToken&&!mesa){
+        document.getElementById("menuItems").innerHTML='<div class="menu-empty"><i class="fas fa-exclamation-triangle"></i><p>Este QR no corresponde a ninguna mesa. Pedile ayuda al mozo.</p></div>';
+        return;
+      }
       this.categorias=m.categorias||[];
       this.productos=m.productos||[];
       this.config=info;
       if(info.nombre){document.getElementById("negocioNombre").textContent=info.nombre;document.title="Pedido | "+info.nombre;}
       if(info.descripcion)document.getElementById("negocioSub").textContent=info.descripcion;
+      if(mesa)this._iniciarMesa(mesa);
       if(info.telefono){
         const wa=document.getElementById("confirmacionWA");
         if(wa){wa.href="https://wa.me/"+info.telefono.replace(/\D/g,"");wa.style.display="";}
@@ -28,6 +37,57 @@ const PedidoOnline={
     }catch(err){
       document.getElementById("menuItems").innerHTML='<div class="menu-empty"><i class="fas fa-exclamation-triangle"></i><p>No se pudo cargar el menu.</p></div>';
     }
+  },
+
+  // ── Pedido desde la mesa ──
+  _iniciarMesa(estado){
+    const b=document.getElementById("origenBadge");
+    if(b){b.innerHTML='<i class="fas fa-chair"></i> '+pdE(estado.mesa.nombre);b.className="origen-badge-hero badge-web";b.style.display="";}
+    document.getElementById("negocioSub").textContent=estado.modo==="solo_carta"
+      ?"Mirá la carta y llamá al mozo cuando quieras pedir"
+      :"Elegí, enviá tu pedido y el mozo lo confirma";
+    document.getElementById("mesaPanel").style.display="";
+    // Formulario: no hace falta teléfono ni tipo de entrega; el nombre es opcional
+    ["grupoTelefono","grupoTipo","grupoDireccion"].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display="none";});
+    document.getElementById("clienteTelefono").required=false;
+    document.getElementById("clienteNombre").required=false;
+    document.getElementById("labelNombre").textContent="Tu nombre (opcional)";
+    ["btnConfirmar","btnConfirmarMobile"].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='<i class="fas fa-paper-plane"></i> Enviar al mozo';});
+    this._pintarMesa(estado);
+    // El cliente ve cuándo el mozo confirma: se consulta cada 10 s mientras la página está a la vista
+    setInterval(()=>{if(!document.hidden)this._refrescarMesa();},10000);
+  },
+  async _refrescarMesa(){
+    try{const r=await fetch("/api/publico/mesa/"+this.mesaToken);if(r.ok)this._pintarMesa(await r.json());}catch(e){}
+  },
+  _pintarMesa(estado){
+    this.mesa=estado;
+    const ESTADOS={pendiente:"Esperando al mozo",confirmada:"Confirmado, en preparación",rechazada:"No se pudo tomar",atendida:"El mozo ya viene"};
+    const TITULOS={pedido:"Pedido",mozo:"Llamaste al mozo",cuenta:"Pediste la cuenta"};
+    const sols=(estado.solicitudes||[]).slice(0,6).map(s=>{
+      const det=s.tipo==="pedido"?" — "+s.items.map(i=>i.cantidad+" x "+i.nombre).join(", "):"";
+      const est=s.tipo!=="pedido"&&s.estado==="pendiente"?"Avisado":ESTADOS[s.estado]||s.estado;
+      return`<div class="mesa-sol"><span>${pdE(TITULOS[s.tipo]+det)}${s.motivo?`<br><small>${pdE(s.motivo)}</small>`:""}</span><span class="mesa-sol-estado ${pdE(s.estado)}">${pdE(est)}</span></div>`;
+    }).join("");
+    const c=estado.cuenta;
+    const cuenta=c?`<div class="mesa-seguimiento"><h4><i class="fas fa-receipt"></i> Tu cuenta</h4>
+      ${c.items.map(i=>`<div class="mesa-sol"><span>${pdE(i.cantidad+" x "+i.nombre_producto)}</span><span>${pdM(i.subtotal)}</span></div>`).join("")}
+      ${c.descuento?`<div class="mesa-sol"><span>Descuento</span><span>-${pdM(c.descuento)}</span></div>`:""}
+      <div class="mesa-cuenta-total"><span>Total</span><span>${pdM(c.total)}</span></div></div>`:"";
+    document.getElementById("mesaEstado").innerHTML=(sols?`<div class="mesa-seguimiento"><h4><i class="fas fa-bell"></i> Tus pedidos</h4>${sols}</div>`:"")+cuenta;
+    // Solo carta: se ve el menú pero no se arma pedido
+    if(estado.modo==="solo_carta"){["carritoSidebar","carritoFlotante"].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display="none";});}
+  },
+  async llamar(tipo){
+    const btn=document.getElementById(tipo==="cuenta"?"btnPedirCuenta":"btnLlamarMozo");
+    btn.disabled=true;
+    try{
+      const r=await fetch("/api/publico/mesa/"+this.mesaToken+"/llamar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tipo})});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||"No se pudo avisar");
+      await this._refrescarMesa();
+    }catch(err){alert(err.message);}
+    finally{setTimeout(()=>{btn.disabled=false;},5000);}
   },
 
   _badge(){
@@ -58,7 +118,8 @@ const PedidoOnline={
   visible(p){return p.tracking_stock?(p.stock_actual>0||p.es_plato===1):true;},
   itemCard(p){
     const q=(this.carrito.find(i=>i.producto_id===p.id)||{cantidad:0}).cantidad;
-    const qc=q===0
+    const qc=this.mesa&&this.mesa.modo==="solo_carta"?""
+      :q===0
       ?`<button class="btn-agregar" onclick="PedidoOnline.agregar(${p.id})" aria-label="Agregar"><i class="fas fa-plus"></i> Agregar</button>`
       :`<button class="btn-qty btn-qty-minus" onclick="PedidoOnline.quitar(${p.id})" aria-label="Quitar">&#8722;</button><span class="qty-num">${q}</span><button class="btn-qty btn-qty-plus" onclick="PedidoOnline.agregar(${p.id})" aria-label="Sumar">+</button>`;
     return `<div class="menu-item-card pedido-item-card" data-id="${p.id}">
@@ -171,6 +232,7 @@ const PedidoOnline={
     const tipo=(document.querySelector('input[name="tipoPedido"]:checked')||{value:"takeaway"}).value;
     const dir=document.getElementById("clienteDireccion").value.trim();
     const notas=document.getElementById("clienteNotas").value.trim();
+    if(this.mesaToken)return this._enviarMesa(nombre,notas);
     if(!nombre||!tel){alert("Completa nombre y telefono.");return;}
     if(tipo==="delivery"&&!dir){alert("Completa la direccion de entrega.");return;}
     if(!this.carrito.length){alert("Agrega al menos un producto.");return;}
@@ -192,11 +254,48 @@ const PedidoOnline={
       btn.innerHTML='<i class="fas fa-paper-plane"></i> Enviar pedido';
     }
   },
+  async _enviarMesa(nombre,notas){
+    if(!this.carrito.length){alert("Agrega al menos un producto.");return;}
+    const btn=document.getElementById("btnEnviar");
+    btn.disabled=true;
+    btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Enviando...';
+    try{
+      const r=await fetch("/api/publico/mesa/"+this.mesaToken+"/pedido",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({cliente:nombre,notas,items:this.carrito.map(i=>({producto_id:i.producto_id,cantidad:i.cantidad,notas:i.notas||""}))})
+      });
+      const data=await r.json();
+      if(!r.ok)throw new Error(data.error||"Error al enviar");
+      this._confirmar(data,nombre);
+      this._refrescarMesa();
+    }catch(err){
+      alert("Error: "+err.message);
+      btn.disabled=false;
+      btn.innerHTML='<i class="fas fa-paper-plane"></i> Enviar pedido';
+    }
+  },
   _confirmar(data,nombre){
     document.getElementById("formModal").style.display="none";
     document.body.style.overflow="";
     const msg=document.getElementById("confirmacionMsg");
     const num=document.getElementById("confirmacionNumero");
+    if(this.mesaToken){
+      // Desde la mesa no se tapa la carta: el cliente sigue viendo sus pedidos, la cuenta y puede pedir más.
+      // En modo directo ya está en cocina; si no, espera al mozo.
+      const aviso=document.getElementById("mesaAviso");
+      aviso.textContent=data.estado==="confirmada"
+        ?"¡Listo"+(nombre?" "+nombre:"")+"! Tu pedido ya está en preparación."
+        :"¡Gracias"+(nombre?" "+nombre:"")+"! El mozo lo confirma en un momento: abajo ves cuándo pasa a cocina.";
+      aviso.style.display="";
+      setTimeout(()=>{aviso.style.display="none";},15000);
+      this.carrito=[];
+      const form=document.getElementById("pedidoForm");if(form)form.reset();
+      const btn=document.getElementById("btnEnviar");
+      if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-paper-plane"></i> Enviar pedido';}
+      this.paintItems();this.paintCarrito();
+      document.getElementById("mesaPanel").scrollIntoView({behavior:"smooth"});
+      return;
+    }
     if(msg)msg.textContent="Gracias "+nombre+"! Recibimos tu pedido y en breve te contactamos.";
     if(num)num.innerHTML="Numero de pedido: <strong>"+pdE(data.numero_pedido)+"</strong>";
     document.getElementById("confirmacionScreen").style.display="";
