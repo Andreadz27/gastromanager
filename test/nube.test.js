@@ -67,7 +67,9 @@ test('las ventas cerradas llegan a la nube y el dueño las ve (sin propina en la
   assert.deepEqual(r.locales.map(l => l.nombre), ['Centro'], 'solo los locales de su cuenta');
   assert.equal(r.productos[0].producto, prod.nombre);
   assert.equal(r.productos[0].cantidad, 5);
-  assert.equal((await s.q("SELECT COUNT(*) AS n FROM pedidos WHERE estado = 'pagado' AND sincronizado_nube IS NULL"))[0].n, 0);
+  // El local marca lo enviado después de que la nube contesta: puede tardar un instante más
+  assert.ok(await esperarQue(async () =>
+    (await s.q("SELECT COUNT(*) AS n FROM pedidos WHERE estado = 'pagado' AND sincronizado_nube IS NULL"))[0].n === 0), 'el local no marcó lo enviado');
 });
 
 test('el estado del local llega: versión, caja, facturas en espera; sin datos de clientes', async () => {
