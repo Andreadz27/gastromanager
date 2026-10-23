@@ -1,7 +1,8 @@
 'use strict';
 const {
-  get, all, LOCAL, fechaLocal, errorInterno, autenticar, esAdmin, requiere
+  get, all, LOCAL, fechaLocal, errorInterno, autenticar, esAdmin, requiere, tienePermiso
 } = require('../contexto');
+const { estadoSalud } = require('../servicios/monitoreo');
 
 module.exports = function registrarRutas(app) {
 
@@ -228,6 +229,17 @@ app.get('/api/insights', autenticar, requiere('reportes'), async (req, res) => {
 
     // --- Construcción de alertas inteligentes ---
     const alertas = [];
+
+    // Al administrador: lo mismo que ve el monitoreo (base, copias, copia fuera del local)
+    if (tienePermiso(req.usuario, 'admin')) {
+      for (const problema of (await estadoSalud()).problemas) {
+        alertas.push({
+          tipo: 'critico', icono: 'shield-alt', titulo: 'Copias de seguridad: revisar',
+          detalle: problema.charAt(0).toUpperCase() + problema.slice(1) + '. Avisá a soporte.',
+          accion: 'Ver copias', enlace: 'config'
+        });
+      }
+    }
 
     if (stockCritico.length > 0) {
       alertas.push({

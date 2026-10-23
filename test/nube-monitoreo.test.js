@@ -76,3 +76,25 @@ test('región de la nube: Cloudflare R2 usa "auto", Backblaze la toma del endpoi
   assert.equal(configNube({ ...base, BACKUP_S3_ENDPOINT: 'https://s3.us-west-004.backblazeb2.com' }).region, 'us-west-004');
   assert.equal(configNube({ ...base, BACKUP_S3_ENDPOINT: '' }), null, 'sin endpoint queda desactivada');
 });
+
+// Un local instalado sin completar BACKUP_S3_* quedaba con base y copias en el mismo disco, y /api/salud decía OK
+test('en producción, sin copia fuera del local: /api/salud lo marca y el administrador lo ve en el Dashboard', async () => {
+  const local = await iniciarServidor({ NODE_ENV: 'production' });
+  try {
+    const [st, salud] = await local.llamar('GET', '/api/salud');
+    assert.equal(st, 503);
+    assert.match(salud.problemas.join(' '), /fuera del local no está configurada/);
+    const [, admin] = await local.llamar('GET', '/api/insights', undefined, local.tokenAdmin);
+    assert.ok(admin.alertas.some(a => /fuera del local/.test(a.detalle)), 'alerta para el administrador');
+    const [, cajero] = await local.llamar('GET', '/api/insights', undefined, local.tokenVendedor);
+    assert.ok(!(cajero.alertas || []).some(a => /fuera del local/.test(a.detalle)), 'el cajero no la ve');
+  } finally {
+    await local.cerrar();
+  }
+  const aSabiendas = await iniciarServidor({ NODE_ENV: 'production', BACKUP_SOLO_LOCAL: '1' });
+  try {
+    assert.equal((await aSabiendas.llamar('GET', '/api/salud'))[0], 200);
+  } finally {
+    await aSabiendas.cerrar();
+  }
+});

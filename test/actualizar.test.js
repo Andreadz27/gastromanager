@@ -61,3 +61,37 @@ test('actualiza a la versión nueva con copia previa; sin cambios no hace nada; 
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// Si npm ci fallaba, quedaba el código nuevo con las dependencias a medio instalar y sin vuelta atrás
+test('si fallan las dependencias de la versión nueva, vuelve sola a la anterior', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gm-actualizar-'));
+  const bare = path.join(tmp, 'origen.git'), inst = path.join(tmp, 'instalacion'), dev = path.join(tmp, 'dev'), datos = path.join(tmp, 'datos');
+  try {
+    git(tmp, 'init', '--bare', '--quiet', '-b', 'main', bare);
+    git(RAIZ, 'push', '--quiet', bare, 'HEAD:refs/heads/main');
+    git(tmp, 'clone', '--quiet', bare, dev);
+    // La instalación arranca con el actualizador de esta copia de trabajo (aunque no esté commiteado)
+    fs.copyFileSync(path.join(RAIZ, 'scripts', 'actualizar.js'), path.join(dev, 'scripts', 'actualizar.js'));
+    git(dev, 'commit', '--quiet', '--allow-empty', '-am', 'Actualizador actual');
+    git(dev, 'push', '--quiet', 'origin', 'main');
+    git(tmp, 'clone', '--quiet', bare, inst);
+    fs.symlinkSync(path.join(RAIZ, 'node_modules'), path.join(inst, 'node_modules'), 'junction');
+    const env = { ...process.env, GM_DATA_DIR: datos, SECRET_KEY, GM_ENV_FILE: path.join(tmp, 'sin.env') };
+    execFileSync(process.execPath, [path.join(inst, 'init-db.js')], { env, stdio: 'ignore' });
+    const anterior = git(inst, 'rev-parse', 'HEAD');
+
+    // Versión nueva que cambia las dependencias
+    fs.appendFileSync(path.join(dev, 'package-lock.json'), '\n');
+    git(dev, 'commit', '--quiet', '-am', 'Dependencias nuevas');
+    git(dev, 'push', '--quiet', 'origin', 'main');
+
+    const r = spawnSync(process.execPath, [path.join(inst, 'scripts', 'actualizar.js'), '--sin-npm', '--sin-reiniciar', '--simular-falla-npm'],
+      { cwd: inst, env, encoding: 'utf8' });
+    assert.equal(r.status, 2, r.stdout + r.stderr);
+    assert.match(r.stdout, /npm ci falló.*Volviendo a la versión anterior/s);
+    assert.equal(git(inst, 'rev-parse', 'HEAD'), anterior, 'quedó en la versión anterior');
+    assert.equal(git(inst, 'status', '--porcelain', '--untracked-files=no'), '', 'sin archivos a medio cambiar');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});

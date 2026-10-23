@@ -59,11 +59,11 @@ async function iniciarServidor(envExtra = {}) {
     token: id => jwt.sign({ id }, SECRET_KEY),
     llamar: (metodo, ruta, body, token, headers) => llamar(base, metodo, ruta, body, token, headers),
     log: () => log,
-    async cerrar() {
+    async cerrar({ conservarDatos = false } = {}) {
       await new Promise(r => db.close(r));
       proc.kill();
       await new Promise(r => proc.exitCode !== null ? r() : proc.once('exit', r));
-      fs.rmSync(dataDir, { recursive: true, force: true });
+      if (!conservarDatos) fs.rmSync(dataDir, { recursive: true, force: true });
     }
   };
 }

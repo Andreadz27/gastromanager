@@ -11,6 +11,7 @@ aunque se corte internet; la nube guarda las copias y da acceso remoto.
 | Conexión | Por cable a la red del local | Las tablets y las impresoras la encuentran siempre |
 | IP fija en el router | Reservar la IP de la PC | Las tablets y las impresoras apuntan a esa dirección |
 | UPS (batería) | Para la PC y el router | Un corte de luz no corta la caja ni corrompe la base |
+| BIOS: *Restore on AC power loss* = **Power On** | En la configuración de la PC | Si la luz se corta más que la UPS, la PC se prende sola al volver y GastroManager arranca solo (no hace falta iniciar sesión) |
 
 ## 2. Instalar (una vez por local, unos 15 minutos)
 
@@ -32,35 +33,69 @@ powershell -ExecutionPolicy Bypass -File instalar.ps1 -Cliente "la-buena-mesa" -
 `-Cliente` = nombre corto del local, en minúsculas y sin espacios (se usa en la nube y en el monitoreo).
 `-ActualizacionAutomatica` = actualiza todos los días a las 05:00, con copia previa y vuelta atrás si algo falla.
 
-El instalador deja el sistema corriendo, con inicio automático, y muestra la dirección para las tablets
-(ej. `http://192.168.0.10:3000`). Se puede volver a ejecutar: no borra datos.
+El instalador deja el sistema corriendo y muestra la dirección para las tablets (ej. `http://192.168.0.10:3000`).
+Se puede volver a ejecutar: no borra datos.
+
+- **Arranca al encender la PC**, aunque nadie inicie sesión (tarea de Windows *GastroManager*, cuenta SYSTEM).
+  pm2 usa una carpeta compartida para toda la PC (`PM2_HOME=C:\ProgramData\GastroManager\pm2`): `pm2 list` y
+  `pm2 logs` desde una consola de administrador ven el mismo proceso.
+- **Clave de las copias:** la genera el instalador (`BACKUP_CLAVE` en el `.env`) y la muestra en rojo al final.
+  **Guardala en tu gestor de contraseñas con el nombre del cliente.** Si la PC se rompe, sin esa clave las copias
+  de la nube no se pueden abrir.
+- Al terminar lista en amarillo lo que falta configurar (copia en la nube, monitoreo, acceso remoto).
+  **El local no está listo para entregar hasta que esa lista quede vacía.**
+- Rota los logs de pm2 (`pm2-logrotate`: 10 archivos de 10 MB).
 
 ## 3. Copia diaria en la nube (Cloudflare R2)
 
 Se usa la misma cuenta de Cloudflare del túnel. R2 no cobra la descarga de las copias y tiene un uso mensual
 gratuito; por encima, se paga por GB guardado.
 
-1. En [Cloudflare](https://dash.cloudflare.com): **R2 Object Storage → Create bucket**, por ejemplo
-   `gastromanager-copias` (uno para todos los clientes).
+**Un bucket y un token por cliente.** La clave queda en el `.env` del local: con un bucket compartido, cualquiera
+con acceso a esa PC podría leer o borrar las copias de todos los demás clientes. (R2 limita los tokens por bucket,
+no por carpeta.)
+
+1. En [Cloudflare](https://dash.cloudflare.com): **R2 Object Storage → Create bucket**, con el nombre del cliente:
+   `gm-la-buena-mesa`.
 2. En el bucket, **Settings → Object lifecycle rules → Add rule**: borrar objetos a los **30 días**.
-3. **R2 → Manage API tokens → Create API token**: permiso **Object Read & Write**, solo para ese bucket.
+3. **R2 → Manage API tokens → Create API token**: permiso **Object Read & Write**, **solo para ese bucket**.
    Copiar **Access Key ID**, **Secret Access Key** y el endpoint `https://<account-id>.r2.cloudflarestorage.com`.
-4. Completar en `C:\GastroManager\.env`:
+4. Completar en `C:\GastroManager\.env` (`BACKUP_CLAVE` ya la puso el instalador):
 
 ```
 BACKUP_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
-BACKUP_S3_BUCKET=gastromanager-copias
+BACKUP_S3_BUCKET=gm-la-buena-mesa
 BACKUP_S3_KEY_ID=<Access Key ID>
 BACKUP_S3_SECRET=<Secret Access Key>
 BACKUP_S3_PREFIJO=la-buena-mesa
 ```
 
-5. `pm2 restart gastromanager --update-env`. Cada copia (al iniciar, cada 24 h y las manuales) se sube a
-   `gastromanager-copias/la-buena-mesa/`.
+5. `pm2 restart gastromanager --update-env`. Cada copia (al iniciar, cada 24 h y las manuales) se sube
+   **cifrada** a `gm-la-buena-mesa/la-buena-mesa/` (archivos `.db.cifrado`).
+6. Comprobar: `npm run restaurar -- --listar` muestra las copias locales y las de la nube.
 
 También sirve cualquier otro servicio compatible con S3 (Backblaze B2, AWS S3, Wasabi): cambian solo esos datos.
+Si un local decide no tener copia fuera de la PC (no recomendado), poner `BACKUP_SOLO_LOCAL=1`. Si no,
+`/api/salud` y el Dashboard del administrador marcan la falta como un problema.
 
-**Restaurar desde la nube:** descargar la copia del bucket y seguir "Restaurar" en el README.
+## 3b. Restaurar una copia
+
+En la carpeta de la instalación (PowerShell como Administrador):
+
+```powershell
+pm2 stop gastromanager
+npm run restaurar -- --listar                                         # ver las copias
+npm run restaurar -- gastromanager_2026-10-23_050000.db               # una copia de esta PC
+npm run restaurar -- --nube gastromanager_2026-10-23_050000.db.cifrado  # una de la nube
+pm2 start gastromanager
+```
+
+Antes de reemplazar nada, verifica que la copia sea una base sana y guarda la base actual en
+`data\backups\antes-de-restaurar_...db` (si te equivocaste de copia, se restaura esa).
+
+**PC nueva (se rompió la del local):** instalar con `instalar.ps1`, copiar al `.env` los datos `BACKUP_S3_*` y la
+**misma** `BACKUP_CLAVE` del local (la del gestor de contraseñas, no la nueva que generó el instalador), y
+restaurar con `--nube`. **Hacer este simulacro una vez antes del primer cliente.**
 
 ## 4. Monitoreo (aviso si un local se cae)
 
@@ -90,12 +125,15 @@ No se abren puertos del router: la conexión sale del local hacia Cloudflare, co
 
 ## 6. Actualizar
 
-- Automático: con `-ActualizacionAutomatica`, todos los días a las 05:00.
+- Automático: con `-ActualizacionAutomatica`, todos los días a las 05:00. Si a esa hora la PC estaba apagada,
+  **no** se actualiza al prenderla (sería en pleno servicio): espera a la madrugada siguiente.
 - A mano: doble clic en `scripts\windows\actualizar.bat`, o `npm run actualizar`.
 - Solo revisar si hay versión nueva: `node scripts/actualizar.js --solo-revisar`.
 
-Siempre hace una copia antes, baja solo lo que está en `main` (que pasó el CI) y, si la versión nueva no
-arranca, vuelve sola a la anterior. Registro en `logs\actualizaciones.log`.
+Siempre hace una copia antes y baja solo lo que está en `main` (que pasó el CI). Si cambian las dependencias,
+detiene el servidor para instalarlas (Windows no deja reemplazar archivos en uso). Si algo falla (dependencias,
+pm2 o la versión nueva no arranca), vuelve sola a la versión anterior con sus dependencias.
+Registro en `logs\actualizaciones.log` (se recorta solo pasado 1 MB).
 
 **Ojo:** mergear a `main` es entregar. Los locales con actualización automática reciben la versión nueva a las
 05:00 del día siguiente. Las opciones nuevas llegan **apagadas**: nada cambia para el local hasta configurarlas.
