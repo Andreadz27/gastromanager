@@ -1,6 +1,6 @@
 'use strict';
 const {
-  run, get, all, errorHttp, actualizarParcial, errorInterno, autenticar, requiere
+  run, get, all, errorHttp, actualizarParcial, errorInterno, autenticar, requiere, transaccion, obtenerReceta, guardarRecetaTx, recalcularCostosConIngrediente, costoReceta
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -52,7 +52,8 @@ app.delete('/api/categorias/:id', autenticar, requiere('catalogo'), async (req, 
 app.get('/api/productos', autenticar, async (req, res) => {
   try {
     const productos = await all(`
-      SELECT p.*, c.nombre as categoria_nombre, c.color as categoria_color
+      SELECT p.*, c.nombre as categoria_nombre, c.color as categoria_color,
+        (SELECT COUNT(*) FROM recetas r WHERE r.plato_id = p.id) AS ingredientes_receta
       FROM productos p
       LEFT JOIN categorias c ON p.categoria_id = c.id
       WHERE p.activo = 1
@@ -123,17 +124,45 @@ app.put('/api/productos/:id', autenticar, requiere('catalogo'), async (req, res)
     const actual = await get('SELECT * FROM productos WHERE id = ?', [req.params.id]);
     if (!actual) return res.status(404).json({ error: 'Producto no encontrado' });
     const p = await datosProducto(req.body || {}, actual);
-    await run(
-      `UPDATE productos SET
-       nombre = ?, descripcion = ?, categoria_id = ?, precio_venta = ?, costo = ?,
-       es_plato = ?, tracking_stock = ?, stock_actual = ?, stock_minimo = ?, unidad = ?, activo = ?
-       WHERE id = ?`,
-      [p.nombre, p.descripcion, p.categoria_id, p.precio_venta, p.costo, p.es_plato, p.tracking_stock, p.stock_actual, p.stock_minimo, p.unidad, p.activo, actual.id]
-    );
+    await transaccion(async () => {
+      // Con receta, el costo es el de sus ingredientes (no se edita a mano)
+      const receta = await obtenerReceta(actual.id);
+      if (receta.length) p.costo = costoReceta(receta);
+      await run(
+        `UPDATE productos SET
+         nombre = ?, descripcion = ?, categoria_id = ?, precio_venta = ?, costo = ?,
+         es_plato = ?, tracking_stock = ?, stock_actual = ?, stock_minimo = ?, unidad = ?, activo = ?
+         WHERE id = ?`,
+        [p.nombre, p.descripcion, p.categoria_id, p.precio_venta, p.costo, p.es_plato, p.tracking_stock, p.stock_actual, p.stock_minimo, p.unidad, p.activo, actual.id]
+      );
+      // Si es ingrediente y cambió su costo, se actualiza el costo de los platos que lo usan
+      if (Number(p.costo) !== Number(actual.costo)) await recalcularCostosConIngrediente(actual.id);
+    });
     res.json({ message: 'Producto actualizado' });
   } catch (err) {
     errorInterno(res, err);
   }
+});
+
+// Receta del plato: ingredientes con cantidad, costo de cada uno, costo total y margen
+app.get('/api/productos/:id/receta', autenticar, requiere('catalogo', 'reportes.costos'), async (req, res) => {
+  try {
+    const plato = await get('SELECT id, nombre, precio_venta, costo FROM productos WHERE id = ?', [req.params.id]);
+    if (!plato) return res.status(404).json({ error: 'Producto no encontrado' });
+    const lineas = await obtenerReceta(plato.id);
+    const costo = lineas.length ? costoReceta(lineas) : Number(plato.costo) || 0;
+    const precio = Number(plato.precio_venta) || 0;
+    res.json({ plato_id: plato.id, nombre: plato.nombre, precio_venta: precio, lineas, costo,
+      margen: precio > 0 ? Math.round((precio - costo) / precio * 1000) / 10 : null });
+  } catch (err) { errorInterno(res, err); }
+});
+
+// Reemplaza la receta. body: { lineas: [{ ingrediente_id, cantidad }] } — vacía la quita
+app.put('/api/productos/:id/receta', autenticar, requiere('catalogo'), async (req, res) => {
+  try {
+    const lineas = await transaccion(() => guardarRecetaTx(Number(req.params.id), (req.body || {}).lineas));
+    res.json({ lineas, costo: lineas.length ? costoReceta(lineas) : null, message: lineas.length ? 'Receta guardada' : 'Receta quitada' });
+  } catch (err) { errorInterno(res, err); }
 });
 
 app.delete('/api/productos/:id', autenticar, requiere('catalogo'), async (req, res) => {

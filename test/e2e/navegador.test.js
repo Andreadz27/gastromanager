@@ -354,3 +354,79 @@ test('el administrador configura WhatsApp Business desde Integraciones', async (
   sinErrores(page);
   await page.context().close();
 });
+
+test('receta desde la pantalla: ingredientes, costo calculado y descuento de stock al cobrar', async () => {
+  const crear = async d => (await s.llamar('POST', '/api/productos', { categoria_id: 1, ...d }, s.tokenAdmin))[1].id;
+  const pan = await crear({ nombre: 'Pan e2e', precio_venta: 0, costo: 200, tracking_stock: 1, stock_actual: 50 });
+  const plato = await crear({ nombre: 'Sandwich e2e', precio_venta: 2000, costo: 0 });
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'admin@gastromanager.com', 'admin123');
+  await page.evaluate(() => App.closeModal());
+  await ir(page, 'productos');
+  await page.click(`button[onclick="Productos.receta(${plato})"]`);
+  await page.selectOption('#recetaCuerpo .receta-linea select', String(pan));
+  await page.fill('#recetaCuerpo .receta-linea input', '2');
+  await page.click('#recetaCuerpo button:has-text("Guardar receta")');
+  await toast(page, 'success', 'Receta guardada');
+  assert.equal((await s.q('SELECT costo FROM productos WHERE id = ?', [plato]))[0].costo, 400);
+
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', items: [{ producto_id: plato, cantidad: 3 }] }, s.tokenVendedor);
+  await s.llamar('POST', `/api/pedidos/${p.id}/pagar`, { metodo: 'efectivo', monto: 6000 }, s.tokenVendedor);
+  assert.equal((await s.q('SELECT stock_actual FROM productos WHERE id = ?', [pan]))[0].stock_actual, 44);
+  sinErrores(page);
+  await page.context().close();
+});
+
+test('PIN de autorización: el encargado define su PIN y autoriza el descuento del cajero sin cerrar el formulario', async () => {
+  await s.llamar('POST', '/api/usuarios', { nombre: 'Encargada', email: 'encargada@test.com', password: 'clave1234', rol: 'encargado' }, s.tokenAdmin);
+  await s.q('UPDATE usuarios SET debe_cambiar_password = 0');
+  await s.llamar('PUT', '/api/config', { pin_autorizacion: 1 }, s.tokenAdmin);
+
+  const enc = await nuevaPagina();
+  await ingresarOk(enc, 'encargada@test.com', 'clave1234');
+  await enc.click('#btnPin');
+  await enc.fill('#miPinPassword', 'clave1234');
+  await enc.fill('#miPinNuevo', '2468');
+  await enc.click('#modalContainer button[type=submit]');
+  await toast(enc, 'success', 'PIN guardado');
+  await enc.context().close();
+
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', items: [{ producto_id: 1, cantidad: 2 }] }, s.tokenVendedor);
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'vendedor@test.com', 'vendedor123');
+  assert.equal(await page.isVisible('#btnPin'), false, 'el cajero no tiene PIN');
+  await page.evaluate(id => Pedidos.verDetalle(id), p.id);
+  await page.click(`button[onclick="Pedidos.aplicarDescuentoModal(${p.id})"]`);
+  await page.fill('#descuentoMonto', '100');
+  await page.click('#modalContainer button[type=submit]');
+  await page.waitForSelector('.pin-overlay #pinAutorizacion');
+  await page.fill('#pinAutorizacion', '2468');
+  await page.click('.pin-overlay button[type=submit]');
+  await toast(page, 'success', 'Descuento aplicado');
+  assert.equal((await s.q('SELECT descuento FROM pedidos WHERE id = ?', [p.id]))[0].descuento, 100);
+  sinErrores(page);
+  await page.context().close();
+  await s.llamar('PUT', '/api/config', { pin_autorizacion: 0 }, s.tokenAdmin);
+});
+
+test('arqueo ciego: el cajero cierra la caja sin ver el efectivo esperado', async () => {
+  await s.llamar('PUT', '/api/config', { arqueo_ciego: 1 }, s.tokenAdmin);
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'vendedor@test.com', 'vendedor123');
+  await ir(page, 'caja');
+  await page.waitForSelector('#view-caja .caja-abierta');
+  const texto = await page.textContent('#view-caja');
+  assert.match(texto, /Arqueo ciego/);
+  assert.doesNotMatch(texto, /Efectivo esperado/);
+  await page.click('button[onclick="Caja.mostrarCierre()"]');
+  assert.doesNotMatch(await page.textContent('#modalContainer'), /esperado/i);
+  await page.fill('#cajaFinal', '12345');
+  await page.click('#modalContainer button[type=submit]');
+  await page.waitForSelector('#modalContainer .modal:has-text("El encargado revisa el arqueo")');
+  const [c] = await s.q('SELECT estado, monto_final_real, diferencia FROM caja ORDER BY id DESC LIMIT 1');
+  assert.deepEqual([c.estado, c.monto_final_real], ['cerrada', 12345]);
+  assert.equal(typeof c.diferencia, 'number');
+  sinErrores(page);
+  await page.context().close();
+  await s.llamar('PUT', '/api/config', { arqueo_ciego: 0 }, s.tokenAdmin);
+});

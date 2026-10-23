@@ -44,6 +44,7 @@ const Caja = {
 
   // Tabla del arqueo (ventas por medio de pago, movimientos y efectivo esperado)
   htmlResumen(r) {
+    if (r.ciego) return this.htmlResumenCiego(r);
     const metodos = r.por_metodo.length
       ? r.por_metodo.map(m => `<tr><td>${esc(this.nombreMetodo(m.metodo))}</td><td>${m.cantidad}</td><td class="text-right font-bold">${fmtMoneda(m.total)}</td></tr>`).join('')
       : '<tr><td colspan="3" class="text-muted">Todavía no hay cobros en este turno</td></tr>';
@@ -84,6 +85,27 @@ const Caja = {
       ${movs}`;
   },
 
+  // Arqueo ciego: sin ventas ni efectivo esperado; solo lo que el cajero hizo con la caja
+  htmlResumenCiego(r) {
+    const movs = r.movimientos.length
+      ? `<table class="mt-10"><thead><tr><th>Hora</th><th>Tipo</th><th>Concepto</th><th class="text-right">Monto</th></tr></thead>
+          <tbody>${r.movimientos.map(m => `<tr><td>${fmtFechaHora(m.fecha)}</td>
+            <td>${m.tipo === 'ingreso' ? '<span class="badge badge-green">Ingreso</span>' : '<span class="badge badge-red">Egreso</span>'}</td>
+            <td>${esc(m.concepto)}</td><td class="text-right">${m.tipo === 'egreso' ? '-' : ''}${fmtMoneda(m.monto)}</td></tr>`).join('')}</tbody></table>`
+      : '';
+    return `
+      <div class="card-info mt-10"><i class="fas fa-eye-slash"></i>
+        <div><strong>Arqueo ciego.</strong> Al cerrar, contá el efectivo y declaralo. El encargado ve la diferencia.</div>
+      </div>
+      <table class="mt-10"><tbody>
+        <tr><td>Monto inicial</td><td class="text-right">${fmtMoneda(r.monto_inicial)}</td></tr>
+        <tr><td>Cobros del turno</td><td class="text-right">${r.cobros}</td></tr>
+        <tr><td>+ Ingresos</td><td class="text-right">${fmtMoneda(r.ingresos)}</td></tr>
+        <tr><td>− Egresos</td><td class="text-right">${fmtMoneda(r.egresos)}</td></tr>
+      </tbody></table>
+      ${movs}`;
+  },
+
   paint(view) {
     const esAdmin = this.esAdmin();
     const caja = this.estado;
@@ -98,15 +120,15 @@ const Caja = {
           <div class="stat-card">
             <div class="stat-icon green"><i class="fas fa-dollar-sign"></i></div>
             <div class="stat-info">
-              <h3>${fmtMoneda(caja.resumen.total_ventas)}</h3>
-              <span>Ventas del turno</span>
+              <h3>${caja.resumen.ciego ? caja.resumen.cobros : fmtMoneda(caja.resumen.total_ventas)}</h3>
+              <span>${caja.resumen.ciego ? 'Cobros del turno' : 'Ventas del turno'}</span>
             </div>
           </div>
           <div class="stat-card">
             <div class="stat-icon blue"><i class="fas fa-cash-register"></i></div>
             <div class="stat-info">
-              <h3>${fmtMoneda(caja.resumen.efectivo_esperado)}</h3>
-              <span>Efectivo esperado</span>
+              <h3>${caja.resumen.ciego ? '<i class="fas fa-eye-slash"></i>' : fmtMoneda(caja.resumen.efectivo_esperado)}</h3>
+              <span>${caja.resumen.ciego ? 'Arqueo ciego' : 'Efectivo esperado'}</span>
             </div>
           </div>
           <div class="stat-card">
@@ -266,14 +288,17 @@ const Caja = {
   },
 
   mostrarCierre() {
-    const esperado = this.estado ? this.estado.resumen.efectivo_esperado : 0;
+    const ciego = !!(this.estado && this.estado.resumen.ciego);
+    const esperado = this.estado && !ciego ? this.estado.resumen.efectivo_esperado : 0;
     App.showModal(`
       <form onsubmit="Caja.cerrar(event)">
-        <p>Efectivo esperado en caja: <strong>${fmtMoneda(esperado)}</strong></p>
+        ${ciego
+          ? '<p><i class="fas fa-eye-slash"></i> Arqueo ciego: contá todo el efectivo de la caja (incluido el monto inicial) y escribí el total.</p>'
+          : `<p>Efectivo esperado en caja: <strong>${fmtMoneda(esperado)}</strong></p>`}
         <div class="form-group">
           <label>Efectivo contado ($)</label>
           <input type="number" id="cajaFinal" min="0" step="0.01" required
-                 oninput="Caja.actualizarDiferencia(${Number(esperado) || 0})" autofocus>
+                 ${ciego ? '' : `oninput="Caja.actualizarDiferencia(${Number(esperado) || 0})"`} autofocus>
         </div>
         <p id="cajaDiferencia" class="mt-10"></p>
         <div class="form-group">
@@ -312,6 +337,15 @@ const Caja = {
   },
 
   mostrarResultado(res) {
+    if (res.ciego) {
+      return App.showModal(`
+        <div class="cobro-ok"><i class="fas fa-check-circle"></i>
+          <h3>Caja cerrada</h3>
+          <p>Declaraste <strong>${fmtMoneda(res.efectivo_contado)}</strong> en efectivo. El encargado revisa el arqueo.</p>
+        </div>
+        <div class="modal-footer"><button class="btn btn-primary" onclick="App.closeModal()">Aceptar</button></div>
+      `, { title: 'Arqueo de caja' });
+    }
     App.showModal(`
       ${this.htmlResumen(res.resumen)}
       <div class="card sub-card mt-10">
