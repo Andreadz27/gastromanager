@@ -82,6 +82,12 @@ Con usuarios y claves conocidos en internet. Lo peligroso se bloquea por lista.
 Usaba la hora del servidor: en Render (UTC) los pedidos de después de las 21 h salían con la fecha de mañana.
 Ahora usa `ZONA_HORARIA`. Test en `regresiones.test.js` con servidores en UTC+14 y UTC-12.
 
+### 9b. "Hoy" en el navegador — `hoyLocal()` en `public/js/api.js` · PENDIENTE DE DECISIÓN
+La pantalla de Pedidos pide los pedidos de `hoyLocal()`, que usa la zona horaria **del navegador**; el servidor
+filtra con `ZONA_HORARIA`. Si el dispositivo tiene otra zona (o en el CI, en UTC), después de las 21 h de Argentina
+la lista sale vacía. Encontrado el 22/10/2026 cuando el CI corrió de noche. Los e2e ahora fijan el navegador en
+`ZONA_HORARIA`. Arreglarlo en el sistema (tomar la fecha de la zona del negocio) cambia lo que ve el usuario.
+
 ### 10. Copias de seguridad — `src/servicios/backups.js` · riesgo BAJO
 - **Bugs corregidos:** dos copias en el mismo segundo daban error 500 (nombre repetido); una copia con el sistema en
   uso podía fallar. Tests en `fechas-backups.test.js` y `regresiones.test.js`.
