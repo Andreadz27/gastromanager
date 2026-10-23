@@ -143,7 +143,12 @@ const Stock = {
     }).catch(err => App.showToast(err.message, 'error'));
   },
 
-  async guardarMovimiento(e) {
+  guardarMovimiento(e) {
+    e.preventDefault();
+    return App.sinDobleEnvio('stock.movimiento', () => this._guardarMovimiento(e));
+  },
+
+  async _guardarMovimiento(e) {
     e.preventDefault();
     const data = {
       producto_id: parseInt(document.getElementById('movProducto').value),

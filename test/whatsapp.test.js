@@ -140,13 +140,14 @@ test('pedido para llevar listo en cocina: avisa una sola vez; delivery en camino
 
 test('recordatorio de reservas: solo las próximas N horas, una vez cada una', async () => {
   const mesa = (await s.q('SELECT id FROM mesas ORDER BY id LIMIT 1'))[0].id;
-  const reservar = (cliente, horas, telefono = '11 2222-3333') =>
-    s.llamar('POST', '/api/reservas', { mesa_id: mesa, cliente, telefono, personas: 4, ...localEn(horas) }, s.tokenVendedor);
-  const [st, enUnaHora] = await reservar('Cena en una hora', 1);
+  const reservar = (cliente, cuando, telefono = '11 2222-3333') =>
+    s.llamar('POST', '/api/reservas', { mesa_id: mesa, cliente, telefono, personas: 4, ...cuando }, s.tokenVendedor);
+  const unaHora = localEn(1); // una sola vez: si el reloj cambia de minuto en el medio, el test no se rompe
+  const [st, enUnaHora] = await reservar('Cena en una hora', unaHora);
   assert.ok(st < 300, JSON.stringify(enUnaHora));
-  await reservar('Mañana', 26);
-  await reservar('Ya pasó', -2);
-  await reservar('Sin teléfono', 1, '');
+  await reservar('Mañana', localEn(26));
+  await reservar('Ya pasó', localEn(-2));
+  await reservar('Sin teléfono', unaHora, '');
 
   for (let t = 0; t < 80; t++) {
     if ((await s.q("SELECT COUNT(*) c FROM whatsapp_mensajes WHERE motivo = 'recordatorio_reserva'"))[0].c) break;
@@ -156,7 +157,7 @@ test('recordatorio de reservas: solo las próximas N horas, una vez cada una', a
   const recordatorios = meta.envios.filter(e => e.body.template.name === 'recordatorio_reserva');
   assert.equal(recordatorios.length, 1);
   const [cliente, negocio, fecha, hora, personas] = parametros(recordatorios[0].body);
-  const { fecha: f, hora: h } = localEn(1);
+  const { fecha: f, hora: h } = unaHora;
   assert.deepEqual([cliente, negocio, fecha, hora, personas], ['Cena en una hora', 'La Buena Mesa', f.split('-').reverse().join('/'), h, '4']);
 });
 

@@ -57,3 +57,30 @@ test('demo pública: toda acción de administrador está bloqueada o declarada s
   }
   assert.deepEqual(sinDecidir, []);
 });
+
+// El service worker servía todo desde la caché: después de una actualización los celulares seguían con el JS viejo
+test('service worker: con red sirve la versión nueva; sin red, la copia guardada', async () => {
+  const vm = require('vm');
+  const guardado = new Map([['/js/pos.js', 'viejo']]);
+  const handlers = {};
+  let hayRed = true;
+  const ctx = {
+    URL, Promise, Response: { error: () => 'error' },
+    self: { location: { origin: 'http://local' }, addEventListener: (ev, fn) => { handlers[ev] = fn; }, skipWaiting() {}, clients: { claim() {} } },
+    fetch: async req => { if (!hayRed) throw new Error('offline'); return { status: 200, type: 'basic', cuerpo: 'nuevo', clone() { return this; } }; },
+    caches: {
+      match: async req => { const c = guardado.get(new URL(req.url || req).pathname); return c && { cuerpo: c }; },
+      open: async () => ({ put: async (req, r) => guardado.set(new URL(req.url).pathname, r.cuerpo), add: async () => {} }),
+      keys: async () => []
+    }
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(RAIZ, 'public', 'sw.js'), 'utf8'), ctx);
+  const pedir = ruta => new Promise(ok => handlers.fetch({
+    request: { url: 'http://local' + ruta, method: 'GET', mode: 'cors' }, respondWith: p => Promise.resolve(p).then(ok)
+  }));
+  assert.equal((await pedir('/js/pos.js')).cuerpo, 'nuevo');
+  await new Promise(r => setTimeout(r, 10));
+  assert.equal(guardado.get('/js/pos.js'), 'nuevo', 'actualiza la copia');
+  hayRed = false;
+  assert.equal((await pedir('/js/pos.js')).cuerpo, 'nuevo', 'sin red usa la copia');
+});

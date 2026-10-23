@@ -105,6 +105,42 @@ test('Mercado Pago: link de pago y cobro automático por webhook (idempotente)',
   assert.equal((await s.llamar('POST', '/api/mp/notificacion', { type: 'merchant_order', data: { id: '1' } }))[0], 200);
 });
 
+test('Mercado Pago: el webhook cobra lo que se pagó, no cierra con un link viejo y avisa los pagos de más', async () => {
+  const notificar = id => s.llamar('POST', '/api/mp/notificacion', { type: 'payment', data: { id } });
+  const estado = async id => (await s.q('SELECT estado FROM pedidos WHERE id = ?', [id]))[0].estado;
+  const alertas = async () => (await s.q("SELECT detalle FROM auditoria WHERE accion = 'alerta_mercadopago' ORDER BY id")).map(a => a.detalle);
+
+  // Link viejo: se generó por el total, después la mesa pidió algo más. Queda abierto con el saldo
+  const pedido = await pedidoAbierto();
+  const [prod] = await s.q('SELECT id FROM productos WHERE activo = 1 AND precio_venta > 0 LIMIT 1');
+  await s.llamar('POST', `/api/pedidos/${pedido.id}/items`, { producto_id: prod.id, cantidad: 1 }, cajero());
+  pagosMP['301'] = { id: 301, status: 'approved', external_reference: String(pedido.id), transaction_amount: pedido.total };
+  for (let i = 0; i < 2; i++) assert.equal((await notificar('301'))[0], 200);
+  assert.equal(await estado(pedido.id), 'abierto', 'falta cobrar lo que se agregó');
+  const [, detalle] = await s.llamar('GET', `/api/pedidos/${pedido.id}`, undefined, cajero());
+  assert.deepEqual([detalle.pagado, detalle.pagos.length], [pedido.total, 1], 'el reenvío de MP no lo registra dos veces');
+  assert.ok(detalle.saldo > 0);
+
+  // Pago del saldo: cierra
+  pagosMP['302'] = { id: 302, status: 'approved', external_reference: String(pedido.id), transaction_amount: detalle.saldo };
+  await notificar('302');
+  assert.equal(await estado(pedido.id), 'pagado');
+
+  // Ya cobrado y entra otro pago: no se registra como venta, queda la alerta para devolverlo
+  pagosMP['303'] = { id: 303, status: 'approved', external_reference: String(pedido.id), transaction_amount: 500 };
+  await notificar('303');
+  assert.equal((await s.q('SELECT COUNT(*) c FROM pagos WHERE pedido_id = ?', [pedido.id]))[0].c, 2);
+  assert.match((await alertas()).pop(), /pago 303.*ya estaba pagado.*devolver/i);
+
+  // Pagó de más: se cobra el saldo y se avisa la diferencia
+  const otro = await pedidoAbierto();
+  pagosMP['304'] = { id: 304, status: 'approved', external_reference: String(otro.id), transaction_amount: otro.total + 1000 };
+  await notificar('304');
+  assert.equal(await estado(otro.id), 'pagado');
+  assert.equal((await s.q('SELECT SUM(monto) m FROM pagos WHERE pedido_id = ?', [otro.id]))[0].m, otro.total);
+  assert.match((await alertas()).pop(), /Devolver \$1000/);
+});
+
 test('Tienda Nube: conexión, sincronización de productos y actualización', async () => {
   await s.llamar('PUT', '/api/integraciones/config/tiendanube', { store_id: '1234', access_token: 'tn-token', activa: true }, admin());
   const [, prueba] = await s.llamar('POST', '/api/integraciones/test/tiendanube', undefined, admin());

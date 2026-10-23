@@ -510,6 +510,23 @@ const App = {
     document.getElementById('modalContainer').innerHTML = '';
   },
 
+  // Evita el doble envío (el mozo toca dos veces con mala señal = dos pedidos, dos comandas):
+  // mientras la acción está en curso se ignoran los toques y los botones del modal quedan deshabilitados.
+  _enCurso: new Set(),
+  async sinDobleEnvio(clave, fn) {
+    if (this._enCurso.has(clave)) return;
+    this._enCurso.add(clave);
+    const botones = [...document.querySelectorAll('#modalContainer .modal-footer button, #modalContainer button[type="submit"]')]
+      .filter(b => !b.disabled);
+    botones.forEach(b => { b.disabled = true; });
+    try {
+      return await fn();
+    } finally {
+      this._enCurso.delete(clave);
+      botones.forEach(b => { b.disabled = false; });
+    }
+  },
+
   showToast(message, type = 'info', duration = 3500) {
     const container = document.getElementById('toastContainer');
     if (!container) return;

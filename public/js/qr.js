@@ -43,6 +43,11 @@ const QRView = {
             <span class="card-title"><i class="fas fa-qrcode"></i> C\u00f3digo QR &mdash; Carta Digital</span>
             <span class="card-subtitle">Imprimilo y colocalo en cada mesa</span>
           </div>
+          ${/^(localhost|127\.|\[::1\])/.test(new URL(urlMenu).hostname) ? `
+          <div style="background:#fef3c7;color:#92400e;border-radius:8px;padding:10px 12px;margin:8px 12px;font-size:13px;">
+            <i class="fas fa-exclamation-triangle"></i> Este QR apunta a <b>esta computadora</b> y no va a abrir en los celulares.
+            Entrá a GastroManager con la dirección de la red del local (la que usan los mozos) o pedile a soporte que configure la dirección pública.
+          </div>` : ''}
           <div class="qr-center-block">
             <div class="qr-wrapper" id="qrCanvas">
               <div class="qr-loading"><i class="fas fa-spinner fa-spin fa-2x"></i></div>

@@ -41,6 +41,7 @@ const CUENTAS = {
   iva_cf: { codigo: '1.1.05', nombre: 'IVA crédito fiscal' },
   proveedores: { codigo: '2.1.01', nombre: 'Proveedores' },
   iva_df: { codigo: '2.1.02', nombre: 'IVA débito fiscal' },
+  propinas: { codigo: '2.1.03', nombre: 'Propinas a pagar al personal' },
   ajustes: { codigo: '3.1.01', nombre: 'Aportes y ajustes de caja' },
   ventas: { codigo: '4.1.01', nombre: 'Ventas' },
   ...Object.fromEntries(CATEGORIAS.map(c => [c.id, { codigo: c.codigo, nombre: c.nombre }])),
@@ -76,9 +77,11 @@ const costoGasto = (g, tasa) => r2(tasa > 0 ? g.total - g.iva : g.total);
 // IVA contenido en un importe final (precio con IVA incluido)
 const ivaIncluido = (monto, tasa) => tasa > 0 ? r2(monto - monto / (1 + tasa / 100)) : 0;
 
-// Cobros del período por día y medio de pago (pedidos pagados)
+// Cobros del período por día y medio de pago (pedidos pagados).
+// "propinas" es la parte de cada cobro que es propina: es del personal, no es venta ni lleva IVA.
 const cobrosPorDia = (desde, hasta) => all(`
-  SELECT date(pg.fecha, ${LOCAL()}) AS dia, pg.metodo, SUM(pg.monto) AS total, COUNT(*) AS cantidad
+  SELECT date(pg.fecha, ${LOCAL()}) AS dia, pg.metodo, SUM(pg.monto) AS total, COUNT(*) AS cantidad,
+         SUM(CASE WHEN p.total > 0 THEN pg.monto * COALESCE(p.propina, 0) / p.total ELSE 0 END) AS propinas
   FROM pagos pg JOIN pedidos p ON p.id = pg.pedido_id
   WHERE p.estado = 'pagado' AND date(pg.fecha, ${LOCAL()}) BETWEEN ? AND ?
   GROUP BY dia, pg.metodo ORDER BY dia`, [desde, hasta]);
@@ -303,7 +306,7 @@ app.get('/api/contabilidad/resultados', autenticar, requiere('contabilidad'), as
       FROM pedido_items pi JOIN pedidos p ON p.id = pi.pedido_id LEFT JOIN productos pr ON pr.id = pi.producto_id
       WHERE p.estado = 'pagado' AND date(p.cerrado_en, ${LOCAL()}) BETWEEN ? AND ?`, [desde, hasta]);
 
-    const ventasBrutas = r2(cobros.reduce((s, c) => s + c.total, 0));
+    const ventasBrutas = r2(cobros.reduce((s, c) => s + c.total - c.propinas, 0));
     const ivaDebito = ivaIncluido(ventasBrutas, tasa);
     const ventasNetas = r2(ventasBrutas - ivaDebito);
     const porCategoria = {};
@@ -324,7 +327,7 @@ app.get('/api/contabilidad/resultados', autenticar, requiere('contabilidad'), as
     const dia = d => { if (!dias.has(d)) dias.set(d, { fecha: d, ventas: 0, gastos: 0 }); return dias.get(d); };
     for (let d = new Date(desde + 'T00:00:00Z'), n = 0; d <= new Date(hasta + 'T00:00:00Z') && n < 400; d.setUTCDate(d.getUTCDate() + 1), n++)
       dia(d.toISOString().slice(0, 10));
-    for (const c of cobros) { const x = dia(c.dia); x.ventas = r2(x.ventas + c.total - ivaIncluido(c.total, tasa)); }
+    for (const c of cobros) { const v = c.total - c.propinas; const x = dia(c.dia); x.ventas = r2(x.ventas + v - ivaIncluido(v, tasa)); }
     for (const g of gastos) { const x = dia(g.fecha); x.gastos = r2(x.gastos + costoGasto(g, tasa)); }
     for (const m of sueltos) { const x = dia(m.dia); x.gastos = r2(x.gastos + m.monto); }
 
@@ -352,7 +355,7 @@ app.get('/api/contabilidad/iva', autenticar, requiere('contabilidad'), async (re
     const tasa = await tasaIva();
     const desde = mes + '-01', hasta = mes + '-31';
     const cobros = await cobrosPorDia(desde, hasta);
-    const ventasBrutas = r2(cobros.reduce((s, c) => s + c.total, 0));
+    const ventasBrutas = r2(cobros.reduce((s, c) => s + c.total - c.propinas, 0));
     const debito = ivaIncluido(ventasBrutas, tasa);
     const compras = await all(`${SELECT_GASTO} WHERE g.anulado = 0 AND g.fecha BETWEEN ? AND ? AND g.iva > 0
       ORDER BY g.fecha, g.id`, [desde, hasta]);
@@ -390,10 +393,11 @@ app.get('/api/contabilidad/libro-diario', autenticar, requiere('contabilidad'), 
       const medios = {};
       for (const c of cobros) medios[cuentaDeMedio(c.metodo)] = r2((medios[cuentaDeMedio(c.metodo)] || 0) + c.total);
       const total = r2(cobros.reduce((s, c) => s + c.total, 0));
-      const iva = ivaIncluido(total, tasa);
+      const propinas = r2(cobros.reduce((s, c) => s + c.propinas, 0));
+      const iva = ivaIncluido(total - propinas, tasa);
       asiento(fecha, 1, `Ventas del día (${cobros.reduce((s, c) => s + c.cantidad, 0)} cobros)`, [
         ...Object.entries(medios).map(([cuenta, monto]) => linea(cuenta, monto, 0)),
-        linea('ventas', 0, total - iva), linea('iva_df', 0, iva)
+        linea('ventas', 0, total - propinas - iva), linea('iva_df', 0, iva), linea('propinas', 0, propinas)
       ]);
     }
 

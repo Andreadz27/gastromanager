@@ -1,6 +1,6 @@
 'use strict';
 const {
-  run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, METODOS_PAGO, comandaAutomatica, ticketAlCobrar, requiere,
+  run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPagoTx, METODOS_PAGO, comandaAutomatica, ticketAlCobrar, requiere,
   registrarCobroTx, saldoPedido, requiereCobro, emitirFactura, validarDatosFactura, avisarEstadoPedido,
   autorizar, requiereAutorizacion
 } = require('../contexto');
@@ -24,6 +24,11 @@ app.post('/api/pedidos', autenticar, requiere('pedidos.tomar'), async (req, res)
 
     const resultado = await transaccion(async () => {
       const items = await resolverItems(req.body.items);
+      // Dos mozos abriendo la misma mesa desde dos celulares: el segundo agrega al pedido abierto
+      if (mesa_id) {
+        const abierto = await get("SELECT numero_pedido FROM pedidos WHERE mesa_id = ? AND estado = 'abierto' LIMIT 1", [mesa_id]);
+        if (abierto) throw errorHttp(409, `La mesa ya tiene el pedido ${abierto.numero_pedido} abierto: agregá los ítems ahí`);
+      }
       const numero = await generarNumeroPedido();
       const result = await run(
         `INSERT INTO pedidos (numero_pedido, tipo, mesa_id, cliente, usuario_id, notas, descuento, propina)
@@ -36,7 +41,7 @@ app.post('/api/pedidos', autenticar, requiere('pedidos.tomar'), async (req, res)
         await run(
           `INSERT INTO pedido_items (pedido_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal, notas)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [pedidoId, item.producto_id || null, item.nombre, item.cantidad, item.precio, item.cantidad * item.precio, item.notas || '']
+          [pedidoId, item.producto_id || null, item.nombre, item.cantidad, item.precio, item.subtotal, item.notas || '']
         );
       }
 
@@ -104,86 +109,48 @@ app.get('/api/pedidos', autenticar, requiere('pedidos.ver'), async (req, res) =>
   }
 });
 
-// ===== COCINA: display de cocina (usa la sesión iniciada en ese navegador) =====
-app.get('/api/cocina/display', autenticar, requiere('cocina'), async (req, res) => {
-  try {
-    const pedidos = await all(`
-      SELECT p.id, p.numero_pedido, p.tipo, p.mesa_id, m.nombre as mesa_nombre, p.notas,
-             p.estado, p.creado_en,
-             CAST((julianday('now') - julianday(p.creado_en)) * 24 * 60 AS INTEGER) as minutos_transcurridos
-      FROM pedidos p
-      LEFT JOIN mesas m ON p.mesa_id = m.id
-      WHERE p.estado = 'abierto'
-      ORDER BY p.creado_en ASC
-    `);
-    const result = await Promise.all(pedidos.map(async ped => {
-      const items = await all(`
-        SELECT nombre_producto, cantidad, notas
-        FROM pedido_items WHERE pedido_id = ?
-      `, [ped.id]);
-      return { ...ped, items };
-    }));
-    res.json(result);
-  } catch (err) {
-    errorInterno(res, err);
-  }
-});
+// ===== COCINA =====
+// Comandas en curso: pedidos abiertos que cocina todavía no marcó listos
+async function comandasEnCurso() {
+  const pedidos = await all(`
+    SELECT p.id, p.numero_pedido, p.tipo, p.mesa_id, m.nombre as mesa_nombre, p.notas,
+           p.estado, p.creado_en,
+           CAST((julianday('now') - julianday(p.creado_en)) * 24 * 60 AS INTEGER) as minutos_transcurridos
+    FROM pedidos p
+    LEFT JOIN mesas m ON p.mesa_id = m.id
+    WHERE p.estado = 'abierto' AND p.listo_en IS NULL
+    ORDER BY p.creado_en ASC
+  `);
+  return Promise.all(pedidos.map(async ped => {
+    const items = await all('SELECT nombre_producto, cantidad, notas FROM pedido_items WHERE pedido_id = ?', [ped.id]);
+    return { ...ped, items };
+  }));
+}
 
-// ===== COCINA: marcar listo desde el display =====
-app.post('/api/cocina/display/:id/listo', autenticar, requiere('cocina'), async (req, res) => {
+// Marca listo: sale de la pantalla de cocina (el pedido sigue abierto para que el mozo lo cobre)
+async function marcarListo(req, res) {
   try {
     const pedido = await get('SELECT id, numero_pedido FROM pedidos WHERE id = ? AND estado = ?', [req.params.id, 'abierto']);
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado o ya cerrado' });
-    // Solo marca como listo en cocina (no paga), lo dejamos abierto para que el mozo lo cierre
-    emitEvento('cocina:actualizar', { pedido_id: pedido.id });
+    await run('UPDATE pedidos SET listo_en = CURRENT_TIMESTAMP WHERE id = ?', [pedido.id]);
+    emitEvento('cocina:actualizar', { pedido_id: pedido.id, numero_pedido: pedido.numero_pedido, accion: 'listo' });
     // Para llevar: aviso por WhatsApp al cliente (si está activado); no demora la respuesta
-    avisarEstadoPedido(pedido.id, 'listo');
-    res.json({ ok: true });
-  } catch (err) {
-    errorInterno(res, err);
-  }
-});
-
-// ===== COCINA: marcar listo desde vista interna (autenticado) =====
-app.put('/api/cocina/:id/listo', autenticar, requiere('cocina'), async (req, res) => {
-  try {
-    const pedido = await get('SELECT id, numero_pedido FROM pedidos WHERE id = ? AND estado = ?', [req.params.id, 'abierto']);
-    if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado o ya procesado' });
-    // Emite evento tiempo real para que el display y otros clientes se actualicen
-    emitEvento('cocina:actualizar', { pedido_id: pedido.id, numero_pedido: pedido.numero_pedido });
     avisarEstadoPedido(pedido.id, 'listo');
     res.json({ ok: true, numero_pedido: pedido.numero_pedido });
   } catch (err) {
     errorInterno(res, err);
   }
-});
+}
 
-// ===== COCINA: comandas en curso (tiempo real) =====
+// Display de cocina (usa la sesión iniciada en ese navegador) y vista interna
+app.get('/api/cocina/display', autenticar, requiere('cocina'), async (req, res) => {
+  try { res.json(await comandasEnCurso()); } catch (err) { errorInterno(res, err); }
+});
 app.get('/api/cocina', autenticar, requiere('cocina'), async (req, res) => {
-  try {
-    const pedidos = await all(`
-      SELECT p.id, p.numero_pedido, p.tipo, p.mesa_id, m.nombre as mesa_nombre, p.notas,
-             p.estado, p.creado_en,
-             CAST((julianday('now') - julianday(p.creado_en)) * 24 * 60 AS INTEGER) as minutos_transcurridos
-      FROM pedidos p
-      LEFT JOIN mesas m ON p.mesa_id = m.id
-      WHERE p.estado = 'abierto'
-      ORDER BY p.creado_en ASC
-    `);
-
-    const result = await Promise.all(pedidos.map(async ped => {
-      const items = await all(`
-        SELECT nombre_producto, cantidad, notas
-        FROM pedido_items WHERE pedido_id = ?
-      `, [ped.id]);
-      return { ...ped, items };
-    }));
-
-    res.json(result);
-  } catch (err) {
-    errorInterno(res, err);
-  }
+  try { res.json(await comandasEnCurso()); } catch (err) { errorInterno(res, err); }
 });
+app.post('/api/cocina/display/:id/listo', autenticar, requiere('cocina'), marcarListo);
+app.put('/api/cocina/:id/listo', autenticar, requiere('cocina'), marcarListo);
 
 app.get('/api/pedidos/:id', autenticar, requiere('pedidos.ver'), async (req, res) => {
   try {
@@ -216,9 +183,11 @@ app.post('/api/pedidos/:id/items', autenticar, requiere('pedidos.tomar'), async 
       const result = await run(
         `INSERT INTO pedido_items (pedido_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal, notas)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [pedido.id, item.producto_id, item.nombre, item.cantidad, item.precio, item.cantidad * item.precio, item.notas]
+        [pedido.id, item.producto_id, item.nombre, item.cantidad, item.precio, item.subtotal, item.notas]
       );
       await recalcularTotales(pedido.id);
+      // Si cocina ya lo había marcado listo, vuelve a la pantalla con lo nuevo
+      await run('UPDATE pedidos SET listo_en = NULL WHERE id = ?', [pedido.id]);
       emitEvento('cocina:actualizar', { pedido_id: pedido.id, accion: 'item_agregado' });
       emitEvento('dashboard:actualizar', { motivo: 'pedido_actualizado' });
       return result.id;
@@ -259,13 +228,16 @@ app.post('/api/pedidos/:id/pagar', autenticar, requiere('pedidos.cobrar'), async
 
     // "monto" es lo que entregó el cliente: debe cubrir lo que falta pagar. Se registra ese saldo
     // (el excedente es vuelto) para que la caja cuadre. Sin pagos parciales, el saldo es el total.
+    // El saldo se lee dentro de la transacción: un cobro parcial simultáneo no hace registrar de más
     const recibido = Number(req.body.monto);
-    const total = (await saldoPedido(pedido.id)).saldo;
-    if (!Number.isFinite(recibido) || recibido < total - 0.009)
-      return res.status(400).json({ error: 'El monto recibido no cubre el total del pedido' });
-
-    const ok = await registrarPago(pedido, { metodo, monto: total, referencia: String(referencia || ''), usuarioId: req.usuario.id });
-    if (!ok) return res.status(409).json({ error: 'El pedido ya fue cobrado' });
+    const total = await transaccion(async () => {
+      const { saldo } = await saldoPedido(pedido.id);
+      if (!Number.isFinite(recibido) || recibido < saldo - 0.009)
+        throw errorHttp(400, 'El monto recibido no cubre el total del pedido');
+      const ok = await registrarPagoTx(pedido, { metodo, monto: saldo, referencia: String(referencia || ''), usuarioId: req.usuario.id });
+      if (!ok) throw errorHttp(409, 'El pedido ya fue cobrado');
+      return saldo;
+    });
     const vuelto = Math.round((recibido - total) * 100) / 100;
     const impresionTicket = await ticketAlCobrar(pedido.id, { metodo, vuelto }).catch(() => false);
     res.json({ message: 'Pago registrado y pedido cerrado', vuelto, impresion_ticket: impresionTicket });

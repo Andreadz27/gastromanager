@@ -126,7 +126,13 @@ async function enviarComprobante(pedidoId, telefono) {
 
 // Aviso de estado de pedido: {{1}} cliente, {{2}} número, {{3}} negocio, {{4}} "listo para retirar" / "en camino".
 // Automático y sin repetir; si falla solo queda en el registro (no corta la operación de cocina o delivery).
-async function avisarEstadoPedido(pedidoId, estado) {
+// Se llama sin await: nunca rechaza (una promesa rechazada sin manejar tira el proceso en pleno servicio).
+function avisarEstadoPedido(pedidoId, estado) {
+  return avisarEstadoPedidoSinCapturar(pedidoId, estado)
+    .catch(e => { console.error('[WhatsApp aviso de pedido]', e.message); return null; });
+}
+
+async function avisarEstadoPedidoSinCapturar(pedidoId, estado) {
   const cfg = await configWhatsApp();
   if (!listo(cfg) || !cfg.avisar_pedidos) return null;
   const pedido = await get(`SELECT p.*, e.telefono AS telefono_entrega FROM pedidos p

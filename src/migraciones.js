@@ -54,6 +54,8 @@ async function migrarEsquema() {
   await agregarColumna('pedidos', 'origen', "TEXT DEFAULT ''");
   await agregarColumna('pedidos', 'metodo_pago', "TEXT DEFAULT ''");
   await agregarColumna('pedidos', 'mp_payment_id', "TEXT DEFAULT ''");
+  // Cocina: cuándo se marcó listo (sale de la pantalla de cocina; vuelve si se agregan ítems)
+  await agregarColumna('pedidos', 'listo_en', 'TEXT');
   // Control de caja: PIN de autorización de encargados y arqueo ciego (apagados por defecto)
   await agregarColumna('usuarios', 'pin_hash', "TEXT DEFAULT ''");
   await agregarColumna('configuracion', 'pin_autorizacion', 'INTEGER DEFAULT 0');

@@ -85,7 +85,7 @@ app.get('/api/delivery/pedidos', autenticar, requiere('delivery'), async (req, r
       FROM pedidos p
       LEFT JOIN entregas e ON e.pedido_id = p.id
       LEFT JOIN plataformas_delivery pd ON pd.nombre = e.plataforma
-      WHERE p.tipo = 'delivery' OR (e.tipo = 'delivery' OR e.tipo = 'takeaway')
+      WHERE (p.tipo = 'delivery' OR e.tipo = 'delivery' OR e.tipo = 'takeaway')
     `;
     const params = [];
     if (estado && estado !== 'todos') {

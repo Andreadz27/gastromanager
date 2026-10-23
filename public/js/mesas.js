@@ -198,17 +198,12 @@ async editar(id) {
 
   // ===== Reservas =====
 
-  async ocuparMesaReservada(mesaId) {
-    try {
-      // Endpoint solo de estado: lo puede usar el mozo (editar la mesa es solo del admin)
-      await API.cambiarEstadoMesa(mesaId, 'ocupada');
-      App.showToast('Mesa marcada como ocupada', 'success');
-      this.mesasPreseleccionada = mesaId;
-      POS.mesaPreseleccionada = mesaId;
-      App.navigateTo('pos');
-    } catch (err) {
-      App.showToast(err.message, 'error');
-    }
+  // La mesa pasa a ocupada al confirmar el pedido: si se marcaba antes y el pedido no se hacía,
+  // la mesa quedaba "ocupada" sin pedido y sin forma de liberarla
+  ocuparMesaReservada(mesaId) {
+    POS.mesaPreseleccionada = mesaId;
+    App.navigateTo('pos');
+    App.showToast('Cargá el pedido: la mesa queda ocupada al confirmarlo', 'info');
   },
 
   async reservasModal() {

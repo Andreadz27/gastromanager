@@ -30,7 +30,10 @@ test('usuarios, contraseñas, impresoras, integraciones y copias bloqueados', as
     ['PUT', '/api/integraciones/config/mercadopago', { access_token: 'APP_USR-x' }],
     ['POST', '/api/integraciones/test/mercadopago'],
     ['POST', '/api/backups'],
-    ['GET', '/api/backups/gastromanager_2026-01-01_000000.db']
+    ['GET', '/api/backups/gastromanager_2026-01-01_000000.db'],
+    // Express no distingue mayúsculas: el bloqueo tampoco (antes /API/Usuarios pasaba)
+    ['POST', '/API/Usuarios', { nombre: 'X', email: 'y@x.com', password: 'clave1234', rol: 'admin' }],
+    ['PUT', '/Api/Auth/Password', { actual: 'admin123', nueva: 'otraclave1' }]
   ]) {
     const [st, r] = await s.llamar(metodo, ruta, body, s.tokenAdmin);
     assert.equal(st, 403, `${metodo} ${ruta}`);

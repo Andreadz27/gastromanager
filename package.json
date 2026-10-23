@@ -1,7 +1,7 @@
 {
   "name": "gastromanager",
   "version": "1.0.0",
-  "description": "Sistema de gestión gastronómica - POS, inventario, comandas, reportes y más. Una alternativa superior a Maxirest.",
+  "description": "Sistema de gestión gastronómica - POS, inventario, comandas, reportes y más.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -31,7 +31,8 @@
     "sistema"
   ],
   "author": "GastroManager",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
   "dependencies": {
     "@afipsdk/afip.js": "^1.2.3",
     "bcryptjs": "^3.0.3",

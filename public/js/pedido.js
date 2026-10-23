@@ -212,6 +212,9 @@ const PedidoOnline={
     const sb=document.getElementById("carritoSidebar");if(sb)sb.style.display="";
     const nav=document.getElementById("mobileCatNav");if(nav)nav.style.display="";
     const form=document.getElementById("pedidoForm");if(form)form.reset();
+    // El botón quedaba en "Enviando..." deshabilitado y no se podía mandar otro pedido sin recargar
+    const btn=document.getElementById("btnEnviar");
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-paper-plane"></i> Enviar pedido';}
     const gd=document.getElementById("grupoDireccion");if(gd)gd.style.display="none";
     this.paintItems();this.paintCarrito();
   },

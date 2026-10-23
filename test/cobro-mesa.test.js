@@ -78,6 +78,8 @@ test('datos inválidos se rechazan sin cobrar nada', async () => {
   }
   assert.equal((await s.q('SELECT COUNT(*) c FROM pagos WHERE pedido_id = ?', [p.id]))[0].c, 0);
   assert.equal((await cobrar(999999, { pagos: [{ metodo: 'efectivo', monto: 1 }] }))[0], 404);
+  // Libera la mesa: con un pedido abierto, la mesa no acepta otro
+  assert.equal((await s.llamar('PUT', `/api/pedidos/${p.id}/cancelar`, {}, s.tokenAdmin))[0], 200);
 });
 
 test('con una parte cobrada: no se cancela, el descuento no baja de lo cobrado y /pagar cobra solo el saldo', async () => {
