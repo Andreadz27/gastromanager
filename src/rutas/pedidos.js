@@ -291,7 +291,9 @@ app.post('/api/pedidos/:id/cobro', autenticar, requiereCobro, async (req, res) =
       return { metodo, monto, referencia: String(p.referencia || '').slice(0, 100) };
     });
     // La factura se valida antes de cobrar: un CUIT mal cargado no deja un cobro a medias
-    const factura = body.factura ? validarDatosFactura(body.factura.tipo_comprobante, body.factura.cuit_receptor) : null;
+    const factura = body.factura
+      ? validarDatosFactura(body.factura.tipo_comprobante, body.factura.cuit_receptor, body.factura.condicion_iva_receptor)
+      : null;
     if (!req.puedeCobrarTodo) {
       const p = await get('SELECT tipo, mesa_id FROM pedidos WHERE id = ?', [pedidoId]);
       if (p && !(p.tipo === 'salon' && p.mesa_id)) throw errorHttp(403, 'Tu usuario solo puede cobrar pedidos de mesa');
@@ -308,7 +310,9 @@ app.post('/api/pedidos/:id/cobro', autenticar, requiereCobro, async (req, res) =
     let resultadoFactura = null;
     if (r.cerrado && factura) {
       try {
-        resultadoFactura = await emitirFactura(pedidoId, factura.tipo, factura.cuit);
+        resultadoFactura = await emitirFactura(pedidoId, factura.tipo, factura.cuit, {
+          condicionIva: factura.condicion, razonSocial: body.factura.razon_social
+        });
       } catch (e) {
         console.error('[AFIP cobro en mesa]', e.message);
         resultadoFactura = { ok: false, error: e.message };

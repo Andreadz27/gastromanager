@@ -220,6 +220,8 @@ const API = {
   testIntegracion(tipo)             { return this.request('POST', `/integraciones/test/${tipo}`); },
   getComprobantesAFIP(limit = 10)   { return this.request('GET',  `/integraciones/afip/comprobantes?limit=${limit}`); },
   generarComprobante(data)          { return this.request('POST', '/integraciones/afip/facturar', data); },
+  emitirNotaCredito(data)           { return this.request('POST', '/integraciones/afip/nota-credito', data); },
+  consultarPadron(cuit)             { return this.request('GET',  `/integraciones/afip/padron/${encodeURIComponent(cuit)}`); },
   syncProductosTiendaNube()         { return this.request('POST', '/integraciones/tiendanube/sync-productos'); },
   crearLinkMercadoPago(pedidoId)    { return this.request('POST', `/integraciones/mercadopago/link/${pedidoId}`); },
 

@@ -390,6 +390,7 @@ const Integraciones = {
         App.showToast('Ingresá el CUIT del cliente (11 dígitos) para la Factura A', 'warning');
         return;
       }
+      Object.assign(data, this.datosReceptor(data.cuit_receptor));
     }
     try {
       App.showToast('Generando comprobante AFIP...', 'info');
@@ -400,14 +401,96 @@ const Integraciones = {
     } catch (err) { App.showToast(err.message, 'error'); }
   },
 
+  // ──────── PADRÓN DE ARCA ────────
+  // Busca el CUIT escrito en inputId y muestra razón social y condición de IVA en infoId
+  _padron: null,
+
+  async buscarCuit(inputId, infoId) {
+    const input = document.getElementById(inputId);
+    const info = document.getElementById(infoId);
+    const cuit = (input && input.value || '').replace(/\D/g, '');
+    this._padron = null;
+    if (!info) return null;
+    if (cuit.length !== 11) { info.innerHTML = ''; return null; }
+    info.innerHTML = '<span class="text-muted"><i class="fas fa-spinner fa-spin"></i> Consultando ARCA...</span>';
+    try {
+      const d = await API.consultarPadron(cuit);
+      this._padron = d;
+      const avisoA = d.factura_sugerida === 1 ? '' :
+        `<br><span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Le corresponde Factura B, no A.</span>`;
+      info.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> <strong>${esc(d.razon_social)}</strong></span>
+        &mdash; ${esc(d.condicion_iva_nombre)}${d.domicilio ? `<br><small class="text-muted">${esc(d.domicilio)}</small>` : ''}${avisoA}`;
+      return d;
+    } catch (err) {
+      info.innerHTML = `<span class="text-danger">${esc(err.message)}</span>`;
+      return null;
+    }
+  },
+
+  // Condición de IVA y razón social del último CUIT consultado (si coincide)
+  datosReceptor(cuit) {
+    const d = this._padron;
+    return d && d.cuit === cuit ? { condicion_iva_receptor: d.condicion_iva, razon_social: d.razon_social } : {};
+  },
+
+  // ──────── NOTA DE CRÉDITO ────────
+  // Anula una factura ante ARCA. Las Facturas A viejas no guardaban el CUIT: se pide.
+  abrirNotaCredito(comprobanteId, tipo, pideCuit) {
+    const nombre = { 1: 'Factura A', 6: 'Factura B', 11: 'Factura C' }[tipo] || 'factura';
+    App.showModal(`
+      <form onsubmit="Integraciones.emitirNotaCredito(event, ${comprobanteId})">
+        <p>Se emite una nota de crédito por el total de la <strong>${esc(nombre)}</strong> y queda anulada ante ARCA.
+          El cobro no cambia: si devolvés plata, registrala como egreso en la caja. Después podés volver a facturar el pedido.</p>
+        <div class="form-group mt-10">
+          <label>Motivo</label>
+          <input type="text" id="ncMotivo" maxlength="200" required placeholder="Ej: era Factura A, error en el importe">
+        </div>
+        ${pideCuit ? `<div class="form-group">
+          <label>CUIT del cliente de la factura</label>
+          <input type="text" id="ncCuit" maxlength="13" required placeholder="20-12345678-9">
+        </div>` : ''}
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="App.closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-danger" id="ncBtn"><i class="fas fa-file-excel"></i> Emitir nota de crédito</button>
+        </div>
+      </form>
+    `, { title: 'Anular factura' });
+  },
+
+  async emitirNotaCredito(e, comprobanteId) {
+    e.preventDefault();
+    const btn = document.getElementById('ncBtn');
+    btn.disabled = true;
+    try {
+      const r = await API.emitirNotaCredito({
+        comprobante_id: comprobanteId,
+        motivo: document.getElementById('ncMotivo').value,
+        cuit_receptor: (document.getElementById('ncCuit')?.value || '').replace(/\D/g, '')
+      });
+      App.closeModal();
+      App.showToast(`✓ ${r.tipo_nombre} emitida — CAE: ${r.cae}`, 'success');
+      if (typeof Pedidos !== 'undefined' && Pedidos.ultimoPedido) Pedidos.verDetalle(Pedidos.ultimoPedido.id);
+    } catch (err) {
+      btn.disabled = false;
+      App.showToast(err.message, 'error');
+    }
+  },
+
   // Códigos AFIP: 1 = Factura A, 6 = Factura B, 11 = Factura C
   abrirModalFacturar(pedidoId, total) {
+    this._padron = null;
     App.showModal(`
       <p>Seleccioná el tipo de comprobante para el pedido <strong>#${pedidoId}</strong>
         &mdash; Total: <strong>${fmtMoneda(total)}</strong></p>
       <div class="form-group mt-10">
         <label>CUIT del cliente (solo Factura A)</label>
-        <input type="text" id="afipCuitReceptor" placeholder="20-12345678-9" maxlength="13">
+        <div class="cobro-chips">
+          <input type="text" id="afipCuitReceptor" placeholder="20-12345678-9" maxlength="13"
+            onchange="Integraciones.buscarCuit('afipCuitReceptor', 'afipPadronInfo')">
+          <button type="button" class="btn btn-outline btn-sm" onclick="Integraciones.buscarCuit('afipCuitReceptor', 'afipPadronInfo')">
+            <i class="fas fa-search"></i> Buscar en ARCA</button>
+        </div>
+        <div id="afipPadronInfo" class="mt-10"></div>
       </div>
       <div class="grid grid-3 mt-20">
         <button class="btn btn-outline btn-lg" onclick="Integraciones.facturar(${pedidoId},1)">

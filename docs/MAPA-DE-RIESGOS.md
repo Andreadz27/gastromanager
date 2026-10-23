@@ -34,6 +34,15 @@ Pago, cierre del pedido, liberación de la mesa y descuento de stock son una sol
   **Lo protege:** `cobro-mesa.test.js`.
 - **Factura en el cobro:** se emite después del COMMIT (`emitirFactura`, HTTP a AFIP). Si falla, el cobro no se deshace.
 
+### Facturación AFIP — `src/servicios/facturacion.js` · riesgo MEDIO
+- **Factura vigente** = factura A/B/C sin nota de crédito asociada (`comprobante_asociado_id`). La usan el control de
+  duplicados, el botón *Facturar* y el ticket. **Lo rompe:** buscar "cualquier comprobante del pedido" (una nota de
+  crédito bloquearía refacturar o saldría en el ticket).
+- **Fecha del comprobante:** usa la hora del servidor (`new Date()`), no `ZONA_HORARIA`. En un servidor en UTC
+  (Render) una factura de después de las 21 h sale con la fecha de mañana. ARCA lo acepta (±5 días), pero es el mismo
+  bug que tenía el número de pedido. **Pendiente de decisión** (cambia la fecha que ve el cliente).
+- **Lo protege:** `afip.test.js` y el e2e, contra AfipSDK simulado.
+
 ### 2. Precios — `resolverItems` y la carta online (`src/rutas/publico.js`) · riesgo ALTO
 El precio siempre sale de la base, nunca del navegador.
 - **Lógica duplicada:** la carta online (pedido del cliente por QR) resuelve ítems por su cuenta en vez de usar

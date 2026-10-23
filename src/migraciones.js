@@ -26,6 +26,15 @@ async function migrarEsquema() {
     cae TEXT, cae_vencimiento TEXT, fecha_comprobante TEXT, total REAL,
     creado_en TEXT DEFAULT (datetime('now','localtime'))
   )`);
+  // Receptor e importes de cada comprobante, y la factura que anula cada nota de crédito
+  await agregarColumna('comprobantes_afip', 'imp_neto', 'REAL');
+  await agregarColumna('comprobantes_afip', 'imp_iva', 'REAL');
+  await agregarColumna('comprobantes_afip', 'cuit_receptor', "TEXT DEFAULT ''");
+  await agregarColumna('comprobantes_afip', 'razon_social_receptor', "TEXT DEFAULT ''");
+  await agregarColumna('comprobantes_afip', 'condicion_iva_receptor', 'INTEGER');
+  await agregarColumna('comprobantes_afip', 'comprobante_asociado_id', 'INTEGER');
+  await agregarColumna('comprobantes_afip', 'motivo', "TEXT DEFAULT ''");
+  await run('CREATE INDEX IF NOT EXISTS idx_comprobantes_asociado ON comprobantes_afip(comprobante_asociado_id)');
   await agregarColumna('pedidos', 'origen', "TEXT DEFAULT ''");
   await agregarColumna('pedidos', 'metodo_pago', "TEXT DEFAULT ''");
   await agregarColumna('pedidos', 'mp_payment_id', "TEXT DEFAULT ''");

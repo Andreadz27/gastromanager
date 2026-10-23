@@ -132,9 +132,7 @@ const Pedidos = {
             <p><strong>Vendedor:</strong> ${esc(p.usuario_nombre || '-')}</p>
             <p><strong>Estado:</strong> ${fmtEstado(p.estado)}</p>
             <p><strong>Notas:</strong> ${esc(p.notas || '-')}</p>
-            ${(p.comprobantes || []).map(c => `<p><strong>Comprobante:</strong> ${esc(c.tipo_comprobante_nombre)}
-              ${String(c.punto_venta || '').padStart(4, '0')}-${String(c.numero_comprobante || '').padStart(8, '0')}
-              &mdash; CAE ${esc(c.cae)}</p>`).join('')}
+            ${(p.comprobantes || []).map(c => Pedidos.htmlComprobante(c, p.comprobantes)).join('')}
           </div>
           <div class="card sub-card">
             <div class="card-header"><span class="card-title"><i class="fas fa-list"></i> Items</span></div>
@@ -177,12 +175,32 @@ const Pedidos = {
           ` : ''
         }
         ${
-          p.estado === 'pagado' && !(p.comprobantes && p.comprobantes.length) && Cobro.puedeCobrar(p)
+          p.estado === 'pagado' && !Pedidos.facturaVigente(p) && Cobro.puedeCobrar(p)
             ? `<button class="btn btn-primary" onclick="Integraciones.abrirModalFacturar(${p.id}, ${Number(p.total) || 0})"><i class="fas fa-file-invoice"></i> Facturar AFIP</button>`
             : ''
         }
       </div>
     `, { title: `Detalle de pedido ${p.numero_pedido}`, large: true });
+  },
+
+  // Factura sin nota de crédito que la anule (si se anuló, el pedido se puede volver a facturar)
+  facturaVigente(p) {
+    const comps = p.comprobantes || [];
+    return comps.find(c => [1, 6, 11].includes(c.tipo_comprobante) && !comps.some(nc => nc.comprobante_asociado_id === c.id));
+  },
+
+  htmlComprobante(c, todos) {
+    const numero = `${String(c.punto_venta || '').padStart(4, '0')}-${String(c.numero_comprobante || '').padStart(8, '0')}`;
+    const anulada = todos.find(nc => nc.comprobante_asociado_id === c.id);
+    const esFactura = [1, 6, 11].includes(c.tipo_comprobante);
+    const receptor = c.razon_social_receptor || c.cuit_receptor
+      ? `<br><small class="text-muted">${esc(c.razon_social_receptor || '')} ${c.cuit_receptor ? 'CUIT ' + esc(c.cuit_receptor) : ''}</small>` : '';
+    return `<p class="${anulada ? 'comprobante-anulado' : ''}"><strong>${esc(c.tipo_comprobante_nombre)}</strong> ${numero} &mdash; CAE ${esc(c.cae)}
+      ${anulada ? '<span class="badge badge-red">Anulada</span>' : ''}
+      ${c.comprobante_asociado_id ? `<br><small class="text-muted">Motivo: ${esc(c.motivo || '-')}</small>` : ''}${receptor}
+      ${esFactura && !anulada && App.puede('pedidos.cancelar')
+        ? `<br><button class="btn btn-sm btn-outline" onclick="Integraciones.abrirNotaCredito(${c.id}, ${c.tipo_comprobante}, ${c.tipo_comprobante === 1 && !c.cuit_receptor})">
+            <i class="fas fa-file-excel"></i> Anular con nota de crédito</button>` : ''}</p>`;
   },
 
   // Genera un link de pago de Mercado Pago; al aprobarse, el pedido se cierra solo

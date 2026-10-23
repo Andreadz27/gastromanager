@@ -2124,3 +2124,7 @@ tr:hover td {
   .cobro-totales strong { font-size: 16px; }
   #modalContainer .modal-footer .btn { flex: 1 1 auto; }
 }
+
+/* Factura anulada con nota de crédito */
+.comprobante-anulado { opacity: .65; }
+.comprobante-anulado > strong { text-decoration: line-through; }

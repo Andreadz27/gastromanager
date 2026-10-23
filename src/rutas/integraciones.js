@@ -1,6 +1,6 @@
 'use strict';
 const {
-  Afip, run, get, all, transaccion, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere, requiereCobro, pedidoDeSalon, emitirFactura, saldoPedido
+  run, get, all, transaccion, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, registrarPago, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere, requiereCobro, pedidoDeSalon, emitirFactura, emitirNotaCredito, consultarPadron, crearAfip, saldoPedido
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -90,12 +90,7 @@ app.post('/api/integraciones/test/:tipo', autenticar, esAdmin, async (req, res) 
       if (!cfg.cuit) return res.json({ ok: false, message: 'Falta el CUIT.' });
       if (!cfg.access_token) return res.json({ ok: false, message: 'Falta el Access Token de AfipSDK.' });
       try {
-        const afipInst = new Afip({
-          CUIT: parseInt(cfg.cuit.replace(/-/g, ''), 10),
-          production: cfg.modo === 'produccion',
-          access_token: cfg.access_token,
-          ...(cfg.cert && cfg.key ? { cert: cfg.cert, key: cfg.key } : {})
-        });
+        const afipInst = crearAfip(cfg);
         const status = await afipInst.ElectronicBilling.getServerStatus();
         const ok = status && status.AppServer === 'OK' && status.DbServer === 'OK';
         return res.json({
@@ -139,10 +134,40 @@ app.post('/api/integraciones/afip/facturar', autenticar, requiereCobro, async (r
   try {
     if (!req.puedeCobrarTodo && !(await pedidoDeSalon(pedido_id)))
       return res.status(403).json({ error: 'Tu usuario solo puede facturar pedidos de mesa' });
-    res.json(await emitirFactura(pedido_id, req.body.tipo_comprobante, req.body.cuit_receptor));
+    res.json(await emitirFactura(pedido_id, req.body.tipo_comprobante, req.body.cuit_receptor, {
+      condicionIva: req.body.condicion_iva_receptor, razonSocial: req.body.razon_social
+    }));
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
     console.error('[AFIP facturar]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/integraciones/afip/nota-credito  { comprobante_id, motivo, cuit_receptor? }
+// Anula una factura ante ARCA; después el pedido se puede volver a facturar (ej. era A y salió B)
+app.post('/api/integraciones/afip/nota-credito', autenticar, requiere('pedidos.cancelar'), async (req, res) => {
+  const comprobanteId = parseInt(req.body.comprobante_id, 10);
+  if (!comprobanteId) return res.status(400).json({ error: 'Faltan datos obligatorios.' });
+  try {
+    const r = await emitirNotaCredito(comprobanteId, req.body.motivo, req.body.cuit_receptor);
+    await run('INSERT INTO auditoria (usuario_id, accion, detalle) VALUES (?, ?, ?)',
+      [req.usuario.id, 'nota_credito', `${r.tipo_nombre} ${r.numero_comprobante} (CAE ${r.cae}) anula el comprobante ${comprobanteId}: ${String(req.body.motivo).slice(0, 200)}`]);
+    res.json(r);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    console.error('[AFIP nota de crédito]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/integraciones/afip/padron/:cuit — razón social y condición de IVA desde ARCA
+app.get('/api/integraciones/afip/padron/:cuit', autenticar, requiereCobro, async (req, res) => {
+  try {
+    res.json(await consultarPadron(req.params.cuit));
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    console.error('[AFIP padrón]', e.message);
     res.status(500).json({ error: e.message });
   }
 });

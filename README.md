@@ -85,6 +85,22 @@ Botón **Cobrar** del pedido (caja o celular del mozo): cobro, propina, cuenta d
   y sin descuentos ni cancelaciones.
 - Con una parte cobrada el pedido no se cancela y un descuento no puede dejar el total por debajo de lo cobrado.
 
+## Facturación electrónica (AFIP/ARCA)
+
+Se configura en **Integraciones → AFIP** (CUIT, punto de venta, alícuota y Access Token de AfipSDK).
+
+- **Factura A, B o C** desde el pedido cobrado o en el mismo cobro. Se guardan el receptor (CUIT, razón social,
+  condición de IVA) y los importes neto e IVA.
+- **Padrón de ARCA:** al cargar el CUIT de una Factura A se traen la razón social y la condición de IVA
+  (responsable inscripto, monotributo, exento...). La factura sale con esa condición y avisa si le corresponde B.
+  Requiere habilitar el servicio *ws_sr_constancia_inscripcion* para la CUIT del local en ARCA.
+  Las consultas se guardan 12 horas en memoria.
+- **Nota de crédito:** *Anular con nota de crédito* en el comprobante del pedido (cajero, encargado, admin).
+  Va por el total, asociada a la factura, con motivo y auditoría. Después el pedido se puede volver a facturar.
+  No cambia el cobro: si se devuelve plata, se registra como egreso de caja.
+- **Tests:** `afip.test.js` y el e2e prueban todo contra un AfipSDK simulado (`test/afip-simulado.js`,
+  variable `GM_AFIP_API_URL`); nunca se conectan a ARCA.
+
 ## Contabilidad
 
 Menú **Contabilidad** (administrador y encargado). Las ventas salen de los cobros: solo se cargan compras y gastos.
@@ -190,6 +206,7 @@ Mercado Pago, Tienda Nube y las impresoras se prueban contra servidores simulado
 | `flujos.test.js` | Un turno completo (caja, mesa, cocina, cobro, reportes), reservas, carta online, delivery, ABM y configuración |
 | `pedidos.test.js` | Precios desde la base, transacciones, concurrencia, cobros sin duplicar, stock |
 | `cobro-mesa.test.js` | Cuenta dividida, pagos mixtos, sin cobrar de más (también en simultáneo), propina, factura que falla sin perder el cobro, mozos y arqueo |
+| `afip.test.js` | Facturas, notas de crédito asociadas y refacturar, padrón (RI, monotributo, consumidor final), CUIT inválido, rechazo de ARCA y permisos, contra AfipSDK simulado |
 | `caja.test.js` | Arqueo: ventas por medio de pago, movimientos, efectivo esperado y diferencias |
 | `contabilidad.test.js` | Gastos, pagos desde la caja, estado de resultados, IVA, libro diario balanceado, anulaciones |
 | `demo.test.js` | Modo demo pública: acciones bloqueadas y el resto del sistema funcionando |

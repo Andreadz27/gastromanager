@@ -5,12 +5,14 @@ const assert = require('node:assert/strict');
 const net = require('net');
 const { chromium } = require('playwright-core');
 const { iniciarServidor } = require('../helpers');
+const { iniciarArcaSimulado } = require('../afip-simulado');
 
 const CANAL = process.env.GM_E2E_NAVEGADOR || (process.platform === 'win32' ? 'msedge' : 'chrome');
-let s, navegador;
+let s, navegador, arca;
 
 before(async () => {
-  s = await iniciarServidor();
+  arca = await iniciarArcaSimulado();
+  s = await iniciarServidor({ GM_AFIP_API_URL: arca.url });
   for (const [rol, email] of [['mozo', 'mozo@test.com'], ['cocina', 'cocina@test.com']]) {
     await s.llamar('POST', '/api/usuarios', { nombre: `Usuario ${rol}`, email, password: 'clave1234', rol }, s.tokenAdmin);
   }
@@ -23,6 +25,7 @@ before(async () => {
 after(async () => {
   await navegador?.close();
   await s?.cerrar();
+  await arca?.cerrar();
 });
 
 // Página nueva que registra errores de JavaScript (deben quedar en cero)
@@ -271,4 +274,41 @@ test('el administrador configura una impresora de red y la prueba', async (t) =>
   assert.ok(recibido.toString('latin1').includes('PRUEBA'), 'la impresora recibió la hoja de prueba');
   await page.waitForSelector('#listaImpresoras .badge-green');
   sinErrores(page);
+});
+
+test('factura A con datos del padrón de ARCA, anulación con nota de crédito y nueva factura', async () => {
+  await s.llamar('PUT', '/api/integraciones/config/afip', { cuit: '20-11111111-2', access_token: 'x', activa: true, iva_tipo: 5 }, s.tokenAdmin);
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', items: [{ producto_id: 1, cantidad: 1 }] }, s.tokenVendedor);
+  const [{ total }] = await s.q('SELECT total FROM pedidos WHERE id = ?', [p.id]);
+  await s.llamar('POST', `/api/pedidos/${p.id}/pagar`, { metodo: 'tarjeta', monto: total }, s.tokenVendedor);
+
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'vendedor@test.com', 'vendedor123');
+  await page.evaluate(id => Pedidos.verDetalle(id), p.id);
+  await page.click('#modalContainer button:has-text("Facturar AFIP")');
+  // El CUIT trae razón social y condición desde ARCA
+  await page.fill('#afipCuitReceptor', '27-30123456-8');
+  await page.click('#modalContainer button:has-text("Buscar en ARCA")');
+  await page.waitForSelector('#afipPadronInfo:has-text("GOMEZ ANA")');
+  assert.match(await page.textContent('#afipPadronInfo'), /Monotributo/);
+  await page.click('button[onclick="Integraciones.facturar(' + p.id + ',1)"]');
+  await toast(page, 'success', 'Factura A emitida');
+  let [c] = await s.q('SELECT * FROM comprobantes_afip WHERE pedido_id = ?', [p.id]);
+  assert.deepEqual([c.condicion_iva_receptor, c.razon_social_receptor], [6, 'GOMEZ ANA']);
+
+  // Anularla con nota de crédito
+  await page.evaluate(id => Pedidos.verDetalle(id), p.id);
+  await page.click('#modalContainer button:has-text("Anular con nota de crédito")');
+  await page.fill('#ncMotivo', 'Error en el CUIT');
+  await page.click('#ncBtn');
+  await toast(page, 'success', 'Nota Crédito A emitida');
+  await page.waitForSelector('#modalContainer .badge:has-text("Anulada")');
+  // Se puede volver a facturar
+  await page.click('#modalContainer button:has-text("Facturar AFIP")');
+  await page.click('button[onclick="Integraciones.facturar(' + p.id + ',6)"]');
+  await toast(page, 'success', 'Factura B emitida');
+  const comps = await s.q('SELECT tipo_comprobante_nombre AS t FROM comprobantes_afip WHERE pedido_id = ? ORDER BY id', [p.id]);
+  assert.deepEqual(comps.map(x => x.t), ['Factura A', 'Nota Crédito A', 'Factura B']);
+  sinErrores(page);
+  await page.context().close();
 });
