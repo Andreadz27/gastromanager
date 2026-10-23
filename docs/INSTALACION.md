@@ -9,9 +9,11 @@ aunque se corte internet; la nube guarda las copias y da acceso remoto.
 |---|---|---|
 | PC o mini PC | Windows 10/11, 4 GB de RAM, disco SSD | Queda prendida todo el turno; el SSD evita lentitud y fallas del disco |
 | Conexión | Por cable a la red del local | Las tablets y las impresoras la encuentran siempre |
-| IP fija en el router | Reservar la IP de la PC | Las tablets y las impresoras apuntan a esa dirección |
+| IP fija en el router | Reservar la IP de la PC **y la de cada impresora de red** | Los celulares y tablets entran por la IP de la PC; la PC manda las comandas a la IP de cada impresora |
 | UPS (batería) | Para la PC y el router | Un corte de luz no corta la caja ni corrompe la base |
 | BIOS: *Restore on AC power loss* = **Power On** | En la configuración de la PC | Si la luz se corta más que la UPS, la PC se prende sola al volver y Morfi arranca solo (no hace falta iniciar sesión) |
+| Internet de respaldo (recomendado) | Router con chip 4G y *failover* (pasa solo al 4G si se corta la fibra), o un módem 4G conectado al router principal | Sin internet el local sigue vendiendo, pero Mercado Pago, la factura al momento, WhatsApp y los pedidos online esperan. Con el 4G no se nota el corte |
+| Access point WiFi | Que llegue bien a todo el salón y la cocina | Si un celular pierde el WiFi del local, no puede tomar pedidos (el sistema está en la PC del local) |
 
 ## 2. Instalar (una vez por local, unos 15 minutos)
 
@@ -35,6 +37,11 @@ powershell -ExecutionPolicy Bypass -File instalar.ps1 -Cliente "la-buena-mesa" -
 
 El instalador deja el sistema corriendo y muestra la dirección para las tablets (ej. `http://192.168.0.10:3000`).
 Se puede volver a ejecutar: no borra datos.
+
+**Celulares y tablets del personal:** en **Menú QR → Conectar celulares y tablets del personal** está el QR con la
+dirección de la PC en el WiFi del local (sin las redes virtuales de Windows) y **Imprimir hoja para el personal**,
+con los pasos y cómo agregarlo a la pantalla de inicio. Pegarla en la cocina o la caja. Los QR de la carta y de las
+mesas también usan esa dirección cuando se arman desde la misma PC.
 
 - **Arranca al encender la PC**, aunque nadie inicie sesión (tarea de Windows *Morfi*, cuenta SYSTEM).
   pm2 usa una carpeta compartida para toda la PC (`PM2_HOME=C:\ProgramData\Morfi\pm2`): `pm2 list` y
@@ -93,9 +100,29 @@ pm2 start morfi
 Antes de reemplazar nada, verifica que la copia sea una base sana y guarda la base actual en
 `data\backups\antes-de-restaurar_...db` (si te equivocaste de copia, se restaura esa).
 
-**PC nueva (se rompió la del local):** instalar con `instalar.ps1`, copiar al `.env` los datos `BACKUP_S3_*` y la
-**misma** `BACKUP_CLAVE` del local (la del gestor de contraseñas, no la nueva que generó el instalador), y
-restaurar con `--nube`. **Hacer este simulacro una vez antes del primer cliente.**
+### PC de reemplazo (se rompió la del local), en un paso
+
+Con la clave de las copias del gestor de contraseñas y los datos del bucket del local, en la PC nueva
+(PowerShell como Administrador):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File instalar.ps1 -Cliente "la-buena-mesa" -Token "github_pat_..." -RestaurarDeLaNube `
+  -ClaveCopias "<64 caracteres>" -S3Endpoint "https://<cuenta>.r2.cloudflarestorage.com" -S3Bucket "gm-la-buena-mesa" `
+  -S3KeyId "<Access Key ID>" -S3Secret "<Secret Access Key>"
+```
+
+Instala todo, deja configuradas las copias en la nube con la **misma** clave, baja la copia más nueva, la verifica
+antes de usarla y arranca el sistema con los usuarios y datos del local. Antes de instalar nada revisa que estén
+todos los datos (no hay que descubrir a mitad de camino que faltaba uno). Después:
+
+1. En el router, darle a esta PC **la misma IP** que tenía la anterior: así los celulares y las tablets la
+   encuentran sin tocar nada (las impresoras de red no cambian: la PC les manda a sus IP, que vienen en la copia).
+   Las impresoras **USB** hay que instalarlas en la PC nueva con el mismo nombre.
+2. Revisar en **Pedidos** las ventas del último día: lo vendido después de la última copia (se hace cada 24 h y al
+   iniciar) no está.
+
+También existe `npm run restaurar -- --nube --ultima` para hacerlo a mano.
+**Hacer este simulacro una vez antes del primer cliente**, en una PC cualquiera.
 
 ## 4. Monitoreo (aviso si un local se cae)
 
@@ -162,3 +189,14 @@ Para la factura, primero en modo **homologación** (pruebas) y recién después 
 
 **Al terminar:** desactivar los usuarios de prueba (Configuración → Usuarios) y verificar que la copia en la nube
 y el monitoreo estén funcionando (puntos 3 y 4).
+
+## 8. Plan ante cortes (dejárselo al dueño)
+
+| Qué pasa | Qué sigue andando | Qué hacer |
+|---|---|---|
+| **Se corta internet** | Pedidos, mesas, cocina, impresoras y cobros en efectivo o con posnet (el posnet tiene su propio chip). Arriba aparece el aviso "Sin internet" | Nada. Las facturas quedan **en espera** y se emiten solas al volver (sin duplicarse). Mercado Pago, WhatsApp y los pedidos online vuelven con internet. Con router 4G de respaldo no se nota |
+| **Se corta la luz** | Con UPS: todo, el tiempo que dure la batería | Si la luz vuelve después de que se apagó la PC, se prende sola (BIOS) y Morfi arranca solo. No hace falta tocar nada |
+| **Un celular no carga Morfi** | El resto de los equipos | Que esté en el **WiFi del local** (no en datos móviles) y entre con la dirección de la hoja del personal. Si nadie entra, revisar que la PC esté prendida |
+| **Cambió la IP de la PC** (no se reservó en el router) | La PC misma | Menú QR → Conectar celulares muestra la dirección nueva. Reservarla en el router e imprimir la hoja de nuevo; en Configuración → Impresoras no hace falta tocar nada (la PC es la que les manda) |
+| **Se rompe la PC** | Nada hasta reemplazarla | Otra PC y `instalar.ps1 -RestaurarDeLaNube` (sección 3b): 15 a 30 minutos. Mientras tanto, comandas a mano |
+| **ARCA está caído** (con internet) | Todo menos la factura al momento | Las facturas quedan en espera y se reintentan solas; si ARCA rechaza alguna, aparece en Integraciones → AFIP |

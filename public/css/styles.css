@@ -2207,3 +2207,9 @@ tr:hover td {
 .marca-texto { font-weight: 800; letter-spacing: -0.5px; }
 .login-logo { background: none; width: auto; height: auto; }
 .login-tagline { color: var(--accent); font-weight: 600; }
+
+/* Conectar celulares y tablets del personal (Menú QR) */
+.conectar-equipos { display: flex; gap: 20px; flex-wrap: wrap; padding: 0 16px; }
+.conectar-direccion { display: flex; gap: 14px; align-items: center; }
+.conectar-direccion img { border: 1px solid var(--border); border-radius: 8px; padding: 4px; background: #fff; }
+.conectar-ayuda { padding: 10px 16px; margin: 0; }

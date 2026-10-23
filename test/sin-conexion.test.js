@@ -141,3 +141,20 @@ test('íconos y QR salen del propio sistema (sin cdnjs ni api.qrserver.com)', as
   const csp = (await fetch(s.base + '/')).headers.get('content-security-policy');
   assert.doesNotMatch(csp, /cdnjs|qrserver/);
 });
+
+test('conectar celulares: direcciones de la PC en la red del local (privadas, con el puerto), solo para el encargado', async () => {
+  assert.equal((await s.llamar('GET', '/api/red-local', null, s.tokenVendedor))[0], 403);
+  const [st, red] = await s.llamar('GET', '/api/red-local', null, s.tokenAdmin);
+  assert.equal(st, 200);
+  assert.ok(Array.isArray(red.direcciones));
+  const puerto = new URL(s.base).port;
+  for (const d of red.direcciones) {
+    assert.match(d.ip, /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/, 'solo direcciones de red local');
+    assert.equal(d.url, `http://${d.ip}:${puerto}`);
+  }
+});
+
+test('conectar celulares: no ofrece redes virtuales de Windows (WSL, Hyper-V) ni de programas', async () => {
+  const [, red] = await s.llamar('GET', '/api/red-local', null, s.tokenAdmin);
+  for (const d of red.direcciones) assert.doesNotMatch(d.interfaz, /vEthernet|WSL|Hyper-V|VirtualBox|VMware|Docker/i);
+});

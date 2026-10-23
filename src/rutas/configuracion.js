@@ -1,9 +1,31 @@
 'use strict';
 const {
-  get, errorHttp, errorInterno, autenticar, esAdmin, emitEvento, actualizarParcial, MODOS_QR_MESA
+  get, errorHttp, errorInterno, autenticar, esAdmin, emitEvento, actualizarParcial, MODOS_QR_MESA, requiere, PORT, urlPublica
 } = require('../contexto');
+const os = require('os');
 
 module.exports = function registrarRutas(app) {
+
+// ============ RED DEL LOCAL ============
+// Direcciones de esta PC en la red del local, para el QR "Conectar celulares y tablets". Las arma el servidor:
+// desde la misma PC el navegador ve "localhost", que en un celular no abre nada.
+const esPrivada = ip => /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
+// Redes virtuales de Windows y de programas (WSL, Hyper-V, VirtualBox, Docker, VPN): un celular no llega por ahí
+const esVirtual = nombre => /vEthernet|WSL|Hyper-V|VirtualBox|VMware|Docker|vboxnet|ZeroTier|Tailscale|Hamachi|Bluetooth/i.test(nombre);
+function direccionesLocales() {
+  return Object.entries(os.networkInterfaces())
+    .flatMap(([interfaz, datos]) => (datos || []).map(d => ({ ...d, interfaz })))
+    .filter(d => (d.family === 'IPv4' || d.family === 4) && !d.internal && esPrivada(d.address) && !esVirtual(d.interfaz))
+    // Primero las típicas de un router (192.168.x.x)
+    .sort((a, b) => Number(!a.address.startsWith('192.168.')) - Number(!b.address.startsWith('192.168.')))
+    .map(d => ({ ip: d.address, interfaz: d.interfaz, url: `http://${d.address}:${PORT}` }));
+}
+
+app.get('/api/red-local', autenticar, requiere('catalogo'), (req, res) => {
+  try {
+    res.json({ direcciones: direccionesLocales(), publica: urlPublica() || null });
+  } catch (err) { errorInterno(res, err); }
+});
 
 // ============ CONFIGURACION ============
 

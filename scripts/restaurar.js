@@ -8,6 +8,7 @@
 //   npm run restaurar -- --listar                 copias locales y de la nube
 //   npm run restaurar -- <copia.db>               una copia local (nombre en data/backups o ruta)
 //   npm run restaurar -- --nube <nombre>          una copia de la nube (sirve para armar el local en otra PC)
+//   npm run restaurar -- --nube --ultima          la copia más nueva de la nube (PC de reemplazo: instalar.ps1 -RestaurarDeLaNube)
 // Después: pm2 start morfi
 'use strict';
 require('../src/env');
@@ -79,8 +80,9 @@ async function listar() {
 
 async function restaurar() {
   const desdeNube = args.includes('--nube');
-  const nombre = desdeNube ? args[args.indexOf('--nube') + 1] : args.find(a => !a.startsWith('--'));
-  if (!nombre) throw new Error('Indicá qué copia restaurar (npm run restaurar -- --listar para verlas).');
+  const ultima = args.includes('--ultima');
+  let nombre = ultima ? null : desdeNube ? args[args.indexOf('--nube') + 1] : args.find(a => !a.startsWith('--'));
+  if (!nombre && !(ultima && desdeNube)) throw new Error('Indicá qué copia restaurar (npm run restaurar -- --listar para verlas).');
   if (await servidorCorriendo()) throw new Error('El servidor está corriendo. Detenelo primero: pm2 stop morfi');
 
   // La copia a restaurar queda primero en un archivo temporal: la base no se toca hasta verificarla
@@ -89,6 +91,12 @@ async function restaurar() {
     if (desdeNube) {
       const cfg = configNube();
       if (!cfg) throw new Error('La copia en la nube no está configurada en el .env (BACKUP_S3_*).');
+      if (ultima) {
+        const [masNueva] = await listarCopiasNube(cfg);
+        if (!masNueva) throw new Error(`No hay copias en la nube (${cfg.bucket}/${cfg.prefijo || ''}).`);
+        nombre = masNueva.nombre;
+        console.log(`Copia más nueva de la nube: ${nombre} (${masNueva.fecha})`);
+      }
       console.log(`Bajando ${nombre} de la nube...`);
       fs.writeFileSync(temporal, descifrarCopia(await bajarCopiaNube(cfg, nombre), claveCopias()));
     } else {
