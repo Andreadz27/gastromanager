@@ -82,9 +82,60 @@
     }).join('');
   }
 
+  // ---- Precios centrales: cada producto con su precio en cada sucursal ----
+  let carta = null, editando = null;
+  function pintarPrecios() {
+    if (!carta) return;
+    const q = $('buscar-producto').value.trim().toLowerCase();
+    const lista = carta.productos.filter(p => !q || p.producto.toLowerCase().includes(q));
+    if (!carta.productos.length) { $('lista-precios').innerHTML = '<p class="vacio">Todavía ninguna sucursal mandó su carta.</p>'; return; }
+    $('lista-precios').innerHTML = lista.slice(0, 100).map(p => {
+      const idx = carta.productos.indexOf(p);
+      const chips = p.precios.map(x => `<span class="chip${x.precio_nuevo !== null ? ' nuevo' : ''}">${esc(x.local)} ${plata(x.precio)}${
+        x.precio_nuevo !== null ? ` → ${plata(x.precio_nuevo)} (aplicando)` : ''}</span>`).join('');
+      const form = editando === idx ? `<form class="cambiar" data-idx="${idx}">
+          <label class="precio-nuevo">Precio nuevo<input type="number" name="precio" min="1" step="0.01" inputmode="decimal" required value="${esc(p.precios[0].precio)}"></label>
+          ${carta.locales.length > 1 ? p.precios.map(x => `<label><input type="checkbox" name="local" value="${x.local_id}" checked> ${esc(x.local)}</label>`).join('') : ''}
+          <div class="fila-botones"><button type="button" class="boton-sec" data-cancelar>Cancelar</button><button type="submit" class="boton">Aplicar</button></div>
+          <p class="error error-form" role="alert"></p></form>` : '';
+      return `<div class="tarjeta producto${p.distinto ? ' distinto' : ''}"><div class="producto-cab"><strong>${esc(p.producto)}</strong>
+        ${editando === idx ? '' : `<button type="button" class="boton-sec" data-editar="${idx}">Cambiar</button>`}</div>
+        <div class="precios">${chips}</div>${p.distinto ? '<p class="nota-izq">Precio distinto entre sucursales</p>' : ''}${form}</div>`;
+    }).join('') + (lista.length > 100 ? '<p class="vacio">Mostrando 100. Buscá para ver el resto.</p>' : '')
+      + (!lista.length ? '<p class="vacio">Ningún producto con ese nombre.</p>' : '');
+  }
+  async function cargarPrecios() {
+    if (editando !== null) return; // no borrar lo que se está escribiendo
+    carta = await api('/api/panel/carta');
+    pintarPrecios();
+  }
+  $('buscar-producto').addEventListener('input', () => { editando = null; pintarPrecios(); });
+  $('lista-precios').addEventListener('click', ev => {
+    const b = ev.target.closest('[data-editar]');
+    if (b) { editando = Number(b.dataset.editar); pintarPrecios(); const i = document.querySelector('.cambiar input[name=precio]'); if (i) i.select(); }
+    if (ev.target.closest('[data-cancelar]')) { editando = null; pintarPrecios(); }
+  });
+  $('lista-precios').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const f = ev.target, p = carta.productos[Number(f.dataset.idx)];
+    const locales = [...f.querySelectorAll('input[name=local]')].filter(x => x.checked).map(x => Number(x.value));
+    if (carta.locales.length > 1 && !locales.length) { f.querySelector('.error').textContent = 'Elegí al menos una sucursal'; return; }
+    f.querySelector('button[type=submit]').disabled = true;
+    try {
+      await api('/api/panel/precios', { method: 'POST', body: JSON.stringify({ producto: p.producto, precio: Number(f.precio.value),
+        ...(carta.locales.length > 1 ? { locales } : {}) }) });
+      editando = null;
+      await cargarPrecios();
+    } catch (e) {
+      f.querySelector('.error').textContent = e.message;
+      f.querySelector('button[type=submit]').disabled = false;
+    }
+  });
+
   async function cargar() {
     try {
       if (vista === 'ventas') await cargarVentas();
+      else if (vista === 'precios') await cargarPrecios();
       else if (vista === 'locales') $('lista-locales').innerHTML = pintarLocales(await api('/api/panel/locales'), false);
       else $('lista-soporte').innerHTML = pintarLocales(await api('/api/soporte/locales'), true);
       $('actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
@@ -98,6 +149,7 @@
     $('panel').hidden = false;
     $('cuenta').textContent = usuario ? (usuario.cuenta || (usuario.rol === 'soporte' ? 'Soporte' : usuario.nombre)) : '';
     $('pestana-soporte').hidden = !usuario || usuario.rol !== 'soporte';
+    $('pestana-precios').hidden = !usuario || usuario.rol !== 'duenio';
     cargar();
     clearInterval(reloj);
     reloj = setInterval(() => { if (!document.hidden) cargar(); }, 60000);
@@ -132,7 +184,8 @@
     if (!b) return;
     vista = b.dataset.vista;
     document.querySelectorAll('.pestanas button').forEach(x => x.classList.toggle('activa', x === b));
-    for (const v of ['ventas', 'locales', 'soporte']) $('vista-' + v).hidden = v !== vista;
+    editando = null;
+    for (const v of ['ventas', 'locales', 'precios', 'soporte']) $('vista-' + v).hidden = v !== vista;
     cargar();
   });
   $('periodos').addEventListener('click', ev => {

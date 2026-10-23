@@ -176,6 +176,12 @@ del local lo usa solo en Menú QR para los links de WhatsApp e Instagram.
 - Nombre, teléfono y dirección del cliente quedan en la nube solo hasta que el local recibe el pedido.
 - El pedido desde la mesa (QR de cada mesa) sigue yendo directo al local por el WiFi.
 
+**Precios centrales (cadenas):** en el panel, la pestaña *Precios* (solo el dueño, no soporte) muestra cada producto con el
+precio en cada sucursal y marca los que difieren. "Cambiar" pone un precio nuevo en todas o en las sucursales que se
+elijan. Cada local lo aplica en unos 10 segundos (sin internet, cuando vuelve) y lo deja en su auditoría
+("desde Morfi Nube", con el nombre de quien lo cambió). Los productos se reconocen por nombre: conviene que se llamen
+igual en todas las sucursales. Si una sucursal no puede aplicarlo (dio de baja el producto), el panel lo avisa.
+
 ## 5. Acceso remoto y pagos online (Cloudflare Tunnel)
 
 Necesario para que el dueño vea el sistema desde afuera y para recibir avisos de Mercado Pago y Tienda Nube.

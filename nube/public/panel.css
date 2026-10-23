@@ -54,3 +54,17 @@ main { max-width: 960px; margin: 0 auto; padding: 14px 16px 32px; }
 .vacio, .nota { color: var(--suave); font-size: 14px; }
 .nota { text-align: center; }
 .local a { color: var(--acento); word-break: break-all; }
+#buscar-producto { margin-bottom: 8px; }
+.nota-izq { color: var(--suave); font-size: 13px; margin: 0 0 12px; }
+.producto .precios { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--fondo); border: 1px solid var(--borde); font-variant-numeric: tabular-nums; }
+.chip.nuevo { border-color: var(--acento); color: var(--acento); }
+.producto.distinto .chip { border-color: var(--alerta); }
+.producto-cab { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.cambiar { display: grid; gap: 10px; margin-top: 12px; }
+.cambiar label { margin: 0; display: flex; align-items: center; gap: 8px; color: var(--texto); }
+.cambiar input[type=checkbox] { width: auto; margin: 0; }
+.fila-botones { display: flex; gap: 8px; }
+.fila-botones .boton { flex: 1; }
+.cambiar label.precio-nuevo { display: block; color: var(--suave); }
+.error-form { min-height: 0; margin: 0; }
