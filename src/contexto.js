@@ -24,6 +24,7 @@ module.exports = {
   ...require('./servicios/ticket-fiscal'),
   ...require('./servicios/cobro-mesa'),
   ...require('./servicios/mesa-qr'),
+  ...require('./servicios/pago-mesa'),
   ...require('./servicios/whatsapp'),
   ...require('./servicios/recetas'),
   ...require('./servicios/autorizacion'),

@@ -8,9 +8,14 @@ const { emitEvento } = require('../realtime');
 const { errorHttp } = require('../util');
 const { generarNumeroPedido, resolverItems, recalcularTotales } = require('./pedidos');
 const { comandaAutomatica } = require('./impresion');
+const { pagoMesaDisponible } = require('./pago-mesa');
+const { configWhatsApp, whatsappListo } = require('./whatsapp');
 
 const MODOS_QR_MESA = ['confirmar', 'directo', 'solo_carta'];
-const TIPOS_SOLICITUD = ['pedido', 'mozo', 'cuenta'];
+// pago: aviso al mozo de que la mesa pagó con Mercado Pago desde el celular (lo crea pago-mesa.js)
+const TIPOS_SOLICITUD = ['pedido', 'mozo', 'cuenta', 'pago'];
+// Con qué paga el que pide la cuenta (así el mozo lleva el posnet o el cambio)
+const FORMAS_PAGO_CUENTA = { efectivo: 'Paga en efectivo', tarjeta: 'Paga con tarjeta', mercadopago: 'Paga con QR de Mercado Pago' };
 // Topes: sin login cualquiera con el QR puede pedir; un mismo QR no acumula pedidos sin confirmar
 const MAX_ITEMS_MESA = 30;
 const MAX_CANTIDAD_MESA = 20;
@@ -61,13 +66,17 @@ async function solicitarPedidoMesa(mesa, { items, notas, cliente }) {
   return resumenSolicitud(await get('SELECT * FROM solicitudes_mesa WHERE id = ?', [id]));
 }
 
-// Llamar al mozo o pedir la cuenta. Si ya hay uno igual esperando, no se duplica.
-async function llamarMozo(mesa, tipo) {
+// Llamar al mozo o pedir la cuenta (con la forma de pago). Si ya hay uno igual esperando, no se duplica.
+async function llamarMozo(mesa, tipo, forma) {
   if (!['mozo', 'cuenta'].includes(tipo)) throw errorHttp(400, 'Tipo de llamado inválido');
+  const notas = tipo === 'cuenta' ? FORMAS_PAGO_CUENTA[forma] || '' : '';
   const id = await transaccion(async () => {
     const ya = await get("SELECT id FROM solicitudes_mesa WHERE mesa_id = ? AND tipo = ? AND estado = 'pendiente'", [mesa.id, tipo]);
-    if (ya) return ya.id;
-    const r = await run('INSERT INTO solicitudes_mesa (mesa_id, tipo) VALUES (?, ?)', [mesa.id, tipo]);
+    if (ya) {
+      if (notas) await run('UPDATE solicitudes_mesa SET notas = ? WHERE id = ?', [notas, ya.id]);
+      return ya.id;
+    }
+    const r = await run('INSERT INTO solicitudes_mesa (mesa_id, tipo, notas) VALUES (?, ?, ?)', [mesa.id, tipo, notas]);
     emitEvento('mesa:solicitud', { id: r.id, tipo, mesa_id: mesa.id, mesa_nombre: mesa.nombre });
     return r.id;
   });
@@ -78,12 +87,18 @@ async function llamarMozo(mesa, tipo) {
 async function estadoMesa(mesa) {
   const solicitudes = await all(`SELECT * FROM solicitudes_mesa WHERE mesa_id = ? AND creado_en >= datetime('now', '-4 hours')
     ORDER BY id DESC LIMIT 20`, [mesa.id]);
-  const pedido = await get("SELECT id, subtotal, descuento, total FROM pedidos WHERE mesa_id = ? AND estado = 'abierto' LIMIT 1", [mesa.id]);
+  const pedido = await get("SELECT id, subtotal, descuento, propina, total FROM pedidos WHERE mesa_id = ? AND estado = 'abierto' LIMIT 1", [mesa.id]);
+  const pagado = pedido ? (await get('SELECT COALESCE(SUM(monto), 0) AS p FROM pagos WHERE pedido_id = ?', [pedido.id])).p : 0;
   const cuenta = pedido ? {
     items: await all('SELECT nombre_producto, cantidad, subtotal FROM pedido_items WHERE pedido_id = ? ORDER BY id', [pedido.id]),
-    subtotal: pedido.subtotal, descuento: pedido.descuento, total: pedido.total
+    subtotal: pedido.subtotal, descuento: pedido.descuento, propina: pedido.propina, total: pedido.total,
+    pagado, saldo: Math.max(0, Math.round((pedido.total - pagado) * 100) / 100)
   } : null;
-  return { mesa: { nombre: mesa.nombre }, modo: await modoQrMesa(), solicitudes: solicitudes.map(resumenSolicitud), cuenta };
+  return {
+    mesa: { nombre: mesa.nombre }, modo: await modoQrMesa(), solicitudes: solicitudes.map(resumenSolicitud), cuenta,
+    // Qué puede hacer el cliente al pagar desde el celular
+    pago: { mercadopago: await pagoMesaDisponible(), whatsapp: whatsappListo(await configWhatsApp()) }
+  };
 }
 
 // Pendientes para los mozos (de todas las mesas)
@@ -154,9 +169,9 @@ async function rechazarSolicitud(id, usuarioId, motivo) {
   return resumenSolicitud(s);
 }
 
-// El mozo fue a la mesa (llamado o cuenta)
+// El mozo fue a la mesa (llamado o cuenta) o vio el aviso de pago
 async function atenderSolicitud(id, usuarioId) {
-  const s = await tomarPendiente(id, ['mozo', 'cuenta'], 'atendida', usuarioId);
+  const s = await tomarPendiente(id, ['mozo', 'cuenta', 'pago'], 'atendida', usuarioId);
   emitEvento('mesa:solicitud_resuelta', { id: s.id, mesa_id: s.mesa_id, estado: 'atendida' });
   return resumenSolicitud(s);
 }

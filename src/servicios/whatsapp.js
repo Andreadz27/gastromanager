@@ -222,6 +222,6 @@ async function procesarWebhook(body) {
 }
 
 module.exports = {
-  normalizarTelefono, configWhatsApp, enviarPlantilla, enviarComprobante, avisarEstadoPedido,
+  normalizarTelefono, configWhatsApp, enviarPlantilla, enviarComprobante, avisarEstadoPedido, whatsappListo: listo,
   enviarRecordatoriosReservas, iniciarRecordatoriosWhatsApp, firmaValida, procesarWebhook, PLANTILLAS_POR_DEFECTO
 };

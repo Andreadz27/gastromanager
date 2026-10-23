@@ -1,6 +1,6 @@
 'use strict';
 const {
-  run, get, all, transaccion, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere, requiereCobro, configWhatsApp, requiereAutorizacion, pedidoDeSalon, emitirFactura, emitirNotaCredito, consultarPadron, crearAfip, saldoPedido, registrarCobroTx
+  run, get, all, transaccion, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere, requiereCobro, configWhatsApp, requiereAutorizacion, pedidoDeSalon, emitirFactura, emitirNotaCredito, consultarPadron, crearAfip, saldoPedido, aplicarPagoMercadoPago
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -283,37 +283,8 @@ app.post('/api/mp/notificacion', async (req, res) => {
     if (!cfg.access_token) return res.sendStatus(200);
 
     const pago = await mpRequest(cfg, 'GET', `/v1/payments/${encodeURIComponent(paymentId)}`);
-    const pedido = pago.external_reference
-      ? await get('SELECT * FROM pedidos WHERE id = ?', [pago.external_reference])
-      : null;
-    if (!pedido) return res.sendStatus(200);
-
-    // La consulta HTTP a MP ya se hizo: desde acá todo es una sola transacción
-    await transaccion(async () => {
-      await run('UPDATE pedidos SET mp_payment_id = ? WHERE id = ?', [String(pago.id), pedido.id]);
-      const referencia = `MP-${pago.id}`;
-      // Idempotente: MP reenvía notificaciones; cada pago de MP se registra una sola vez
-      const yaRegistrado = await get('SELECT 1 AS x FROM pagos WHERE referencia = ? LIMIT 1', [referencia]);
-      if (pago.status === 'approved' && !yaRegistrado) {
-        const monto = Math.round((Number(pago.transaction_amount) || 0) * 100) / 100;
-        const actual = await get('SELECT estado, numero_pedido FROM pedidos WHERE id = ?', [pedido.id]);
-        const alerta = detalle => run('INSERT INTO auditoria (usuario_id, accion, detalle) VALUES (NULL, ?, ?)', ['alerta_mercadopago', detalle]);
-        if (actual.estado !== 'abierto') {
-          // El pedido ya se cobró (o canceló) por otro medio: el cliente pagó dos veces
-          await alerta(`Pedido ${actual.numero_pedido}: entró un pago de Mercado Pago por $${monto} (pago ${pago.id}) ` +
-            `pero el pedido ya estaba ${actual.estado}. Revisar y devolver al cliente desde Mercado Pago.`);
-        } else if (monto > 0) {
-          // Se cobra lo que pagó, nunca más que el saldo: si el link era viejo y la mesa pidió algo más, queda saldo pendiente
-          const { saldo } = await saldoPedido(pedido.id);
-          const r = await registrarCobroTx(pedido.id, { pagos: [{ metodo: 'mercadopago', monto: Math.min(monto, saldo), referencia }], usuarioId: null });
-          await run('INSERT INTO auditoria (usuario_id, accion, detalle) VALUES (NULL, ?, ?)',
-            ['pago_mercadopago', `Pedido ${pedido.numero_pedido}: ${r.cerrado ? 'cobrado' : `cobro parcial de $${r.cobrado}, falta $${r.saldo}`} por Mercado Pago (pago ${pago.id})`]);
-          if (monto > saldo + 0.009)
-            await alerta(`Pedido ${pedido.numero_pedido}: Mercado Pago cobró $${monto} y el saldo era $${saldo}. Devolver $${Math.round((monto - saldo) * 100) / 100} al cliente.`);
-        }
-      }
-      emitEvento('pago:recibido', { payment_id: pago.id, pedido_id: pedido.id, estado: pago.status });
-    });
+    // Idempotente y en una sola transacción (servicios/pago-mesa.js): también lo usa el pago desde la mesa
+    await aplicarPagoMercadoPago(pago);
     res.sendStatus(200);
   } catch (e) {
     console.error('[MP notificacion]', e.message);

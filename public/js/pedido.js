@@ -56,6 +56,135 @@ const PedidoOnline={
     this._pintarMesa(estado);
     // El cliente ve cuándo el mozo confirma: se consulta cada 10 s mientras la página está a la vista
     setInterval(()=>{if(!document.hidden)this._refrescarMesa();},10000);
+    // Vuelta de Mercado Pago: ?pago=<intento>&payment_id=...&status=...
+    const q=new URLSearchParams(location.search);
+    if(/^\d+$/.test(q.get("pago")||""))this._volverDePago(q.get("pago"),q.get("payment_id")||q.get("collection_id")||"",q.get("status")||q.get("collection_status")||"");
+  },
+
+  // ── Pagar desde la mesa ──
+  pagoOpc:{modo:"todo",partes:2,propina:0,propinaOtra:""},
+  abrirCuenta(){
+    const e=this.mesa||{};const c=e.cuenta;
+    // Sin cuenta abierta o sin Mercado Pago: se avisa al mozo como antes
+    if(!c||!(c.saldo>0)){this.llamar("cuenta");return;}
+    this._pintarPago();
+    document.getElementById("pagoModal").style.display="";document.body.style.overflow="hidden";
+  },
+  cerrarCuenta(){document.getElementById("pagoModal").style.display="none";document.body.style.overflow="";},
+  _calcPago(){
+    const c=this.mesa.cuenta,o=this.pagoOpc;
+    const n=Math.max(2,Math.min(20,parseInt(o.partes,10)||2));
+    const parte=o.modo==="todo"?c.saldo:Math.min(c.saldo,Math.ceil(c.saldo/n*100)/100);
+    const propina=o.propina==="otra"?Math.max(0,Math.round((parseFloat(String(o.propinaOtra).replace(",","."))||0)*100)/100):Math.round(parte*o.propina)/100;
+    return{n,parte,propina,total:Math.round((parte+propina)*100)/100};
+  },
+  _pintarPago(){
+    const e=this.mesa,c=e.cuenta,o=this.pagoOpc,k=this._calcPago();
+    const chip=(v,l)=>`<button type="button" class="pago-chip ${o.propina===v?"activo":""}" onclick="PedidoOnline.opcPago('propina',${JSON.stringify(v)})">${l}</button>`;
+    const mp=e.pago&&e.pago.mercadopago?`
+      <div class="pago-seccion">
+        <h4><i class="fas fa-mobile-alt"></i> Pagar ahora con Mercado Pago</h4>
+        <label class="tipo-opcion"><input type="radio" name="pagoModo" ${o.modo==="todo"?"checked":""} onchange="PedidoOnline.opcPago('modo','todo')"><span>Toda la cuenta</span></label>
+        <label class="tipo-opcion"><input type="radio" name="pagoModo" ${o.modo==="partes"?"checked":""} onchange="PedidoOnline.opcPago('modo','partes')"><span>Mi parte: dividir entre
+          <input type="number" id="pagoPartes" min="2" max="20" value="${k.n}" onchange="PedidoOnline.opcPago('partes',this.value)" onfocus="PedidoOnline.elegirPartes()" onclick="event.stopPropagation()" class="pago-partes"> personas</span></label>
+        <div class="pago-propina"><span>Propina para el equipo</span><div>${chip(0,"Sin propina")}${chip(10,"10%")}${chip(15,"15%")}${chip("otra","Otra")}</div>
+          ${o.propina==="otra"?`<input type="number" id="pagoPropinaOtra" min="0" step="1" placeholder="$" value="${pdE(o.propinaOtra)}" oninput="PedidoOnline.opcPago('propinaOtra',this.value,true)">`:""}</div>
+        <div class="resumen-row"><span>${o.modo==="todo"?"Cuenta":"Tu parte"}</span><strong>${pdM(k.parte)}</strong></div>
+        ${k.propina?`<div class="resumen-row"><span>Propina</span><strong>${pdM(k.propina)}</strong></div>`:""}
+        <div class="resumen-total"><span>Pagás</span><strong id="pagoTotal">${pdM(k.total)}</strong></div>
+        <button class="btn btn-primary btn-block mt-10" id="btnPagarMP" onclick="PedidoOnline.pagarMP()"><i class="fas fa-lock"></i> Pagar ${pdM(k.total)} con Mercado Pago</button>
+      </div>`:"";
+    document.getElementById("pagoContenido").innerHTML=`
+      <div class="form-resumen">
+        <div class="resumen-row"><span>Total de la mesa</span><strong>${pdM(c.total)}</strong></div>
+        ${c.pagado?`<div class="resumen-row"><span>Ya pagado</span><strong>-${pdM(c.pagado)}</strong></div>`:""}
+        <div class="resumen-total"><span>Falta pagar</span><strong>${pdM(c.saldo)}</strong></div>
+      </div>
+      ${mp}
+      <div class="pago-seccion">
+        <h4>${mp?"¿Pagás de otra forma?":"¿Cómo pagás?"} Te traemos la cuenta</h4>
+        <div class="mesa-acciones">
+          <button class="btn btn-outline" onclick="PedidoOnline.cuentaAlMozo('efectivo')"><i class="fas fa-money-bill-wave"></i> Efectivo</button>
+          <button class="btn btn-outline" onclick="PedidoOnline.cuentaAlMozo('tarjeta')"><i class="fas fa-credit-card"></i> Tarjeta</button>
+        </div>
+      </div>`;
+  },
+  // Tocar la cantidad de personas elige "Mi parte" (si no, seguía cobrando la cuenta entera)
+  elegirPartes(){
+    if(this.pagoOpc.modo==="partes")return;
+    this.pagoOpc.modo="partes";this._pintarPago();
+    const i=document.getElementById("pagoPartes");i.focus();i.select();
+  },
+  // sinRepintar: al escribir la propina no se rehace el formulario (se perdería el foco)
+  opcPago(campo,valor,sinRepintar){
+    this.pagoOpc[campo]=valor;
+    if(!sinRepintar)return this._pintarPago();
+    const k=this._calcPago();
+    document.getElementById("pagoTotal").textContent=pdM(k.total);
+    document.getElementById("btnPagarMP").innerHTML='<i class="fas fa-lock"></i> Pagar '+pdM(k.total)+" con Mercado Pago";
+  },
+  async pagarMP(){
+    const o=this.pagoOpc,k=this._calcPago();
+    const btn=document.getElementById("btnPagarMP");btn.disabled=true;
+    btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Abriendo Mercado Pago...';
+    try{
+      const r=await fetch("/api/publico/mesa/"+this.mesaToken+"/pagar",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({partes:o.modo==="todo"?1:k.n,propina:k.propina})});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||"No se pudo iniciar el pago");
+      location.href=d.link;
+    }catch(err){alert(err.message);this._pintarPago();}
+  },
+  async cuentaAlMozo(forma){
+    this.cerrarCuenta();
+    await this.llamar("cuenta",forma);
+    this._aviso("Listo: el mozo te trae la cuenta.");
+  },
+  _aviso(texto){
+    const a=document.getElementById("mesaAviso");
+    a.textContent=texto;a.style.display="";
+    clearTimeout(this._avisoTimer);this._avisoTimer=setTimeout(()=>{a.style.display="none";},15000);
+  },
+  async _volverDePago(id,paymentId,status){
+    history.replaceState(null,"",location.pathname+"?mesa="+this.mesaToken);
+    try{
+      const r=await fetch("/api/publico/mesa/"+this.mesaToken+"/pago/"+id+"/verificar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({payment_id:paymentId})});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||"No se pudo verificar el pago");
+      if(d.estado==="aprobado"){
+        this._aviso("¡Pago aprobado! Gracias."+(d.cuenta_cerrada?" La cuenta quedó paga.":" Falta pagar el resto de la mesa."));
+        this._pintarComprobante(id,d);
+      }else{
+        this._aviso(status==="pending"||status==="in_process"
+          ?"Tu pago está en proceso: cuando Mercado Pago lo apruebe, se acredita solo."
+          :"El pago no se completó. Podés intentar de nuevo o pedirle la cuenta al mozo.");
+      }
+      this._refrescarMesa();
+    }catch(err){this._aviso(err.message);}
+  },
+  // Comprobante por WhatsApp para quien pagó (sale cuando se cierra la cuenta de la mesa)
+  _pintarComprobante(id,d){
+    const el=document.getElementById("mesaComprobante");
+    if(!this.mesa||!this.mesa.pago||!this.mesa.pago.whatsapp){el.innerHTML="";return;}
+    if(d.comprobante){
+      el.innerHTML=`<div class="mesa-seguimiento"><i class="fab fa-whatsapp"></i> ${d.comprobante==="enviado"?"Te mandamos el comprobante por WhatsApp.":"Te mandamos el comprobante por WhatsApp cuando se pague toda la cuenta."}</div>`;
+      return;
+    }
+    el.innerHTML=`<form class="mesa-seguimiento" onsubmit="PedidoOnline.pedirComprobante(event,${Number(id)})">
+      <h4><i class="fab fa-whatsapp"></i> ¿Querés el comprobante por WhatsApp?</h4>
+      <div class="mesa-acciones"><input type="tel" id="comprobanteTel" placeholder="11 1234-5678" required autocomplete="tel">
+      <button class="btn btn-success" id="btnComprobante">Enviarme</button></div></form>`;
+  },
+  async pedirComprobante(e,id){
+    e.preventDefault();
+    const btn=document.getElementById("btnComprobante");btn.disabled=true;
+    try{
+      const r=await fetch("/api/publico/mesa/"+this.mesaToken+"/pago/"+id+"/comprobante",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({telefono:document.getElementById("comprobanteTel").value})});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||"No se pudo enviar");
+      this._pintarComprobante(id,d);
+    }catch(err){alert(err.message);btn.disabled=false;}
   },
   async _refrescarMesa(){
     try{const r=await fetch("/api/publico/mesa/"+this.mesaToken);if(r.ok)this._pintarMesa(await r.json());}catch(e){}
@@ -64,7 +193,8 @@ const PedidoOnline={
     this.mesa=estado;
     const ESTADOS={pendiente:"Esperando al mozo",confirmada:"Confirmado, en preparación",rechazada:"No se pudo tomar",atendida:"El mozo ya viene"};
     const TITULOS={pedido:"Pedido",mozo:"Llamaste al mozo",cuenta:"Pediste la cuenta"};
-    const sols=(estado.solicitudes||[]).slice(0,6).map(s=>{
+    // Los avisos de pago son para el mozo; el cliente ve lo pagado en la cuenta
+    const sols=(estado.solicitudes||[]).filter(s=>TITULOS[s.tipo]).slice(0,6).map(s=>{
       const det=s.tipo==="pedido"?" — "+s.items.map(i=>i.cantidad+" x "+i.nombre).join(", "):"";
       const est=s.tipo!=="pedido"&&s.estado==="pendiente"?"Avisado":ESTADOS[s.estado]||s.estado;
       return`<div class="mesa-sol"><span>${pdE(TITULOS[s.tipo]+det)}${s.motivo?`<br><small>${pdE(s.motivo)}</small>`:""}</span><span class="mesa-sol-estado ${pdE(s.estado)}">${pdE(est)}</span></div>`;
@@ -73,16 +203,19 @@ const PedidoOnline={
     const cuenta=c?`<div class="mesa-seguimiento"><h4><i class="fas fa-receipt"></i> Tu cuenta</h4>
       ${c.items.map(i=>`<div class="mesa-sol"><span>${pdE(i.cantidad+" x "+i.nombre_producto)}</span><span>${pdM(i.subtotal)}</span></div>`).join("")}
       ${c.descuento?`<div class="mesa-sol"><span>Descuento</span><span>-${pdM(c.descuento)}</span></div>`:""}
-      <div class="mesa-cuenta-total"><span>Total</span><span>${pdM(c.total)}</span></div></div>`:"";
+      ${c.propina?`<div class="mesa-sol"><span>Propina</span><span>${pdM(c.propina)}</span></div>`:""}
+      <div class="mesa-cuenta-total"><span>Total</span><span>${pdM(c.total)}</span></div>
+      ${c.pagado?`<div class="mesa-sol"><span>Pagado</span><span>-${pdM(c.pagado)}</span></div>
+      <div class="mesa-cuenta-total"><span>Falta pagar</span><span>${pdM(c.saldo)}</span></div>`:""}</div>`:"";
     document.getElementById("mesaEstado").innerHTML=(sols?`<div class="mesa-seguimiento"><h4><i class="fas fa-bell"></i> Tus pedidos</h4>${sols}</div>`:"")+cuenta;
     // Solo carta: se ve el menú pero no se arma pedido
     if(estado.modo==="solo_carta"){["carritoSidebar","carritoFlotante"].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display="none";});}
   },
-  async llamar(tipo){
+  async llamar(tipo,forma){
     const btn=document.getElementById(tipo==="cuenta"?"btnPedirCuenta":"btnLlamarMozo");
     btn.disabled=true;
     try{
-      const r=await fetch("/api/publico/mesa/"+this.mesaToken+"/llamar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tipo})});
+      const r=await fetch("/api/publico/mesa/"+this.mesaToken+"/llamar",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tipo,forma})});
       const d=await r.json();
       if(!r.ok)throw new Error(d.error||"No se pudo avisar");
       await this._refrescarMesa();
@@ -318,11 +451,12 @@ const PedidoOnline={
     this.paintItems();this.paintCarrito();
   },
   _initEvents(){
-    ["carritoMobileModal","formModal"].forEach(id=>{
+    ["carritoMobileModal","formModal","pagoModal"].forEach(id=>{
       const el=document.getElementById(id);
       if(el)el.addEventListener("click",e=>{
         if(e.target===el){
           if(id==="carritoMobileModal")this.toggleCarritoMobile();
+          else if(id==="pagoModal")this.cerrarCuenta();
           else this.cerrarFormulario();
         }
       });
@@ -330,6 +464,7 @@ const PedidoOnline={
     document.addEventListener("keydown",e=>{
       if(e.key!=="Escape")return;
       this.cerrarFormulario();
+      if(this.mesaToken)this.cerrarCuenta();
       const mm=document.getElementById("carritoMobileModal");
       if(mm&&mm.style.display!=="none")this.toggleCarritoMobile();
     });

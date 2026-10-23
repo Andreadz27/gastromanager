@@ -96,19 +96,21 @@ const Mesas = {
   // ===== Pedidos y llamados desde el QR de la mesa =====
   htmlSolicitudes() {
     if (!this.solicitudes.length) return '';
-    const TITULOS = { pedido: 'Pedido', mozo: 'Llama al mozo', cuenta: 'Pide la cuenta' };
+    const TITULOS = { pedido: 'Pedido', mozo: 'Llama al mozo', cuenta: 'Pide la cuenta', pago: 'Pagó desde el celular' };
     const hora = f => parseFecha(f).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
     const filas = this.solicitudes.map(s => {
       const total = s.items.reduce((t, i) => t + i.precio * i.cantidad, 0);
       const detalle = s.tipo === 'pedido' ? `
         <ul class="solicitud-items">${s.items.map(i => `<li>${i.cantidad} x ${esc(i.nombre)}${i.notas ? ` <em>(${esc(i.notas)})</em>` : ''}</li>`).join('')}</ul>
         ${s.notas ? `<div class="text-muted"><i class="fas fa-comment"></i> ${esc(s.notas)}</div>` : ''}
-        <div class="font-bold">${fmtMoneda(total)}</div>` : '';
+        <div class="font-bold">${fmtMoneda(total)}</div>`
+        // Cuenta: con qué paga (efectivo, tarjeta). Pago: monto, propina y si queda saldo
+        : s.notas ? `<div class="${s.tipo === 'pago' ? 'text-success font-bold' : ''}"><i class="fas fa-${s.tipo === 'pago' ? 'check-circle' : 'info-circle'}"></i> ${esc(s.notas)}</div>` : '';
       const acciones = s.tipo === 'pedido' ? `
         <button class="btn btn-success btn-sm" onclick="Mesas.confirmarSolicitud(${s.id})"><i class="fas fa-check"></i> Confirmar</button>
         <button class="btn btn-outline btn-sm" onclick="Mesas.corregirSolicitud(${s.id})"><i class="fas fa-edit"></i> Corregir</button>
         <button class="btn btn-danger btn-sm" onclick="Mesas.rechazarSolicitud(${s.id})"><i class="fas fa-times"></i> Rechazar</button>`
-        : `<button class="btn btn-primary btn-sm" onclick="Mesas.atenderSolicitud(${s.id})"><i class="fas fa-check"></i> Ya fui</button>`;
+        : `<button class="btn btn-primary btn-sm" onclick="Mesas.atenderSolicitud(${s.id})"><i class="fas fa-check"></i> ${s.tipo === 'pago' ? 'Visto' : 'Ya fui'}</button>`;
       return `
         <div class="solicitud-mesa solicitud-${s.tipo}">
           <div class="solicitud-cabecera">

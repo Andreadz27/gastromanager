@@ -128,8 +128,12 @@ const App = {
       // Pedido, llamado o cuenta desde el QR de una mesa: aviso con sonido para los mozos
       this.socket.on('mesa:solicitud', (data) => {
         if (!App.puede('pedidos.tomar')) return;
-        const que = { pedido: 'hizo un pedido', mozo: 'llama al mozo', cuenta: 'pide la cuenta' }[data.tipo] || 'te necesita';
-        this.showToast(`${data.mesa_nombre} ${que}`, 'warning', 10000);
+        const que = { pedido: 'hizo un pedido', mozo: 'llama al mozo', cuenta: 'pide la cuenta', pago: 'pagó con Mercado Pago' }[data.tipo] || 'te necesita';
+        this.showToast(`${data.mesa_nombre} ${que}${data.detalle ? ': ' + data.detalle : ''}`, data.tipo === 'pago' ? 'success' : 'warning', 10000);
+        if (data.tipo === 'pago') { // la mesa puede haberse cerrado
+          if (App.currentView === 'pedidos') Pedidos.render();
+          if (App.currentView === 'caja') Caja.render();
+        }
         this.sonarAviso();
         this.contarSolicitudesMesa();
         if (App.currentView === 'mesas') Mesas.render();
