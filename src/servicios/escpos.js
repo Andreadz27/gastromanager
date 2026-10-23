@@ -103,6 +103,22 @@ class Ticket {
   // Avanza el papel y corta (corte parcial)
   cortar() { this.bytes.push(GS, 0x56, 0x42, 0x03); return this; }
 
+  // Código QR con el comando nativo de la impresora (GS ( k, modelo 2): lo dibuja la impresora, sin imágenes.
+  // tamano = lado de cada módulo en puntos (1 a 16)
+  qr(texto, tamano = 6) {
+    const datos = [...Buffer.from(String(texto), 'ascii')];
+    const largo = datos.length + 3;
+    this.bytes.push(
+      GS, 0x28, 0x6b, 4, 0, 0x31, 0x41, 0x32, 0x00,                          // modelo 2
+      GS, 0x28, 0x6b, 3, 0, 0x31, 0x43, Math.max(1, Math.min(16, tamano)),   // tamaño del módulo
+      GS, 0x28, 0x6b, 3, 0, 0x31, 0x45, 0x31,                                // corrección de errores M
+      GS, 0x28, 0x6b, largo & 0xff, largo >> 8, 0x31, 0x50, 0x30, ...datos,  // guardar los datos
+      GS, 0x28, 0x6b, 3, 0, 0x31, 0x51, 0x30,                                // imprimir
+      LF
+    );
+    return this;
+  }
+
   // Pulso para abrir el cajón de dinero (pin 2)
   abrirCajon() { this.bytes.push(ESC, 0x70, 0x00, 0x19, 0xfa); return this; }
 

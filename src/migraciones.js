@@ -34,6 +34,8 @@ async function migrarEsquema() {
   await agregarColumna('comprobantes_afip', 'condicion_iva_receptor', 'INTEGER');
   await agregarColumna('comprobantes_afip', 'comprobante_asociado_id', 'INTEGER');
   await agregarColumna('comprobantes_afip', 'motivo', "TEXT DEFAULT ''");
+  // homologacion | produccion ('' = anterior a guardarlo): las facturas de prueba no tienen validez fiscal
+  await agregarColumna('comprobantes_afip', 'modo', "TEXT DEFAULT ''");
   await run('CREATE INDEX IF NOT EXISTS idx_comprobantes_asociado ON comprobantes_afip(comprobante_asociado_id)');
   // WhatsApp Business: mensajes enviados (con su estado) y recibidos
   await run(`CREATE TABLE IF NOT EXISTS whatsapp_mensajes (

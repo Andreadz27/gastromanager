@@ -21,6 +21,7 @@ module.exports = {
   ...require('./servicios/backups'),
   ...require('./servicios/impresion'),
   ...require('./servicios/facturacion'),
+  ...require('./servicios/ticket-fiscal'),
   ...require('./servicios/cobro-mesa'),
   ...require('./servicios/whatsapp'),
   ...require('./servicios/recetas'),

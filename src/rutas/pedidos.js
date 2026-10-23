@@ -2,7 +2,7 @@
 const {
   run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPagoTx, METODOS_PAGO, comandaAutomatica, ticketAlCobrar, requiere,
   registrarCobroTx, saldoPedido, requiereCobro, emitirFactura, validarDatosFactura, avisarEstadoPedido,
-  autorizar, requiereAutorizacion
+  autorizar, requiereAutorizacion, facturaVigente, datosTicketFiscalConQR, getIntCfg
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -167,7 +167,11 @@ app.get('/api/pedidos/:id', autenticar, requiere('pedidos.ver'), async (req, res
     const comprobantes = await all('SELECT * FROM comprobantes_afip WHERE pedido_id = ? ORDER BY id', [req.params.id]);
 
     const { pagado, saldo } = await saldoPedido(pedido.id);
-    res.json({ ...pedido, items, pagos, entrega, comprobantes, pagado, saldo });
+    // Datos de la factura vigente para imprimir el ticket desde el navegador (sin impresora térmica)
+    const vigente = await facturaVigente(pedido.id);
+    const fiscal = vigente ? await datosTicketFiscalConQR(vigente, await getIntCfg('afip'),
+      await get('SELECT nombre_negocio, direccion FROM configuracion WHERE id = 1')) : null;
+    res.json({ ...pedido, items, pagos, entrega, comprobantes, pagado, saldo, fiscal });
   } catch (err) {
     errorInterno(res, err);
   }

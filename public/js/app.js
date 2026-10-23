@@ -561,6 +561,36 @@ const App = {
     const desc = (p.pedido && p.pedido.descuento) || p.descuento || 0;
     const propina = (p.pedido && p.pedido.propina) || p.propina || 0;
     const total = (p.pedido && p.pedido.total) || p.total || 0;
+    // Factura electrónica: datos del emisor y receptor, IVA y QR de ARCA (los arma el servidor)
+    const f = p.fiscal;
+    const prueba = f && f.prueba ? '<div class="center bold">*** COMPROBANTE DE PRUEBA &mdash; SIN VALIDEZ FISCAL ***</div>' : '';
+    const encabezadoFiscal = f ? `
+        ${prueba}
+        ${f.emisor.razon_social ? `<div class="center">${esc(f.emisor.razon_social)}</div>` : ''}
+        ${f.emisor.domicilio ? `<div class="center">${esc(f.emisor.domicilio)}</div>` : ''}
+        <div class="center">CUIT: ${esc(f.emisor.cuit)} &middot; ${esc(f.emisor.condicion)}</div>
+        ${f.emisor.iibb ? `<div class="center">IIBB: ${esc(f.emisor.iibb)}</div>` : ''}
+        ${f.emisor.inicio_actividades ? `<div class="center">Inicio de actividades: ${esc(f.emisor.inicio_actividades)}</div>` : ''}
+        <div class="sep"></div>
+        <div class="center bold" style="font-size:15px">FACTURA ${esc(f.letra)}</div>
+        <div class="center">C&oacute;d. ${esc(f.codigo)} &middot; N&deg; ${esc(f.numero)} &middot; ${esc(f.fecha)}</div>
+        <div class="sep"></div>
+        ${f.receptor
+          ? `<div>Cliente: ${esc(f.receptor.razon_social)}</div><div>CUIT: ${esc(f.receptor.cuit)}</div><div>${esc(f.receptor.condicion)}</div>`
+          : '<div>A consumidor final</div>'}` : '';
+    const pieFiscal = f ? `
+        <table>
+          ${Math.abs(f.total - total) >= 0.01 ? `<tr><td>Total facturado</td><td class="right">${fmtMoneda(f.total)}</td></tr>` : ''}
+          ${f.discriminado ? `<tr><td>Neto gravado</td><td class="right">${fmtMoneda(f.discriminado.neto)}</td></tr>
+          <tr><td>IVA ${f.discriminado.alicuota}%</td><td class="right">${fmtMoneda(f.discriminado.iva)}</td></tr>` : ''}
+          ${f.iva_contenido !== null ? `<tr><td colspan="2">R&eacute;gimen de Transparencia Fiscal al Consumidor (Ley 27.743)</td></tr>
+          <tr><td>IVA contenido</td><td class="right">${fmtMoneda(f.iva_contenido)}</td></tr>` : ''}
+        </table>
+        <div class="sep"></div>
+        <div class="center qr">${f.qr_svg || ''}</div>
+        <div class="center">CAE: ${esc(f.cae)} &middot; Vto.: ${esc(f.cae_vencimiento)}</div>
+        ${prueba}
+        <div class="sep"></div>` : '<div class="center">Documento no v&aacute;lido como factura</div><div class="sep"></div>';
     return `
       <!DOCTYPE html>
       <html><head><meta charset="UTF-8"><title>Recibo ${esc(p.numero_pedido)}</title>
@@ -573,9 +603,11 @@ const App = {
         .right { text-align: right; }
         .sep { border-top: 1px dashed #000; margin: 8px 0; }
         .tot { font-size: 15px; }
+        .qr svg { width: 34mm; height: 34mm; }
       </style></head>
       <body>
         <div class="center bold" style="font-size:15px">${esc(App && App.usuario ? (App.nombreNegocio || 'GastroManager') : 'GastroManager')}</div>
+        ${encabezadoFiscal}
         <div class="center">${esc(p.mesa_nombre || '')}</div>
         <div class="sep"></div>
         <div><span class="bold">Ticket:</span> ${esc(p.numero_pedido)}</div>
@@ -591,6 +623,7 @@ const App = {
           <tr class="tot bold"><td>TOTAL</td><td class="right">${fmtMoneda(total)}</td></tr>
         </table>
         <div class="sep"></div>
+        ${pieFiscal}
         <div class="center">\u00a1Gracias por su visita!</div>
       </body></html>`;
   },

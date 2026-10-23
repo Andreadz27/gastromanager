@@ -113,10 +113,26 @@ function comprobanteAsociado(cfg, factura) {
   return asociado;
 }
 
+// Numeración: "último + 1" se pide a ARCA y se usa al pedir el CAE. Dos cajas facturando el mismo tipo a la vez
+// pedían el mismo número y ARCA rechazaba una: los pedidos de CAE de un mismo punto de venta y tipo van en fila.
+const filasCAE = new Map();
+function enFila(clave, fn) {
+  const anterior = filasCAE.get(clave) || Promise.resolve();
+  const actual = anterior.then(fn, fn);
+  const cola = actual.catch(() => {});
+  filasCAE.set(clave, cola);
+  cola.then(() => { if (filasCAE.get(clave) === cola) filasCAE.delete(clave); });
+  return actual;
+}
+
 // Pide el CAE y guarda el comprobante. receptor: { cuit, condicion }; asociado: la factura que anula una nota de crédito
-async function solicitarCAE(cfg, { pedidoId, tipo, total, receptor, neto, iva, codigoAlicuota, asociado, motivo }) {
-  const afip = crearAfip(cfg);
+function solicitarCAE(cfg, datos) {
   const ptoVenta = parseInt(cfg.pto_venta, 10) || 1;
+  return enFila(`${cfg.modo}-${ptoVenta}-${datos.tipo}`, () => solicitarCAEenFila(cfg, ptoVenta, datos));
+}
+
+async function solicitarCAEenFila(cfg, ptoVenta, { pedidoId, tipo, total, receptor, neto, iva, codigoAlicuota, asociado, motivo }) {
+  const afip = crearAfip(cfg);
 
   // Obtener último número de comprobante para calcular el siguiente
   const nroComprobante = (await afip.ElectronicBilling.getLastVoucher(ptoVenta, tipo)) + 1;
@@ -154,15 +170,25 @@ async function solicitarCAE(cfg, { pedidoId, tipo, total, receptor, neto, iva, c
   const resultado = await afip.ElectronicBilling.createVoucher(voucherData);
   const nombre = NOMBRES_COMPROBANTE[tipo] || `Tipo ${tipo}`;
 
-  const { id } = await run(
-    `INSERT INTO comprobantes_afip
-       (pedido_id, tipo_comprobante, tipo_comprobante_nombre, punto_venta, numero_comprobante, cae, cae_vencimiento,
-        fecha_comprobante, total, imp_neto, imp_iva, cuit_receptor, razon_social_receptor, condicion_iva_receptor,
-        comprobante_asociado_id, motivo)
-     VALUES (?, ?, ?, ?, ?, ?, ?, date('now', ${LOCAL()}), ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [pedidoId, tipo, nombre, ptoVenta, nroComprobante, resultado.CAE, resultado.CAEFchVto, total, neto, iva,
-     receptor.cuit || '', receptor.razon_social || '', receptor.condicion, asociado ? asociado.id : null, motivo || '']
-  );
+  // modo: las facturas de homologación (pruebas) no tienen validez fiscal y no se mezclan con las reales
+  let id;
+  try {
+    ({ id } = await run(
+      `INSERT INTO comprobantes_afip
+         (pedido_id, tipo_comprobante, tipo_comprobante_nombre, punto_venta, numero_comprobante, cae, cae_vencimiento,
+          fecha_comprobante, total, imp_neto, imp_iva, cuit_receptor, razon_social_receptor, condicion_iva_receptor,
+          comprobante_asociado_id, motivo, modo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, date('now', ${LOCAL()}), ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [pedidoId, tipo, nombre, ptoVenta, nroComprobante, resultado.CAE, resultado.CAEFchVto, total, neto, iva,
+       receptor.cuit || '', receptor.razon_social || '', receptor.condicion, asociado ? asociado.id : null, motivo || '',
+       cfg.modo === 'produccion' ? 'produccion' : 'homologacion']
+    ));
+  } catch (e) {
+    // ARCA ya emitió el comprobante: si no se guarda, el sistema dejaría facturar el pedido de nuevo (duplicado)
+    const dato = `${nombre} ${ptoVenta}-${nroComprobante} CAE ${resultado.CAE} del pedido ${pedidoId}`;
+    console.error(`[AFIP] Comprobante emitido y NO guardado: ${dato}`, e);
+    throw errorHttp(500, `ARCA emitió ${dato}, pero no se pudo guardar en el sistema. Anotalo y avisá a soporte antes de volver a facturar.`);
+  }
   emitEvento('afip:comprobante', { pedido_id: pedidoId, cae: resultado.CAE });
 
   return {
@@ -177,11 +203,13 @@ async function solicitarCAE(cfg, { pedidoId, tipo, total, receptor, neto, iva, c
   };
 }
 
-// Factura del pedido que sigue vigente (sin nota de crédito que la anule)
-const facturaVigente = pedidoId => get(
+// Factura del pedido que sigue vigente (sin nota de crédito que la anule).
+// soloReales: en producción, una factura de prueba (homologación) no impide hacer la real.
+const facturaVigente = (pedidoId, { soloReales = false } = {}) => get(
   `SELECT * FROM comprobantes_afip f
    WHERE f.pedido_id = ? AND f.tipo_comprobante IN (1, 6, 11)
      AND NOT EXISTS (SELECT 1 FROM comprobantes_afip nc WHERE nc.comprobante_asociado_id = f.id)
+     ${soloReales ? "AND COALESCE(f.modo, '') != 'homologacion'" : ''}
    ORDER BY f.id DESC LIMIT 1`, [pedidoId]);
 
 async function emitirFactura(pedidoId, tipoComprobante, cuitReceptor, { condicionIva, razonSocial } = {}) {
@@ -196,7 +224,7 @@ async function emitirFactura(pedidoId, tipoComprobante, cuitReceptor, { condicio
     if (pedido.estado !== 'pagado') throw errorHttp(400, 'Solo se pueden facturar pedidos cobrados.');
 
     // No emitir comprobante duplicado para el mismo pedido (si se anuló con nota de crédito, se puede volver a facturar)
-    const yaFacturado = await facturaVigente(pedidoId);
+    const yaFacturado = await facturaVigente(pedidoId, { soloReales: cfg.modo === 'produccion' });
     if (yaFacturado)
       throw errorHttp(409, `Este pedido ya tiene ${yaFacturado.tipo_comprobante_nombre} con CAE ${yaFacturado.cae}.`);
 
@@ -228,6 +256,12 @@ async function emitirNotaCredito(comprobanteId, motivo, cuitReceptor) {
     if (!FACTURAS.includes(factura.tipo_comprobante)) throw errorHttp(400, 'Solo se anulan facturas A, B o C.');
     const anulada = await get('SELECT tipo_comprobante_nombre, cae FROM comprobantes_afip WHERE comprobante_asociado_id = ?', [factura.id]);
     if (anulada) throw errorHttp(409, `Esta factura ya fue anulada con ${anulada.tipo_comprobante_nombre} (CAE ${anulada.cae}).`);
+    // Una factura de prueba no existe en el ARCA real (y al revés): la nota de crédito la rechazaría
+    const modoActual = cfg.modo === 'produccion' ? 'produccion' : 'homologacion';
+    if (factura.modo && factura.modo !== modoActual)
+      throw errorHttp(400, factura.modo === 'homologacion'
+        ? 'Esa factura es de prueba (homologación): no tiene validez fiscal y no hace falta anularla.'
+        : 'Esa factura es real (producción): para anularla, pasá AFIP a modo producción.');
 
     // Mismo receptor que la factura. Las Facturas A anteriores a esta versión no guardaban el CUIT: se pide.
     let cuit = factura.cuit_receptor || '';
@@ -301,6 +335,6 @@ async function consultarPadron(cuitConsultado) {
 }
 
 module.exports = {
-  emitirFactura, emitirNotaCredito, consultarPadron, validarDatosFactura, cuitValido, crearAfip,
+  emitirFactura, emitirNotaCredito, consultarPadron, validarDatosFactura, cuitValido, crearAfip, facturaVigente,
   CONDICIONES_IVA, CONDICIONES_FACTURA_A
 };
