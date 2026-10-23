@@ -182,6 +182,23 @@ elijan. Cada local lo aplica en unos 10 segundos (sin internet, cuando vuelve) y
 ("desde Morfi Nube", con el nombre de quien lo cambió). Los productos se reconocen por nombre: conviene que se llamen
 igual en todas las sucursales. Si una sucursal no puede aplicarlo (dio de baja el producto), el panel lo avisa.
 
+### 4c. Asistente IA por WhatsApp
+
+Contesta los WhatsApp del local las 24 horas con Claude (Anthropic): carta y precios, pedidos para retirar o con
+envío, reservas, cómo va un pedido. Si no puede resolver algo (o el cliente pide hablar con alguien), avisa en las
+pantallas del local y deja de contestarle a ese cliente por 2 horas para que siga una persona.
+
+1. Necesita WhatsApp Business conectado (punto anterior) con el webhook suscripto a *messages*.
+2. Crear una cuenta en [platform.claude.com](https://platform.claude.com), cargar saldo y crear una API key.
+3. Integraciones → Asistente IA: pegar la clave, elegir si toma pedidos y reservas, escribir horarios e indicaciones
+   (zonas y costo de envío, formas de pago, promociones). **Probarlo** con el chat de prueba (no crea nada) y activarlo.
+
+- El precio que vale es el de la carta del sistema; el teléfono del cliente sale de WhatsApp (no lo puede cambiar).
+- Pedido y reserva solo después de que el cliente confirma el resumen. Los pedidos entran como "WhatsApp" con comanda.
+- Topes: 30 mensajes por cliente por hora y 500 respuestas por día por local.
+- Costo: se paga a Anthropic por uso. En Integraciones se ve un estimado de los últimos 30 días.
+- Sin internet no contesta (los mensajes quedan en WhatsApp); los que lleguen con más de 30 minutos de atraso no se contestan solos.
+
 ## 5. Acceso remoto y pagos online (Cloudflare Tunnel)
 
 Necesario para que el dueño vea el sistema desde afuera y para recibir avisos de Mercado Pago y Tienda Nube.

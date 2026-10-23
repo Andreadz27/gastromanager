@@ -1,6 +1,6 @@
 'use strict';
 const {
-  run, get, all, transaccion, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere, requiereCobro, configWhatsApp, requiereAutorizacion, pedidoDeSalon, emitirNotaCredito, consultarPadron, crearAfip, saldoPedido, aplicarPagoMercadoPago,
+  run, get, all, transaccion, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere, requiereCobro, configWhatsApp, requiereAutorizacion, pedidoDeSalon, emitirNotaCredito, consultarPadron, crearAfip, saldoPedido, aplicarPagoMercadoPago, configAsistente,
   validarDatosFactura, facturarOEncolar, listarFacturasPendientes, procesarFacturasPendientes, descartarFacturaPendiente, estadoConexion
 } = require('../contexto');
 
@@ -14,7 +14,8 @@ const CAMPOS_SECRETOS = {
   mercadopago: ['access_token', 'access_token_test'],
   afip: ['access_token', 'key'],
   tiendanube: ['access_token'],
-  whatsapp: ['access_token', 'app_secret']
+  whatsapp: ['access_token', 'app_secret'],
+  asistente: ['api_key']
 };
 const MASCARA = '••••••••';
 const enmascarar = v => v ? MASCARA + String(v).slice(-4) : '';
@@ -22,13 +23,14 @@ const enmascarar = v => v ? MASCARA + String(v).slice(-4) : '';
 // GET /api/integraciones/config
 app.get('/api/integraciones/config', autenticar, esAdmin, async (req, res) => {
   try {
-    const [mp, afip, tn, wa] = await Promise.all([
+    const [mp, afip, tn, wa, asis] = await Promise.all([
       getIntCfg('mercadopago'),
       getIntCfg('afip'),
       getIntCfg('tiendanube'),
-      configWhatsApp()
+      configWhatsApp(),
+      configAsistente()
     ]);
-    const cfgs = { mercadopago: mp, afip, tiendanube: tn, whatsapp: wa };
+    const cfgs = { mercadopago: mp, afip, tiendanube: tn, whatsapp: wa, asistente: asis };
     for (const [tipo, campos] of Object.entries(CAMPOS_SECRETOS)) {
       for (const c of campos) if (cfgs[tipo][c]) cfgs[tipo][c] = enmascarar(cfgs[tipo][c]);
     }
@@ -40,18 +42,20 @@ app.get('/api/integraciones/config', autenticar, esAdmin, async (req, res) => {
 // GET /api/integraciones/estado
 app.get('/api/integraciones/estado', autenticar, async (req, res) => {
   try {
-    const [mp, afip, tn, wa] = await Promise.all([
+    const [mp, afip, tn, wa, asis] = await Promise.all([
       getIntCfg('mercadopago'),
       getIntCfg('afip'),
       getIntCfg('tiendanube'),
-      getIntCfg('whatsapp')
+      getIntCfg('whatsapp'),
+      getIntCfg('asistente')
     ]);
     const estado = {
       whatsapp:    wa.activa && wa.phone_number_id && wa.access_token ? 'conectada' : wa.phone_number_id ? 'configurada' : 'desconectada',
       mercadopago: mp.activa && mp.access_token ? 'conectada' : mp.access_token ? 'configurada' : 'desconectada',
       afip:        afip.activa && afip.cuit && afip.access_token ? 'conectada' : (afip.cuit || afip.access_token) ? 'configurada' : 'desconectada',
       tiendanube:  tn.activa && tn.store_id && tn.access_token ? 'conectada' : tn.store_id ? 'configurada' : 'desconectada',
-      delivery:    'desconectada'
+      delivery:    'desconectada',
+      asistente:   asis.activa && asis.api_key ? 'conectada' : asis.api_key ? 'configurada' : 'desconectada'
     };
     const plat = await all('SELECT COUNT(*) as c FROM plataformas_delivery WHERE activa = 1').catch(() => [{ c: 0 }]);
     if (plat[0] && plat[0].c > 0) estado.delivery = 'conectada';
@@ -62,7 +66,7 @@ app.get('/api/integraciones/estado', autenticar, async (req, res) => {
 // PUT /api/integraciones/config/:tipo
 app.put('/api/integraciones/config/:tipo', autenticar, esAdmin, async (req, res) => {
   const { tipo } = req.params;
-  if (!['mercadopago', 'afip', 'tiendanube', 'whatsapp'].includes(tipo))
+  if (!['mercadopago', 'afip', 'tiendanube', 'whatsapp', 'asistente'].includes(tipo))
     return res.status(400).json({ error: 'Tipo no válido' });
   try {
     const data = { ...req.body };

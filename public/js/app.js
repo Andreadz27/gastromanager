@@ -144,6 +144,17 @@ const App = {
         if (App.currentView === 'mesas') Mesas.render();
       });
 
+      // Asistente IA por WhatsApp: tomó una reserva o pasa una conversación a una persona
+      this.socket.on('whatsapp:atencion', (data) => {
+        if (!App.puede('pedidos.tomar')) return;
+        const quien = data.nombre || data.telefono;
+        if (data.tipo === 'reserva') this.showToast(`Reserva por WhatsApp de ${quien}: ${data.detalle}`, 'info', 10000);
+        else {
+          this.showToast(`WhatsApp: ${quien} necesita una persona${data.detalle ? ' (' + data.detalle + ')' : ''}. Escribile al ${data.telefono}.`, 'warning', 20000);
+          this.sonarAviso();
+        }
+      });
+
       // Dashboard global refresh
       this.socket.on('dashboard:actualizar', () => {
         if (App.currentView === 'dashboard') Dashboard.render();
