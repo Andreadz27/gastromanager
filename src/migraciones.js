@@ -37,6 +37,24 @@ async function migrarEsquema() {
   // homologacion | produccion ('' = anterior a guardarlo): las facturas de prueba no tienen validez fiscal
   await agregarColumna('comprobantes_afip', 'modo', "TEXT DEFAULT ''");
   await run('CREATE INDEX IF NOT EXISTS idx_comprobantes_asociado ON comprobantes_afip(comprobante_asociado_id)');
+  // Facturas en espera: sin conexión con ARCA el cobro sigue y la factura se emite sola cuando vuelve internet.
+  // estado: pendiente | emitida | error (ARCA la rechazó: la revisa una persona). numero_intentado: ver comprobanteYaEmitido
+  await run(`CREATE TABLE IF NOT EXISTS facturas_pendientes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pedido_id INTEGER NOT NULL,
+    tipo_comprobante INTEGER NOT NULL,
+    cuit_receptor TEXT DEFAULT '',
+    condicion_iva_receptor INTEGER,
+    razon_social_receptor TEXT DEFAULT '',
+    estado TEXT DEFAULT 'pendiente',
+    intentos INTEGER DEFAULT 0,
+    numero_intentado INTEGER,
+    ultimo_error TEXT DEFAULT '',
+    comprobante_id INTEGER,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP,
+    actualizado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await run('CREATE INDEX IF NOT EXISTS idx_facturas_pendientes ON facturas_pendientes(estado, pedido_id)');
   // WhatsApp Business: mensajes enviados (con su estado) y recibidos
   await run(`CREATE TABLE IF NOT EXISTS whatsapp_mensajes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

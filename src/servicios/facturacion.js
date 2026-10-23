@@ -4,7 +4,7 @@
 const Afip = require('@afipsdk/afip.js');
 const { run, get } = require('../db');
 const { emitEvento } = require('../realtime');
-const { LOCAL, fechaLocal } = require('../tiempo');
+const { fechaLocal } = require('../tiempo');
 const { errorHttp } = require('../util');
 const { getIntCfg } = require('./integraciones');
 
@@ -131,8 +131,29 @@ function solicitarCAE(cfg, datos) {
   return enFila(`${cfg.modo}-${ptoVenta}-${datos.tipo}`, () => solicitarCAEenFila(cfg, ptoVenta, datos));
 }
 
-async function solicitarCAEenFila(cfg, ptoVenta, { pedidoId, tipo, total, receptor, neto, iva, codigoAlicuota, asociado, motivo }) {
+// Fecha de ARCA (AAAAMMDD) → AAAA-MM-DD
+const fechaDeArca = f => String(f || '').replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');
+
+// Si se cortó la conexión después de pedir el CAE, ARCA puede haber emitido el comprobante sin que llegara la
+// respuesta. Antes de pedir otro se consulta ese número: si existe con el mismo importe y receptor, es el nuestro.
+async function comprobanteYaEmitido(afip, ptoVenta, tipo, numero, total, receptor) {
+  const ultimo = await afip.ElectronicBilling.getLastVoucher(ptoVenta, tipo);
+  if (!(ultimo >= numero)) return null;
+  const info = await afip.ElectronicBilling.getVoucherInfo(numero, ptoVenta, tipo);
+  if (!info || Math.abs(Number(info.ImpTotal) - total) >= 0.01) return null;
+  if (Number(info.DocNro || 0) !== (receptor.cuit ? parseInt(receptor.cuit, 10) : 0)) return null;
+  return { CAE: String(info.CodAutorizacion), CAEFchVto: fechaDeArca(info.FchVto), fecha: fechaDeArca(info.CbteFch) };
+}
+
+async function solicitarCAEenFila(cfg, ptoVenta, { pedidoId, tipo, total, receptor, neto, iva, codigoAlicuota, asociado, motivo, numeroIntentado }) {
   const afip = crearAfip(cfg);
+  const nombre = NOMBRES_COMPROBANTE[tipo] || `Tipo ${tipo}`;
+
+  const recuperado = numeroIntentado ? await comprobanteYaEmitido(afip, ptoVenta, tipo, numeroIntentado, total, receptor) : null;
+  if (recuperado) {
+    console.warn(`[AFIP] ${nombre} ${ptoVenta}-${numeroIntentado} del pedido ${pedidoId} ya estaba emitida: se recupera sin pedir otra`);
+    return guardarComprobante(cfg, ptoVenta, numeroIntentado, recuperado, { pedidoId, tipo, total, receptor, neto, iva, asociado, motivo });
+  }
 
   // Obtener último número de comprobante para calcular el siguiente
   const nroComprobante = (await afip.ElectronicBilling.getLastVoucher(ptoVenta, tipo)) + 1;
@@ -166,10 +187,20 @@ async function solicitarCAEenFila(cfg, ptoVenta, { pedidoId, tipo, total, recept
     ...(asociado ? { CbtesAsoc: [comprobanteAsociado(cfg, asociado)] } : {})
   };
 
-  // Llamada real al WSFE de AFIP
-  const resultado = await afip.ElectronicBilling.createVoucher(voucherData);
-  const nombre = NOMBRES_COMPROBANTE[tipo] || `Tipo ${tipo}`;
+  // Llamada real al WSFE de AFIP. Si se corta acá, el número queda anotado para no duplicar al reintentar.
+  let resultado;
+  try {
+    resultado = await afip.ElectronicBilling.createVoucher(voucherData);
+  } catch (e) {
+    e.numeroIntentado = nroComprobante;
+    throw e;
+  }
+  return guardarComprobante(cfg, ptoVenta, nroComprobante, { ...resultado, fecha: fechaLocal() },
+    { pedidoId, tipo, total, receptor, neto, iva, asociado, motivo });
+}
 
+async function guardarComprobante(cfg, ptoVenta, nroComprobante, resultado, { pedidoId, tipo, total, receptor, neto, iva, asociado, motivo }) {
+  const nombre = NOMBRES_COMPROBANTE[tipo] || `Tipo ${tipo}`;
   // modo: las facturas de homologación (pruebas) no tienen validez fiscal y no se mezclan con las reales
   let id;
   try {
@@ -178,16 +209,17 @@ async function solicitarCAEenFila(cfg, ptoVenta, { pedidoId, tipo, total, recept
          (pedido_id, tipo_comprobante, tipo_comprobante_nombre, punto_venta, numero_comprobante, cae, cae_vencimiento,
           fecha_comprobante, total, imp_neto, imp_iva, cuit_receptor, razon_social_receptor, condicion_iva_receptor,
           comprobante_asociado_id, motivo, modo)
-       VALUES (?, ?, ?, ?, ?, ?, ?, date('now', ${LOCAL()}), ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [pedidoId, tipo, nombre, ptoVenta, nroComprobante, resultado.CAE, resultado.CAEFchVto, total, neto, iva,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [pedidoId, tipo, nombre, ptoVenta, nroComprobante, resultado.CAE, resultado.CAEFchVto, resultado.fecha, total, neto, iva,
        receptor.cuit || '', receptor.razon_social || '', receptor.condicion, asociado ? asociado.id : null, motivo || '',
        cfg.modo === 'produccion' ? 'produccion' : 'homologacion']
     ));
   } catch (e) {
-    // ARCA ya emitió el comprobante: si no se guarda, el sistema dejaría facturar el pedido de nuevo (duplicado)
+    // ARCA ya emitió el comprobante: si no se guarda, el sistema dejaría facturar el pedido de nuevo (duplicado).
+    // noReintentar: la fila de facturas en espera no tiene que volver a pedirlo
     const dato = `${nombre} ${ptoVenta}-${nroComprobante} CAE ${resultado.CAE} del pedido ${pedidoId}`;
     console.error(`[AFIP] Comprobante emitido y NO guardado: ${dato}`, e);
-    throw errorHttp(500, `ARCA emitió ${dato}, pero no se pudo guardar en el sistema. Anotalo y avisá a soporte antes de volver a facturar.`);
+    throw Object.assign(errorHttp(500, `ARCA emitió ${dato}, pero no se pudo guardar en el sistema. Anotalo y avisá a soporte antes de volver a facturar.`), { noReintentar: true });
   }
   emitEvento('afip:comprobante', { pedido_id: pedidoId, cae: resultado.CAE });
 
@@ -212,7 +244,8 @@ const facturaVigente = (pedidoId, { soloReales = false } = {}) => get(
      ${soloReales ? "AND COALESCE(f.modo, '') != 'homologacion'" : ''}
    ORDER BY f.id DESC LIMIT 1`, [pedidoId]);
 
-async function emitirFactura(pedidoId, tipoComprobante, cuitReceptor, { condicionIva, razonSocial } = {}) {
+// numeroIntentado: reintento de una factura en espera (ver comprobanteYaEmitido)
+async function emitirFactura(pedidoId, tipoComprobante, cuitReceptor, { condicionIva, razonSocial, numeroIntentado } = {}) {
   const { tipo, cuit, condicion } = validarDatosFactura(tipoComprobante, cuitReceptor, condicionIva);
   const clave = `pedido-${pedidoId}`;
   if (enCurso.has(clave)) throw errorHttp(409, 'Ya se está generando el comprobante de este pedido.');
@@ -233,7 +266,7 @@ async function emitirFactura(pedidoId, tipoComprobante, cuitReceptor, { condicio
     if (!(total > 0)) throw errorHttp(400, 'El pedido no tiene importe para facturar.');
     const { neto, iva, codigoAlicuota } = importes(cfg, tipo, total);
     return await solicitarCAE(cfg, {
-      pedidoId, tipo, total, neto, iva, codigoAlicuota,
+      pedidoId, tipo, total, neto, iva, codigoAlicuota, numeroIntentado,
       receptor: { cuit, condicion, razon_social: String(razonSocial || '').slice(0, 200) }
     });
   } finally {

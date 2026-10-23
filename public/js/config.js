@@ -673,9 +673,8 @@ const ConfigView = {
     if (!cont) return;
     const url  = this._qrUrl || (window.location.origin + '/menu.html');
     const size = parseInt((document.getElementById('qrSize') || {}).value || '240');
-    // Usa la API pública de QR sin dependencias externas
-    const apiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size +
-                   '&data=' + encodeURIComponent(url) + '&format=png&margin=10';
+    // QR generado por el propio sistema (funciona sin internet)
+    const apiUrl = urlQr(url);
     cont.innerHTML = '<img id="qrImg" src="' + apiUrl + '" width="' + size + '" height="' + size +
                      '" alt="QR Carta Digital" style="display:block;border-radius:4px;">';
     this._qrApiUrl = apiUrl;
@@ -684,10 +683,10 @@ const ConfigView = {
   descargarQR() {
     const img = document.getElementById('qrImg');
     if (!img) { App.showToast('Generá el QR primero', 'warning'); return; }
-    // Descarga directa desde la URL de la API
+    // SVG: se imprime nítido en cualquier tamaño
     const a = document.createElement('a');
     a.href = this._qrApiUrl;
-    a.download = 'qr-carta-digital.png';
+    a.download = 'qr-carta-digital.svg';
     a.target = '_blank';
     a.rel = 'noopener';
     a.click();

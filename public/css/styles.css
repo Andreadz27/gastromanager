@@ -2169,3 +2169,9 @@ tr:hover td {
 .solicitud-cabecera { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .solicitud-items { margin: 4px 0 6px 18px; padding: 0; }
 .solicitud-acciones { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+/* Modo sin conexión: aviso de internet cortado y facturas en espera */
+.aviso-conexion { background: #fff7ed; border: 1px solid #fdba74; color: #7c2d12; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px; line-height: 1.5; }
+.aviso-conexion.sin-internet { background: #fef2f2; border-color: #fca5a5; color: #7f1d1d; }
+.aviso-conexion > div + div { margin-top: 6px; }
+.aviso-conexion .btn-sm { margin-left: 6px; padding: 2px 10px; }

@@ -4,7 +4,7 @@
 // (Antes era cache-first: después de una actualización los celulares seguían con el JS viejo.)
 // =============================================
 
-const CACHE_NAME = 'gastromanager-v14';
+const CACHE_NAME = 'gastromanager-v15';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -31,7 +31,12 @@ const STATIC_ASSETS = [
   '/js/config.js',
   '/js/integraciones.js',
   '/favicon.svg',
-  '/manifest.json'
+  '/manifest.json',
+  // Íconos servidos por el propio sistema
+  '/vendor/fontawesome/css/all.min.css',
+  '/vendor/fontawesome/webfonts/fa-solid-900.woff2',
+  '/vendor/fontawesome/webfonts/fa-regular-400.woff2',
+  '/vendor/fontawesome/webfonts/fa-brands-400.woff2'
 ];
 
 // Instalar: guardar los assets para usar sin conexión (uno que falte no frena la instalación)

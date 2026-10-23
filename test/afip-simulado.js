@@ -13,15 +13,22 @@ const PADRON = {
 };
 
 async function iniciarArcaSimulado() {
-  const arca = { pedidos: [], ultimo: {}, rechazar: null, padron: { ...PADRON } };
+  // caido: ARCA no responde (503). cortarDespuesDeEmitir: emite el comprobante pero la respuesta no llega (503),
+  // como cuando se corta internet justo después de pedir el CAE. emitidos: para FECompConsultar.
+  const arca = { pedidos: [], ultimo: {}, rechazar: null, padron: { ...PADRON }, caido: false, cortarDespuesDeEmitir: false, emitidos: {} };
   const servidor = http.createServer((req, res) => {
     let cuerpo = '';
     req.on('data', d => { cuerpo += d; });
     req.on('end', () => {
       const responder = (obj, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
+      if (arca.caido) return responder({ message: 'Service Unavailable' }, 503);
       if (req.url.endsWith('/v1/afip/auth')) return responder({ token: 't', sign: 's', expiration: '2099-01-01' });
       const { method, params } = JSON.parse(cuerpo || '{}');
       arca.pedidos.push({ method, params });
+      if (method === 'FECompConsultar') {
+        const c = arca.emitidos[`${params.FeCompConsReq.CbteTipo}-${params.FeCompConsReq.CbteNro}`];
+        return responder({ FECompConsultarResult: c ? { ResultGet: c } : { Errors: { Err: { Code: 602, Msg: 'Sin Resultados' } } } });
+      }
       if (method === 'FECompUltimoAutorizado')
         return responder({ FECompUltimoAutorizadoResult: { CbteNro: arca.ultimo[params.CbteTipo] || 0 } });
       if (method === 'FECAESolicitar') {
@@ -37,8 +44,13 @@ async function iniciarArcaSimulado() {
             Resultado: 'R', Observaciones: { Obs: { Code: 10016, Msg: 'El numero de comprobante no es el proximo a autorizar' } } } } } });
         }
         arca.ultimo[tipo] = numero;
+        const det = params.FeCAEReq.FeDetReq.FECAEDetRequest;
+        const cae = String(74000000000000 + arca.pedidos.length);
+        arca.emitidos[`${tipo}-${numero}`] = { CbteDesde: numero, ImpTotal: det.ImpTotal, DocNro: det.DocNro, CbteFch: String(det.CbteFch),
+          CodAutorizacion: cae, FchVto: '20261201', Resultado: 'A' };
+        if (arca.cortarDespuesDeEmitir) { arca.cortarDespuesDeEmitir = false; return responder({ message: 'Gateway Timeout' }, 503); }
         return responder({ FECAESolicitarResult: { FeDetResp: { FECAEDetResponse: {
-          Resultado: 'A', CAE: String(74000000000000 + arca.pedidos.length), CAEFchVto: '20261201' } } } });
+          Resultado: 'A', CAE: cae, CAEFchVto: '20261201' } } } });
       }
       if (method === 'getPersona_v2') {
         const persona = arca.padron[params.idPersona];

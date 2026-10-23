@@ -312,7 +312,8 @@ const Integraciones = {
     const el = document.getElementById('afipCard');
     if (!el) return;
     const extra = (est.afip === 'conectada' || est.afip === 'configurada')
-      ? `<div class="mt-20"><div class="card-header"><span class="card-title"><i class="fas fa-list"></i> &Uacute;ltimos comprobantes</span></div><div id="listaComprobantes"><i class="fas fa-spinner fa-spin"></i></div></div>` : '';
+      ? `<div id="listaPendientesAfip"></div>
+         <div class="mt-20"><div class="card-header"><span class="card-title"><i class="fas fa-list"></i> &Uacute;ltimos comprobantes</span></div><div id="listaComprobantes"><i class="fas fa-spinner fa-spin"></i></div></div>` : '';
     // Datos obligatorios del emisor en el comprobante impreso (RG 1415)
     const faltan = [
       !afip.razon_social && 'raz&oacute;n social',
@@ -475,7 +476,43 @@ const Integraciones = {
 
 
 
+  // Facturas en espera de ARCA (sin conexión) y las que ARCA rechazó al reintentar
+  async _cargarPendientes() {
+    const cont = document.getElementById('listaPendientesAfip');
+    if (!cont) return;
+    try {
+      const lista = await API.getFacturasPendientes();
+      if (!lista.length) { cont.innerHTML = ''; return; }
+      cont.innerHTML = `<div class="mt-20"><div class="card-header"><span class="card-title"><i class="fas fa-clock"></i> Facturas en espera</span>
+          <button class="btn btn-outline btn-sm" onclick="Integraciones.reintentarPendientes()"><i class="fas fa-redo"></i> Reintentar ahora</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Tipo</th><th>Total</th><th>Estado</th><th></th></tr></thead><tbody>
+        ${lista.map(f => `<tr>
+          <td>${esc(f.numero_pedido)}</td>
+          <td>${esc({ 1: 'Factura A', 6: 'Factura B', 11: 'Factura C' }[f.tipo_comprobante] || f.tipo_comprobante)}</td>
+          <td>${fmtMoneda(f.total)}</td>
+          <td>${f.estado === 'error'
+            ? `<span class="badge badge-red">No se pudo emitir</span><br><small>${esc(f.ultimo_error)}</small>`
+            : `<span class="badge badge-orange">Esperando conexi&oacute;n</span><br><small class="text-muted">${f.intentos} intento(s)</small>`}</td>
+          <td>${App.puede('admin') ? `<button class="btn btn-outline btn-sm" onclick="Integraciones.descartarPendiente(${f.id})" title="Ya se facturó a mano o no corresponde">Descartar</button>` : ''}</td>
+        </tr>`).join('')}</tbody></table></div></div>`;
+    } catch (e) { cont.innerHTML = ''; }
+  },
+
+  async reintentarPendientes() {
+    await App.reintentarFacturas();
+    this._cargarPendientes();
+    this._cargarComprobantes();
+  },
+
+  async descartarPendiente(id) {
+    if (!confirm('¿Descartar esta factura en espera? No se va a reintentar más (hacela a mano si corresponde).')) return;
+    try { await API.descartarFacturaPendiente(id); App.showToast('Descartada', 'info'); } catch (e) { App.showToast(e.message, 'error'); }
+    this._cargarPendientes();
+    App.revisarConexion();
+  },
+
   async _cargarComprobantes() {
+    this._cargarPendientes();
     const cont = document.getElementById('listaComprobantes');
     if (!cont) return;
     try {
@@ -572,7 +609,8 @@ const Integraciones = {
     try {
       App.showToast('Generando comprobante AFIP...', 'info');
       const r = await API.generarComprobante(data);
-      App.showToast(`✓ ${r.tipo_nombre} emitida — CAE: ${r.cae}`, 'success');
+      if (r.pendiente) App.showToast(r.mensaje, 'warning', 8000);
+      else App.showToast(`✓ ${r.tipo_nombre} emitida — CAE: ${r.cae}`, 'success');
       App.closeModal();
       if (typeof Pedidos !== 'undefined') Pedidos.render();
     } catch (err) { App.showToast(err.message, 'error'); }

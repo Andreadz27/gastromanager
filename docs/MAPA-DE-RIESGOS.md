@@ -53,6 +53,22 @@ Pago, cierre del pedido, liberación de la mesa y descuento de stock son una sol
   `afip.test.js` con servidores en UTC+14 y UTC-12.
 - **Lo protege:** `afip.test.js` y el e2e, contra AfipSDK simulado.
 
+### Facturas en espera (sin conexión) — `src/servicios/sin-conexion.js` · riesgo ALTO
+- Sin conexión con ARCA (error de red, 5xx, 429) la factura queda en `facturas_pendientes` y se reintenta sola
+  (al volver internet y cada 2 min). Si ARCA **contesta que no** (4xx, Resultado R) no se encola: lo ve una persona.
+  **Lo rompe:** tratar como "falta de conexión" un error de validación (reintentaría para siempre) o al revés.
+- **Duplicado por corte a mitad de camino:** si se corta después de pedir el CAE, ARCA pudo haberlo emitido. Se anota el
+  número pedido (`numero_intentado`) y al reintentar `comprobanteYaEmitido` lo consulta (FECompConsultar): si existe con
+  el mismo importe y receptor, se guarda ese en vez de pedir otro. **Lo rompe:** sacar esa consulta o no anotar el número.
+- "Comprobante emitido y NO guardado" lleva `noReintentar`: nunca se encola.
+- **Lo protege:** `sin-conexion.test.js` (ARCA caído, corte justo después de emitir, vuelta de internet, rechazo al
+  reintentar). Probado que sin la recuperación el test falla.
+
+### Pago desde la mesa — `src/servicios/pago-mesa.js` · riesgo ALTO
+- El pago se acredita **solo** consultando la API de Mercado Pago (webhook o `/verificar` al volver); se controla que el
+  `external_reference` sea `<pedido>-T<intento>` de esa mesa. Idempotente por `MP-<payment_id>`.
+  **Lo rompe:** aceptar datos del pago que manda el celular. **Lo protege:** `pago-mesa.test.js` y el e2e.
+
 ### 2. Precios — `resolverItems` y la carta online (`src/rutas/publico.js`) · riesgo ALTO
 El precio siempre sale de la base, nunca del navegador.
 - **Carta online · CORREGIDO (23/10/2026):** ahora usa `resolverItems`, con topes (30 ítems, 50 unidades por

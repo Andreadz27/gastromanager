@@ -253,12 +253,13 @@ const Cobro = {
         ${r.cerrado ? '<p>Cuenta cerrada y mesa liberada.</p>' : `<p>Falta cobrar <strong>${fmtMoneda(r.saldo)}</strong>.</p>`}
         ${f && f.ok ? `<p class="text-success"><i class="fas fa-file-invoice"></i> ${esc(f.tipo_nombre)}
             ${String(f.punto_venta).padStart(4, '0')}-${String(f.numero_comprobante).padStart(8, '0')} &mdash; CAE ${esc(f.cae)}</p>` : ''}
-        ${f && !f.ok ? `<p class="text-danger"><i class="fas fa-exclamation-triangle"></i> La factura no se emitió: ${esc(f.error)}.
+        ${f && f.pendiente ? `<p class="text-warning"><i class="fas fa-clock"></i> ${esc(f.mensaje)}</p>` : ''}
+        ${f && !f.ok && !f.pendiente ? `<p class="text-danger"><i class="fas fa-exclamation-triangle"></i> La factura no se emitió: ${esc(f.error)}.
             El cobro quedó registrado; podés reintentarla desde el pedido.</p>` : ''}
       </div>
       <div class="modal-footer">
         ${r.cerrado ? '' : `<button class="btn btn-success" onclick="Cobro.abrir(${id}, ${Math.max(1, this.partes - 1)})"><i class="fas fa-user-plus"></i> Cobrar al siguiente</button>`}
-        ${f && !f.ok ? `<button class="btn btn-primary" onclick="Integraciones.abrirModalFacturar(${id}, ${Number(p.total) || 0})"><i class="fas fa-redo"></i> Reintentar factura</button>` : ''}
+        ${f && !f.ok && !f.pendiente ? `<button class="btn btn-primary" onclick="Integraciones.abrirModalFacturar(${id}, ${Number(p.total) || 0})"><i class="fas fa-redo"></i> Reintentar factura</button>` : ''}
         ${r.cerrado ? `<button class="btn btn-outline" onclick="Cobro.whatsapp()"><i class="fab fa-whatsapp"></i> Enviar por WhatsApp</button>
           <button class="btn btn-outline" onclick="Pedidos.imprimirTicket(${id})"><i class="fas fa-print"></i> Ticket</button>` : ''}
         <button class="btn btn-outline" onclick="App.closeModal()">Listo</button>
@@ -337,7 +338,7 @@ const Cobro = {
     try {
       const r = await API.crearLinkMercadoPago(this.p.id);
       this._link = r.link;
-      const img = 'https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=' + encodeURIComponent(r.link);
+      const img = urlQr(r.link);
       App.showModal(`
         <div class="cobro-ok">
           <p>Que el cliente escanee el código con la cámara o la app de Mercado Pago.</p>

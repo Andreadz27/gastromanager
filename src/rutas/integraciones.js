@@ -1,6 +1,7 @@
 'use strict';
 const {
-  run, get, all, transaccion, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere, requiereCobro, configWhatsApp, requiereAutorizacion, pedidoDeSalon, emitirFactura, emitirNotaCredito, consultarPadron, crearAfip, saldoPedido, aplicarPagoMercadoPago
+  run, get, all, transaccion, errorInterno, autenticar, esAdmin, emitEvento, generarNumeroPedido, getIntCfg, setIntCfg, urlPublica, mpRequest, esperar, tnRequest, PAUSA_TN_MS, comandaAutomatica, requiere, requiereCobro, configWhatsApp, requiereAutorizacion, pedidoDeSalon, emitirNotaCredito, consultarPadron, crearAfip, saldoPedido, aplicarPagoMercadoPago,
+  validarDatosFactura, facturarOEncolar, listarFacturasPendientes, procesarFacturasPendientes, descartarFacturaPendiente, estadoConexion
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -138,14 +139,36 @@ app.post('/api/integraciones/afip/facturar', autenticar, requiereCobro, async (r
   try {
     if (!req.puedeCobrarTodo && !(await pedidoDeSalon(pedido_id)))
       return res.status(403).json({ error: 'Tu usuario solo puede facturar pedidos de mesa' });
-    res.json(await emitirFactura(pedido_id, req.body.tipo_comprobante, req.body.cuit_receptor, {
-      condicionIva: req.body.condicion_iva_receptor, razonSocial: req.body.razon_social
-    }));
+    const { tipo, cuit, condicion } = validarDatosFactura(req.body.tipo_comprobante, req.body.cuit_receptor, req.body.condicion_iva_receptor);
+    // Sin conexión con ARCA queda en espera (202) y se emite sola cuando vuelve internet
+    const r = await facturarOEncolar(pedido_id, { tipo, cuit, condicion, razonSocial: req.body.razon_social });
+    res.status(r.pendiente ? 202 : 200).json(r);
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
     console.error('[AFIP facturar]', e.message);
     res.status(500).json({ error: e.message });
   }
+});
+
+// Facturas en espera (sin conexión con ARCA) y las que ARCA rechazó al reintentar
+app.get('/api/integraciones/afip/pendientes', autenticar, requiereCobro, async (req, res) => {
+  try { res.json(await listarFacturasPendientes()); } catch (e) { errorInterno(res, e); }
+});
+
+app.post('/api/integraciones/afip/pendientes/reintentar', autenticar, requiereCobro, async (req, res) => {
+  try { res.json(await procesarFacturasPendientes()); } catch (e) { errorInterno(res, e); }
+});
+
+app.post('/api/integraciones/afip/pendientes/:id/descartar', autenticar, esAdmin, async (req, res) => {
+  try {
+    await descartarFacturaPendiente(Number(req.params.id), req.usuario.id);
+    res.json({ ok: true });
+  } catch (e) { errorInterno(res, e); }
+});
+
+// Estado de la conexión a internet y facturas en espera (para el aviso de las pantallas)
+app.get('/api/conexion', autenticar, async (req, res) => {
+  try { res.json(await estadoConexion()); } catch (e) { errorInterno(res, e); }
 });
 
 // POST /api/integraciones/afip/nota-credito  { comprobante_id, motivo, cuit_receptor? }
