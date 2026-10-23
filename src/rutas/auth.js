@@ -1,6 +1,6 @@
 'use strict';
 const {
-  bcrypt, run, get, errorInterno, autenticar, firmarToken, loginLimiter, datosSesion, ROLES, PERMISOS
+  bcrypt, run, get, errorInterno, autenticar, firmarToken, loginLimiter, datosSesion, ROLES, PERMISOS, definirPin, esSupervisor
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -48,7 +48,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 
 app.get('/api/auth/me', autenticar, async (req, res) => {
   try {
-    const usuario = await get('SELECT id, nombre, email, rol, activo, debe_cambiar_password FROM usuarios WHERE id = ? AND activo = 1', [req.usuario.id]);
+    const usuario = await get("SELECT id, nombre, email, rol, activo, debe_cambiar_password, COALESCE(pin_hash, '') != '' AS tiene_pin FROM usuarios WHERE id = ? AND activo = 1", [req.usuario.id]);
     if (!usuario) return res.status(401).json({ error: 'Usuario inactivo' });
     res.json({ ...datosSesion(usuario), activo: usuario.activo, debe_cambiar_password: usuario.debe_cambiar_password });
   } catch (err) {
@@ -81,6 +81,23 @@ app.put('/api/auth/password', autenticar, async (req, res) => {
       [usuario.id, 'cambiar_password', 'Contraseña cambiada']);
     const token = firmarToken({ ...usuario, debe_cambiar_password: 0 });
     res.json({ token, message: 'Contraseña actualizada' });
+  } catch (err) {
+    errorInterno(res, err);
+  }
+});
+
+// PIN de autorización del encargado o administrador (con su contraseña). Lo usan para autorizar
+// descuentos, cancelaciones y egresos de caja de otros usuarios cuando está activado en Configuración.
+app.put('/api/auth/pin', autenticar, async (req, res) => {
+  try {
+    if (!esSupervisor(req.usuario)) return res.status(403).json({ error: 'Solo encargados y administradores tienen PIN' });
+    const { password, pin } = req.body || {};
+    const usuario = await get('SELECT * FROM usuarios WHERE id = ? AND activo = 1', [req.usuario.id]);
+    if (!usuario || !(await bcrypt.compare(String(password || ''), usuario.password || '')))
+      return res.status(400).json({ error: 'La contraseña no es correcta' });
+    await definirPin(usuario.id, pin);
+    await run('INSERT INTO auditoria (usuario_id, accion, detalle) VALUES (?, ?, ?)', [usuario.id, 'definir_pin', 'PIN de autorización actualizado']);
+    res.json({ message: 'PIN guardado' });
   } catch (err) {
     errorInterno(res, err);
   }

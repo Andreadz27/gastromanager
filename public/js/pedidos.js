@@ -161,6 +161,7 @@ const Pedidos = {
 
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="App.closeModal()">Cerrar</button>
+        ${p.estado === 'pagado' && Cobro.puedeCobrar(p) ? `<button class="btn btn-outline" onclick="Cobro.compartir(${p.id})"><i class="fab fa-whatsapp"></i> WhatsApp</button>` : ''}
         ${App.puede('pedidos.tomar') ? `<button class="btn btn-primary" onclick="Pedidos.imprimirTicket(${p.id})"><i class="fas fa-print"></i> ${p.estado === 'pagado' ? 'Imprimir ticket' : 'Precuenta'}</button>` : ''}
         ${p.estado !== 'cancelado' && App.puede('pedidos.tomar') ? `<button class="btn btn-outline" onclick="Pedidos.reimprimirComanda(${p.id})"><i class="fas fa-utensils"></i> Reimprimir comanda</button>` : ''}
         ${

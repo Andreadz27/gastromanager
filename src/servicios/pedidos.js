@@ -3,6 +3,7 @@
 const { run, get, all, transaccion } = require('../db');
 const { emitEvento } = require('../realtime');
 const { fechaLocal } = require('../tiempo');
+const { descontarStockItemTx } = require('./recetas');
 
 // Generar número de pedido: secuencial y atómico (P-AAAAMMDD-00001).
 // La fecha es la del negocio (ZONA_HORARIA), no la del servidor: en un servidor en UTC
@@ -71,16 +72,10 @@ async function cerrarPedidoTx(pedido, metodo, usuarioId) {
     await run('UPDATE mesas SET estado = ? WHERE id = ?', ['libre', pedido.mesa_id]);
   }
 
+  // Stock: los ingredientes de la receta o, sin receta, el producto (ver servicios/recetas.js)
   const items = await all('SELECT * FROM pedido_items WHERE pedido_id = ?', [pedidoId]);
   for (const item of items) {
-    if (item.producto_id) {
-      const producto = await get('SELECT * FROM productos WHERE id = ?', [item.producto_id]);
-      if (producto && producto.tracking_stock) {
-        await run('UPDATE productos SET stock_actual = stock_actual - ? WHERE id = ?', [item.cantidad, item.producto_id]);
-        await run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, motivo, usuario_id)
-                   VALUES (?, 'venta', ?, ?, ?)`, [item.producto_id, -item.cantidad, `Venta ${pedido.numero_pedido}`, usuarioId || null]);
-      }
-    }
+    if (item.producto_id) await descontarStockItemTx(item, pedido, usuarioId);
   }
 
   emitEvento('pedido:pagado', { id: Number(pedidoId), numero_pedido: pedido.numero_pedido });

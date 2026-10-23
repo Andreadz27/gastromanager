@@ -12,6 +12,7 @@ const { iniciarRealtime } = require('./src/realtime');
 const { migrarConRespaldo } = require('./src/migraciones');
 const { backupSiCorresponde, crearBackup } = require('./src/servicios/backups');
 const { iniciarMonitoreo } = require('./src/servicios/monitoreo');
+const { iniciarRecordatoriosWhatsApp } = require('./src/servicios/whatsapp');
 
 iniciarRealtime(server);
 
@@ -31,6 +32,8 @@ migrarConRespaldo({ respaldar: crearBackup }).then(() => server.listen(PORT, () 
   setInterval(backupSiCorresponde, 60 * 60 * 1000).unref();
   // Latido al servicio de monitoreo (si MONITOREO_URL está configurada)
   iniciarMonitoreo();
+  // Recordatorios de reservas por WhatsApp (si está activado en Integraciones)
+  iniciarRecordatoriosWhatsApp();
 })).catch(err => {
   console.error('Error al migrar la base de datos:', err);
   process.exit(1);

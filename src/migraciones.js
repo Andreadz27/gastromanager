@@ -35,9 +35,29 @@ async function migrarEsquema() {
   await agregarColumna('comprobantes_afip', 'comprobante_asociado_id', 'INTEGER');
   await agregarColumna('comprobantes_afip', 'motivo', "TEXT DEFAULT ''");
   await run('CREATE INDEX IF NOT EXISTS idx_comprobantes_asociado ON comprobantes_afip(comprobante_asociado_id)');
+  // WhatsApp Business: mensajes enviados (con su estado) y recibidos
+  await run(`CREATE TABLE IF NOT EXISTS whatsapp_mensajes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    telefono TEXT NOT NULL, plantilla TEXT NOT NULL DEFAULT '', motivo TEXT NOT NULL DEFAULT '',
+    referencia INTEGER, parametros TEXT NOT NULL DEFAULT '[]',
+    estado TEXT NOT NULL DEFAULT 'enviando', wa_message_id TEXT NOT NULL DEFAULT '', error TEXT,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await run('CREATE INDEX IF NOT EXISTS idx_wa_mensajes_motivo ON whatsapp_mensajes(motivo, referencia)');
+  await run('CREATE INDEX IF NOT EXISTS idx_wa_mensajes_wa_id ON whatsapp_mensajes(wa_message_id)');
+  await run(`CREATE TABLE IF NOT EXISTS whatsapp_entrantes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    wa_message_id TEXT NOT NULL UNIQUE, telefono TEXT NOT NULL DEFAULT '', nombre TEXT NOT NULL DEFAULT '',
+    texto TEXT NOT NULL DEFAULT '', leido INTEGER NOT NULL DEFAULT 0,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
   await agregarColumna('pedidos', 'origen', "TEXT DEFAULT ''");
   await agregarColumna('pedidos', 'metodo_pago', "TEXT DEFAULT ''");
   await agregarColumna('pedidos', 'mp_payment_id', "TEXT DEFAULT ''");
+  // Control de caja: PIN de autorización de encargados y arqueo ciego (apagados por defecto)
+  await agregarColumna('usuarios', 'pin_hash', "TEXT DEFAULT ''");
+  await agregarColumna('configuracion', 'pin_autorizacion', 'INTEGER DEFAULT 0');
+  await agregarColumna('configuracion', 'arqueo_ciego', 'INTEGER DEFAULT 0');
   // Cobro en la mesa: los mozos pueden cobrar y facturar sus mesas (apagado por defecto)
   await agregarColumna('configuracion', 'mozo_cobra_mesa', 'INTEGER DEFAULT 0');
   // Arqueo de caja
