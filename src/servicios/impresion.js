@@ -171,7 +171,11 @@ async function datosPedido(pedidoId) {
     WHERE pi.pedido_id = ? ORDER BY pi.id`, [pedidoId]);
   pedido.pagos = await all('SELECT * FROM pagos WHERE pedido_id = ? ORDER BY id', [pedidoId]);
   pedido.entrega = await get('SELECT * FROM entregas WHERE pedido_id = ?', [pedidoId]);
-  pedido.comprobante = await get('SELECT * FROM comprobantes_afip WHERE pedido_id = ? ORDER BY id DESC LIMIT 1', [pedidoId]);
+  // La factura vigente (una anulada con nota de crédito no va en el ticket)
+  pedido.comprobante = await get(`SELECT * FROM comprobantes_afip f
+    WHERE f.pedido_id = ? AND f.tipo_comprobante IN (1, 6, 11)
+      AND NOT EXISTS (SELECT 1 FROM comprobantes_afip nc WHERE nc.comprobante_asociado_id = f.id)
+    ORDER BY f.id DESC LIMIT 1`, [pedidoId]);
   return pedido;
 }
 

@@ -389,6 +389,10 @@ checkout() {
       <div class="form-group" id="checkoutClienteGroup" style="display:none">
         <label>Cliente</label>
         <input type="text" id="checkoutCliente" placeholder="Nombre del cliente">
+        <div id="checkoutTelLlevarGroup" style="display:none" class="mt-10">
+          <label>Tel&eacute;fono (para avisarle por WhatsApp cuando est&eacute; listo)</label>
+          <input type="text" id="checkoutTelefonoLlevar" placeholder="11-1234-5678">
+        </div>
       </div>
       <div class="grid grid-2" id="checkoutDeliveryGroup" style="display:none">
         <div class="form-group">
@@ -454,6 +458,7 @@ checkout() {
       document.getElementById('checkoutClienteGroup').style.display =
         (tipo === 'delivery' || tipo === 'takeaway') ? 'block' : 'none';
       const esDelivery = tipo === 'delivery';
+      document.getElementById('checkoutTelLlevarGroup').style.display = tipo === 'takeaway' ? 'block' : 'none';
       document.getElementById('checkoutDeliveryGroup').style.display = esDelivery ? 'grid' : 'none';
       document.getElementById('checkoutDeliveryExtra').style.display = esDelivery ? 'block' : 'none';
     });
@@ -476,7 +481,8 @@ checkout() {
     const plataforma = document.getElementById('checkoutPlataforma') ? document.getElementById('checkoutPlataforma').value : '';
     const codigo_externo = document.getElementById('checkoutCodigoExt') ? document.getElementById('checkoutCodigoExt').value : '';
     const direccion = document.getElementById('checkoutDireccion') ? document.getElementById('checkoutDireccion').value : '';
-    const telefono = document.getElementById('checkoutTelefono') ? document.getElementById('checkoutTelefono').value : '';
+    const campoTel = document.getElementById(tipo === 'takeaway' ? 'checkoutTelefonoLlevar' : 'checkoutTelefono');
+    const telefono = campoTel ? campoTel.value : '';
     const costo_envio = document.getElementById('checkoutCostoEnvio') ? parseFloat(document.getElementById('checkoutCostoEnvio').value) || 0 : 0;
 
     const items = this.cart.map(item => ({

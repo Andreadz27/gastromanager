@@ -34,6 +34,15 @@ Pago, cierre del pedido, liberación de la mesa y descuento de stock son una sol
   **Lo protege:** `cobro-mesa.test.js`.
 - **Factura en el cobro:** se emite después del COMMIT (`emitirFactura`, HTTP a AFIP). Si falla, el cobro no se deshace.
 
+### Facturación AFIP — `src/servicios/facturacion.js` · riesgo MEDIO
+- **Factura vigente** = factura A/B/C sin nota de crédito asociada (`comprobante_asociado_id`). La usan el control de
+  duplicados, el botón *Facturar* y el ticket. **Lo rompe:** buscar "cualquier comprobante del pedido" (una nota de
+  crédito bloquearía refacturar o saldría en el ticket).
+- **Fecha del comprobante · CORREGIDO (22/10/2026):** usaba la hora del servidor; en Render (UTC) las facturas de
+  después de las 21 h salían con la fecha de mañana. Ahora usa `fechaLocal()` (`ZONA_HORARIA`). Test en
+  `afip.test.js` con servidores en UTC+14 y UTC-12.
+- **Lo protege:** `afip.test.js` y el e2e, contra AfipSDK simulado.
+
 ### 2. Precios — `resolverItems` y la carta online (`src/rutas/publico.js`) · riesgo ALTO
 El precio siempre sale de la base, nunca del navegador.
 - **Lógica duplicada:** la carta online (pedido del cliente por QR) resuelve ítems por su cuenta en vez de usar
@@ -82,11 +91,33 @@ Con usuarios y claves conocidos en internet. Lo peligroso se bloquea por lista.
 Usaba la hora del servidor: en Render (UTC) los pedidos de después de las 21 h salían con la fecha de mañana.
 Ahora usa `ZONA_HORARIA`. Test en `regresiones.test.js` con servidores en UTC+14 y UTC-12.
 
-### 9b. "Hoy" en el navegador — `hoyLocal()` en `public/js/api.js` · PENDIENTE DE DECISIÓN
-La pantalla de Pedidos pide los pedidos de `hoyLocal()`, que usa la zona horaria **del navegador**; el servidor
-filtra con `ZONA_HORARIA`. Si el dispositivo tiene otra zona (o en el CI, en UTC), después de las 21 h de Argentina
-la lista sale vacía. Encontrado el 22/10/2026 cuando el CI corrió de noche. Los e2e ahora fijan el navegador en
-`ZONA_HORARIA`. Arreglarlo en el sistema (tomar la fecha de la zona del negocio) cambia lo que ve el usuario.
+### 9b. "Hoy" en el navegador — `hoyLocal()` en `public/js/api.js` · CORREGIDO (22/10/2026)
+Usaba la zona horaria **del dispositivo** y el servidor filtra con `ZONA_HORARIA`: en un dispositivo con otra zona
+(o en el CI, en UTC), después de las 21 h de Argentina la lista de Pedidos salía vacía. Ahora la sesión trae
+`zona_horaria` y `hoyLocal()` la usa. Test e2e con navegadores en UTC+14 y UTC-12. **Lo rompe:** volver a armar la
+fecha con `new Date()` en el navegador (ojo con `toISOString().slice(0, 10)`, que además es UTC).
+
+### 9c. WhatsApp — `src/servicios/whatsapp.js` · riesgo MEDIO
+Manda mensajes a teléfonos reales.
+- **Lo rompe:** enviar desde dentro de `transaccion()` (HTTP a Meta), sacar el control de "una sola vez" (`unico`,
+  por `motivo` + `referencia`) de los avisos automáticos, aceptar el webhook sin firma, o una ruta nueva bajo
+  `/api/whatsapp/` sin bloquear en la demo (hoy se bloquea todo POST ahí, salvo que se cambie `src/demo.js`).
+- **Recordatorios:** comparan `fecha || ' ' || hora` de la reserva (texto en hora del negocio) con la hora local
+  calculada con `offsetZonaMin()`. Cambiar el formato de fecha u hora de las reservas los rompe.
+- **Lo protege:** `whatsapp.test.js` (API de Meta simulada), `estructura.test.js` (rutas públicas), e2e.
+
+### 9d. Recetas — `src/servicios/recetas.js` · riesgo MEDIO
+El descuento de stock del cobro pasa por `descontarStockItemTx` (dentro de la transacción del cobro).
+- **Lo rompe:** descontar fuera de `cerrarPedidoTx` (con cuenta dividida se descontaría en cada parte), permitir
+  recetas anidadas (ciclos), o editar `productos.costo` de un plato con receta sin recalcular.
+- **Ojo:** el costo teórico de Contabilidad usa el costo *actual* de cada producto, no el del día de la venta.
+- **Lo protege:** `recetas.test.js`, e2e.
+
+### 9e. PIN de autorización y arqueo ciego — `src/servicios/autorizacion.js` · riesgo ALTO
+- **Lo rompe:** una acción sensible nueva sin `requiereAutorizacion`/`autorizar`, mostrar `efectivo_esperado` o
+  `diferencia` al cajero con arqueo ciego (`resumenParaUsuario` en `caja.js`), o guardar el PIN sin hash.
+- **Bloqueo por intentos:** en memoria (se reinicia con el servidor). Con PIN de 4 dígitos, 5 intentos cada 5 minutos.
+- **Lo protege:** `control-caja.test.js` y e2e (PIN encima del formulario, caja ciega).
 
 ### 10. Copias de seguridad — `src/servicios/backups.js` · riesgo BAJO
 - **Bugs corregidos:** dos copias en el mismo segundo daban error 500 (nombre repetido); una copia con el sistema en

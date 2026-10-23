@@ -24,8 +24,9 @@ const API = {
     localStorage.removeItem('gm_token');
   },
 
-  async request(method, url, data = null) {
+  async request(method, url, data = null, pin = null) {
     const headers = {};
+    if (pin) headers['X-Autorizacion-Pin'] = pin;
     const token = this.getToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -50,6 +51,12 @@ const API = {
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      // Acción que necesita la autorización de un encargado: se pide el PIN y se reintenta
+      if (result.requiere_pin && response.status === 403) {
+        const nuevoPin = await pedirPinAutorizacion(result.error);
+        if (nuevoPin) return this.request(method, url, data, nuevoPin);
+        throw new Error('Acción cancelada: falta la autorización');
+      }
       throw new Error(result.error || 'Error en la petici\u00f3n');
     }
 
@@ -220,6 +227,14 @@ const API = {
   testIntegracion(tipo)             { return this.request('POST', `/integraciones/test/${tipo}`); },
   getComprobantesAFIP(limit = 10)   { return this.request('GET',  `/integraciones/afip/comprobantes?limit=${limit}`); },
   generarComprobante(data)          { return this.request('POST', '/integraciones/afip/facturar', data); },
+  emitirNotaCredito(data)           { return this.request('POST', '/integraciones/afip/nota-credito', data); },
+  enviarComprobanteWhatsApp(pedidoId, telefono) { return this.request('POST', `/whatsapp/comprobante/${pedidoId}`, { telefono }); },
+  pruebaWhatsApp(telefono)          { return this.request('POST', '/whatsapp/prueba', { telefono }); },
+  getMensajesWhatsApp()             { return this.request('GET',  '/whatsapp/mensajes'); },
+  getReceta(productoId)             { return this.request('GET', `/productos/${productoId}/receta`); },
+  guardarReceta(productoId, lineas) { return this.request('PUT', `/productos/${productoId}/receta`, { lineas }); },
+  definirPin(password, pin)         { return this.request('PUT', '/auth/pin', { password, pin }); },
+  consultarPadron(cuit)             { return this.request('GET',  `/integraciones/afip/padron/${encodeURIComponent(cuit)}`); },
   syncProductosTiendaNube()         { return this.request('POST', '/integraciones/tiendanube/sync-productos'); },
   crearLinkMercadoPago(pedidoId)    { return this.request('POST', `/integraciones/mercadopago/link/${pedidoId}`); },
 
@@ -272,7 +287,42 @@ function parseFecha(fecha) {
 }
 
 // Fecha local de hoy (AAAA-MM-DD). toISOString() da la fecha UTC: después de las 21 hs era "mañana".
+// Fecha de hoy en la zona horaria del negocio (la manda el servidor con la sesión). Con la del dispositivo,
+// un celular o un navegador en otra zona pedía los pedidos "de mañana" después de las 21 h y la lista salía vacía.
+// Cuadro para el PIN del encargado, encima de lo que esté abierto (no cierra el formulario de la acción).
+// Devuelve el PIN o null si se cancela.
+function pedirPinAutorizacion(mensaje) {
+  return new Promise(resolver => {
+    const capa = document.createElement('div');
+    capa.className = 'modal-overlay pin-overlay';
+    capa.innerHTML = `
+      <div class="modal pin-modal" role="dialog" aria-label="Autorización">
+        <div class="modal-header"><h3><i class="fas fa-user-shield"></i> Autorización</h3></div>
+        <form>
+          <p>${esc(mensaje || 'Esta acción necesita el PIN de un encargado')}</p>
+          <div class="form-group">
+            <input type="password" inputmode="numeric" autocomplete="off" maxlength="6" class="pin-input"
+              id="pinAutorizacion" placeholder="PIN del encargado" required pattern="[0-9]{4,6}">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" data-cancelar>Cancelar</button>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Autorizar</button>
+          </div>
+        </form>
+      </div>`;
+    const terminar = valor => { capa.remove(); resolver(valor); };
+    capa.querySelector('form').addEventListener('submit', e => { e.preventDefault(); terminar(capa.querySelector('input').value); });
+    capa.querySelector('[data-cancelar]').addEventListener('click', () => terminar(null));
+    document.body.appendChild(capa);
+    capa.querySelector('input').focus();
+  });
+}
+
 function hoyLocal() {
+  const zona = typeof App !== 'undefined' && App.usuario && App.usuario.zona_horaria;
+  if (zona) {
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: zona }).format(new Date()); } catch (e) {}
+  }
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }

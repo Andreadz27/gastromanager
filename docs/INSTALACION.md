@@ -96,3 +96,31 @@ No se abren puertos del router: la conexión sale del local hacia Cloudflare, co
 
 Siempre hace una copia antes, baja solo lo que está en `main` (que pasó el CI) y, si la versión nueva no
 arranca, vuelve sola a la anterior. Registro en `logs\actualizaciones.log`.
+
+**Ojo:** mergear a `main` es entregar. Los locales con actualización automática reciben la versión nueva a las
+05:00 del día siguiente. Las opciones nuevas llegan **apagadas**: nada cambia para el local hasta configurarlas.
+
+## 7. Puesta a punto de cada negocio (primer día, con el dueño)
+
+Entrar como administrador. Cada punto es opcional según lo que contrate el local.
+
+| # | Qué | Dónde | Necesita |
+|---|---|---|---|
+| 1 | Tipo de negocio, datos, CUIT y alícuota de IVA | Configuración | — |
+| 2 | Usuarios por rol (encargado, cajeros, mozos, cocina) | Usuarios | Mail de cada uno |
+| 3 | Carta: productos, precios y categorías | Productos | Lista de precios |
+| 4 | **Insumos y recetas**: cargar insumos con costo, unidad y stock, y la receta de cada plato | Productos → Receta | Costos de mercadería |
+| 5 | Impresoras de comandas y tickets | Configuración → Impresoras | IP o USB de cada una |
+| 6 | **Factura electrónica**: CUIT, punto de venta, Access Token de AfipSDK y certificado | Integraciones → AFIP | Clave fiscal del dueño; punto de venta "Web Services" dado de alta en ARCA |
+| 7 | **Padrón de ARCA** (datos del cliente en la Factura A) | ARCA → Administrador de relaciones | Habilitar *ws_sr_constancia_inscripcion* para la CUIT |
+| 8 | Mercado Pago (QR y links de pago) | Integraciones → Mercado Pago | Acceso remoto (punto 5) para el cierre automático |
+| 9 | **WhatsApp Business**: número, token, secreto, plantillas y webhook | Integraciones → WhatsApp | App en Meta for Developers, número verificado, 3 plantillas aprobadas, acceso remoto |
+| 10 | **Cobro en la mesa** (los mozos cobran y facturan desde el celular) | Configuración | Mozos con celular en la red del local |
+| 11 | **PIN de autorización** y **arqueo ciego** | Configuración; cada encargado en *Mi PIN* | Que cada encargado elija su PIN |
+
+**Prueba antes de abrir:** una venta completa de punta a punta (pedido → cocina → cobro → factura si corresponde →
+ticket), abrir y cerrar la caja, y revisar que el stock de un plato con receta baje en sus ingredientes.
+Para la factura, primero en modo **homologación** (pruebas) y recién después en **producción**.
+
+**Al terminar:** desactivar los usuarios de prueba (Configuración → Usuarios) y verificar que la copia en la nube
+y el monitoreo estén funcionando (puntos 3 y 4).

@@ -160,13 +160,152 @@ const Integraciones = {
         <p>Conectá GastroManager con las plataformas más usadas del mercado</p>
       </div></div>
       ${mpHtml}${deliveryHtml}
+      <div id="waCard"></div>
       <div id="afipCard"></div>
       <div id="tnCard"></div>`;
+    this._paintWA(this.cfg.whatsapp || {}, est);
     this._paintAFIP(afip, est);
     this._paintTN(tn, est);
     this._setWebhookUrls();
     this._cargarDeliveryPlataformas();
     if (est.afip==='conectada'||est.afip==='configurada') this._cargarComprobantes();
+  },
+
+  // ──────── WHATSAPP BUSINESS ────────
+  // Plantillas que hay que crear (y que Meta apruebe) en WhatsApp Manager, con estas variables
+  PLANTILLAS_WA: [
+    ['comprobante', 'Comprobante después de cobrar', 'Hola {{1}}, gracias por tu visita a {{2}}. Total: {{3}}. Comprobante: {{4}}.'],
+    ['pedido_estado', 'Pedido listo / en camino', 'Hola {{1}}, tu pedido {{2}} de {{3}} está {{4}}.'],
+    ['recordatorio_reserva', 'Recordatorio de reserva', 'Hola {{1}}, te esperamos en {{2}} el {{3}} a las {{4}} ({{5}} personas). Si no podés venir, respondé este mensaje.']
+  ],
+
+  _paintWA(wa, est) {
+    const el = document.getElementById('waCard');
+    if (!el) return;
+    const pl = wa.plantillas || {};
+    const opt = (v, actual, txt) => `<option value="${v}" ${String(actual) === String(v) ? 'selected' : ''}>${txt}</option>`;
+    el.innerHTML = `
+      <div class="integracion-card ${wa.activa ? 'activa' : ''}">
+        <div class="integracion-header">
+          <div class="integracion-logo wa-logo"><i class="fab fa-whatsapp"></i></div>
+          <div class="integracion-info">
+            <div class="integracion-nombre">WhatsApp Business</div>
+            <div class="integracion-desc">Comprobantes, aviso de pedido listo o en camino y recordatorio de reservas, con la API oficial de Meta</div>
+          </div>
+          <div class="integracion-estado">${this._badgeEstado(est.whatsapp)}</div>
+        </div>
+        <div class="integracion-body">
+          <form onsubmit="Integraciones.guardarWA(event)">
+            <div class="grid grid-2">
+              <div class="form-group">
+                <label>Identificador del número (Phone number ID)</label>
+                <input type="text" id="waPhoneId" value="${esc(wa.phone_number_id || '')}" placeholder="1234567890" autocomplete="off">
+                <small class="form-hint">Meta for Developers → Tu app → WhatsApp → Configuración de la API</small>
+              </div>
+              <div class="form-group">
+                <label>Token de acceso permanente</label>
+                <input type="password" id="waToken" value="${esc(wa.access_token || '')}" placeholder="EAAG..." autocomplete="off">
+                <small class="form-hint">De un usuario del sistema con permiso whatsapp_business_messaging</small>
+              </div>
+            </div>
+            <div class="grid grid-2">
+              <div class="form-group">
+                <label>Secreto de la app (App Secret)</label>
+                <input type="password" id="waSecret" value="${esc(wa.app_secret || '')}" autocomplete="off">
+                <small class="form-hint">Configuración de la app → Básica. Sirve para verificar el webhook.</small>
+              </div>
+              <div class="form-group">
+                <label>Token de verificación del webhook</label>
+                <input type="text" id="waVerify" value="${esc(wa.verify_token || '')}" placeholder="Una palabra secreta inventada por vos">
+              </div>
+            </div>
+            <div class="grid grid-3">
+              <div class="form-group"><label>Avisos de pedidos</label>
+                <select id="waAvisos">${opt(0, wa.avisar_pedidos ? 1 : 0, 'No avisar')}${opt(1, wa.avisar_pedidos ? 1 : 0, 'Listo para retirar y en camino')}</select>
+              </div>
+              <div class="form-group"><label>Recordatorio de reservas</label>
+                <select id="waRecordatorio">${[0, 1, 2, 3, 6, 24].map(h => opt(h, wa.recordatorio_horas || 0, h ? `${h} h antes` : 'No enviar')).join('')}</select>
+              </div>
+              <div class="form-group"><label>Estado</label>
+                <select id="waActiva">${opt(0, wa.activa ? 1 : 0, 'Desactivada')}${opt(1, wa.activa ? 1 : 0, 'Activa')}</select>
+              </div>
+            </div>
+            <details class="mt-10">
+              <summary><strong>Plantillas</strong> (crearlas en WhatsApp Manager, categoría Utilidad, idioma ${esc(wa.idioma || 'es_AR')})</summary>
+              ${this.PLANTILLAS_WA.map(([clave, titulo, texto]) => `
+                <div class="form-group mt-10">
+                  <label>${titulo}</label>
+                  <input type="text" id="waPl_${clave}" value="${esc(pl[clave] || '')}">
+                  <small class="form-hint">Texto: <em>${esc(texto)}</em></small>
+                </div>`).join('')}
+            </details>
+            <div class="card-info mt-10"><i class="fas fa-info-circle"></i>
+              <div><strong>URL del webhook:</strong>
+                <span class="code-inline" id="waWebhookUrl">${esc(window.location.origin)}/api/whatsapp/webhook</span>
+                <button type="button" class="btn btn-outline btn-xs ml-5" onclick="Integraciones.copiar('waWebhookUrl')"><i class="fas fa-copy"></i></button><br>
+                <small>En Meta → WhatsApp → Configuración → Webhook: pegá esta URL (tiene que ser HTTPS pública) con el token de verificación,
+                  y suscribite a <em>messages</em>. Así se ven los estados (entregado, leído) y los mensajes de los clientes.</small>
+              </div>
+            </div>
+            <div class="integracion-actions">
+              <input type="text" id="waTelPrueba" placeholder="Tu celular para probar" style="max-width:200px">
+              <button type="button" class="btn btn-outline" onclick="Integraciones.testWA()"><i class="fas fa-paper-plane"></i> Enviar prueba</button>
+              <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar</button>
+            </div>
+          </form>
+          ${est.whatsapp === 'conectada' ? '<div class="mt-20" id="waMensajes"><i class="fas fa-spinner fa-spin"></i></div>' : ''}
+        </div>
+      </div>`;
+    if (est.whatsapp === 'conectada') this._cargarMensajesWA();
+  },
+
+  async guardarWA(e) {
+    e.preventDefault();
+    const val = id => document.getElementById(id).value.trim();
+    try {
+      await API.saveIntegracionConfig('whatsapp', {
+        phone_number_id: val('waPhoneId'),
+        access_token:    val('waToken'),
+        app_secret:      val('waSecret'),
+        verify_token:    val('waVerify'),
+        avisar_pedidos:  val('waAvisos') === '1',
+        recordatorio_horas: Number(val('waRecordatorio')) || 0,
+        activa:          val('waActiva') === '1',
+        idioma:          (this.cfg.whatsapp && this.cfg.whatsapp.idioma) || 'es_AR',
+        plantillas: Object.fromEntries(this.PLANTILLAS_WA.map(([clave]) => [clave, val('waPl_' + clave)]).filter(([, v]) => v))
+      });
+      App.showToast('WhatsApp guardado', 'success');
+      this.render();
+    } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
+  async testWA() {
+    const tel = document.getElementById('waTelPrueba').value;
+    if (!tel.trim()) return App.showToast('Escribí tu celular para recibir la prueba', 'warning');
+    try {
+      const r = await API.pruebaWhatsApp(tel);
+      App.showToast(`✓ ${r.message}`, 'success');
+      this._cargarMensajesWA();
+    } catch (err) { App.showToast(err.message, 'error', 8000); }
+  },
+
+  async _cargarMensajesWA() {
+    const cont = document.getElementById('waMensajes');
+    if (!cont) return;
+    const ESTADOS = { enviando: 'badge-gray', enviado: 'badge-blue', entregado: 'badge-blue', leido: 'badge-green', error: 'badge-red' };
+    try {
+      const { enviados, recibidos } = await API.getMensajesWhatsApp();
+      cont.innerHTML = `
+        <div class="card-header"><span class="card-title"><i class="fas fa-paper-plane"></i> Últimos mensajes enviados</span></div>
+        ${enviados.length ? `<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Teléfono</th><th>Motivo</th><th>Estado</th></tr></thead><tbody>
+          ${enviados.slice(0, 15).map(m => `<tr><td>${fmtFechaHora(m.creado_en)}</td><td>+${esc(m.telefono)}</td><td>${esc(m.motivo)}</td>
+            <td><span class="badge ${ESTADOS[m.estado] || 'badge-gray'}" title="${esc(m.error || '')}">${esc(m.estado)}</span></td></tr>`).join('')}
+        </tbody></table></div>` : '<p class="text-muted">Todavía no se envió ningún mensaje.</p>'}
+        ${recibidos.length ? `<div class="card-header mt-20"><span class="card-title"><i class="fas fa-inbox"></i> Mensajes de clientes</span></div>
+          ${recibidos.slice(0, 15).map(m => `<p><strong>${esc(m.nombre || '+' + m.telefono)}</strong> <small class="text-muted">${fmtFechaHora(m.creado_en)}</small><br>${esc(m.texto)}</p>`).join('')}` : ''}`;
+    } catch (err) {
+      cont.innerHTML = `<p class="text-muted">${esc(err.message)}</p>`;
+    }
   },
 
   _paintAFIP(afip, est) {
@@ -390,6 +529,7 @@ const Integraciones = {
         App.showToast('Ingresá el CUIT del cliente (11 dígitos) para la Factura A', 'warning');
         return;
       }
+      Object.assign(data, this.datosReceptor(data.cuit_receptor));
     }
     try {
       App.showToast('Generando comprobante AFIP...', 'info');
@@ -400,14 +540,96 @@ const Integraciones = {
     } catch (err) { App.showToast(err.message, 'error'); }
   },
 
+  // ──────── PADRÓN DE ARCA ────────
+  // Busca el CUIT escrito en inputId y muestra razón social y condición de IVA en infoId
+  _padron: null,
+
+  async buscarCuit(inputId, infoId) {
+    const input = document.getElementById(inputId);
+    const info = document.getElementById(infoId);
+    const cuit = (input && input.value || '').replace(/\D/g, '');
+    this._padron = null;
+    if (!info) return null;
+    if (cuit.length !== 11) { info.innerHTML = ''; return null; }
+    info.innerHTML = '<span class="text-muted"><i class="fas fa-spinner fa-spin"></i> Consultando ARCA...</span>';
+    try {
+      const d = await API.consultarPadron(cuit);
+      this._padron = d;
+      const avisoA = d.factura_sugerida === 1 ? '' :
+        `<br><span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Le corresponde Factura B, no A.</span>`;
+      info.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> <strong>${esc(d.razon_social)}</strong></span>
+        &mdash; ${esc(d.condicion_iva_nombre)}${d.domicilio ? `<br><small class="text-muted">${esc(d.domicilio)}</small>` : ''}${avisoA}`;
+      return d;
+    } catch (err) {
+      info.innerHTML = `<span class="text-danger">${esc(err.message)}</span>`;
+      return null;
+    }
+  },
+
+  // Condición de IVA y razón social del último CUIT consultado (si coincide)
+  datosReceptor(cuit) {
+    const d = this._padron;
+    return d && d.cuit === cuit ? { condicion_iva_receptor: d.condicion_iva, razon_social: d.razon_social } : {};
+  },
+
+  // ──────── NOTA DE CRÉDITO ────────
+  // Anula una factura ante ARCA. Las Facturas A viejas no guardaban el CUIT: se pide.
+  abrirNotaCredito(comprobanteId, tipo, pideCuit) {
+    const nombre = { 1: 'Factura A', 6: 'Factura B', 11: 'Factura C' }[tipo] || 'factura';
+    App.showModal(`
+      <form onsubmit="Integraciones.emitirNotaCredito(event, ${comprobanteId})">
+        <p>Se emite una nota de crédito por el total de la <strong>${esc(nombre)}</strong> y queda anulada ante ARCA.
+          El cobro no cambia: si devolvés plata, registrala como egreso en la caja. Después podés volver a facturar el pedido.</p>
+        <div class="form-group mt-10">
+          <label>Motivo</label>
+          <input type="text" id="ncMotivo" maxlength="200" required placeholder="Ej: era Factura A, error en el importe">
+        </div>
+        ${pideCuit ? `<div class="form-group">
+          <label>CUIT del cliente de la factura</label>
+          <input type="text" id="ncCuit" maxlength="13" required placeholder="20-12345678-9">
+        </div>` : ''}
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="App.closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-danger" id="ncBtn"><i class="fas fa-file-excel"></i> Emitir nota de crédito</button>
+        </div>
+      </form>
+    `, { title: 'Anular factura' });
+  },
+
+  async emitirNotaCredito(e, comprobanteId) {
+    e.preventDefault();
+    const btn = document.getElementById('ncBtn');
+    btn.disabled = true;
+    try {
+      const r = await API.emitirNotaCredito({
+        comprobante_id: comprobanteId,
+        motivo: document.getElementById('ncMotivo').value,
+        cuit_receptor: (document.getElementById('ncCuit')?.value || '').replace(/\D/g, '')
+      });
+      App.closeModal();
+      App.showToast(`✓ ${r.tipo_nombre} emitida — CAE: ${r.cae}`, 'success');
+      if (typeof Pedidos !== 'undefined' && Pedidos.ultimoPedido) Pedidos.verDetalle(Pedidos.ultimoPedido.id);
+    } catch (err) {
+      btn.disabled = false;
+      App.showToast(err.message, 'error');
+    }
+  },
+
   // Códigos AFIP: 1 = Factura A, 6 = Factura B, 11 = Factura C
   abrirModalFacturar(pedidoId, total) {
+    this._padron = null;
     App.showModal(`
       <p>Seleccioná el tipo de comprobante para el pedido <strong>#${pedidoId}</strong>
         &mdash; Total: <strong>${fmtMoneda(total)}</strong></p>
       <div class="form-group mt-10">
         <label>CUIT del cliente (solo Factura A)</label>
-        <input type="text" id="afipCuitReceptor" placeholder="20-12345678-9" maxlength="13">
+        <div class="cobro-chips">
+          <input type="text" id="afipCuitReceptor" placeholder="20-12345678-9" maxlength="13"
+            onchange="Integraciones.buscarCuit('afipCuitReceptor', 'afipPadronInfo')">
+          <button type="button" class="btn btn-outline btn-sm" onclick="Integraciones.buscarCuit('afipCuitReceptor', 'afipPadronInfo')">
+            <i class="fas fa-search"></i> Buscar en ARCA</button>
+        </div>
+        <div id="afipPadronInfo" class="mt-10"></div>
       </div>
       <div class="grid grid-3 mt-20">
         <button class="btn btn-outline btn-lg" onclick="Integraciones.facturar(${pedidoId},1)">

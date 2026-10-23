@@ -1,7 +1,8 @@
 'use strict';
 const {
-  run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, METODOS_PAGO, comandaAutomatica, ticketAlCobrar, requiere, tienePermiso,
-  registrarCobroTx, saldoPedido, requiereCobro, emitirFactura, validarDatosFactura
+  run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, METODOS_PAGO, comandaAutomatica, ticketAlCobrar, requiere,
+  registrarCobroTx, saldoPedido, requiereCobro, emitirFactura, validarDatosFactura, avisarEstadoPedido,
+  autorizar, requiereAutorizacion
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -13,9 +14,13 @@ app.post('/api/pedidos', autenticar, requiere('pedidos.tomar'), async (req, res)
     const { tipo, mesa_id, cliente, notas, descuento, propina, plataforma, codigo_externo, direccion, telefono, costo_envio } = req.body;
     const descuentoVal = importe(descuento);
     const propinaVal = importe(propina);
-    // El descuento también se controla al crear el pedido (si no, un mozo podría enviarlo acá)
-    if (descuentoVal > 0 && !tienePermiso(req.usuario, 'pedidos.descuento'))
-      return res.status(403).json({ error: 'Tu usuario no puede aplicar descuentos' });
+    // El descuento también se controla al crear el pedido (si no, un mozo podría enviarlo acá).
+    // Con el PIN de autorización activado, lo autoriza un encargado.
+    if (descuentoVal > 0) {
+      const a = await autorizar(req, 'pedidos.descuento', 'Descuento');
+      if (!a.ok) return res.status(a.status).json({ error: a.status === 403 && !a.requiere_pin ? 'Tu usuario no puede aplicar descuentos' : a.error,
+        ...(a.requiere_pin ? { requiere_pin: true } : {}) });
+    }
 
     const resultado = await transaccion(async () => {
       const items = await resolverItems(req.body.items);
@@ -131,6 +136,8 @@ app.post('/api/cocina/display/:id/listo', autenticar, requiere('cocina'), async 
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado o ya cerrado' });
     // Solo marca como listo en cocina (no paga), lo dejamos abierto para que el mozo lo cierre
     emitEvento('cocina:actualizar', { pedido_id: pedido.id });
+    // Para llevar: aviso por WhatsApp al cliente (si está activado); no demora la respuesta
+    avisarEstadoPedido(pedido.id, 'listo');
     res.json({ ok: true });
   } catch (err) {
     errorInterno(res, err);
@@ -144,6 +151,7 @@ app.put('/api/cocina/:id/listo', autenticar, requiere('cocina'), async (req, res
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado o ya procesado' });
     // Emite evento tiempo real para que el display y otros clientes se actualicen
     emitEvento('cocina:actualizar', { pedido_id: pedido.id, numero_pedido: pedido.numero_pedido });
+    avisarEstadoPedido(pedido.id, 'listo');
     res.json({ ok: true, numero_pedido: pedido.numero_pedido });
   } catch (err) {
     errorInterno(res, err);
@@ -222,7 +230,7 @@ app.post('/api/pedidos/:id/items', autenticar, requiere('pedidos.tomar'), async 
   }
 });
 
-app.put('/api/pedidos/:id/descuento', autenticar, requiere('pedidos.descuento'), async (req, res) => {
+app.put('/api/pedidos/:id/descuento', autenticar, requiereAutorizacion('pedidos.descuento', 'Descuento'), async (req, res) => {
   try {
     const total = await transaccion(async () => {
       const pedido = await get('SELECT * FROM pedidos WHERE id = ?', [req.params.id]);
@@ -291,7 +299,9 @@ app.post('/api/pedidos/:id/cobro', autenticar, requiereCobro, async (req, res) =
       return { metodo, monto, referencia: String(p.referencia || '').slice(0, 100) };
     });
     // La factura se valida antes de cobrar: un CUIT mal cargado no deja un cobro a medias
-    const factura = body.factura ? validarDatosFactura(body.factura.tipo_comprobante, body.factura.cuit_receptor) : null;
+    const factura = body.factura
+      ? validarDatosFactura(body.factura.tipo_comprobante, body.factura.cuit_receptor, body.factura.condicion_iva_receptor)
+      : null;
     if (!req.puedeCobrarTodo) {
       const p = await get('SELECT tipo, mesa_id FROM pedidos WHERE id = ?', [pedidoId]);
       if (p && !(p.tipo === 'salon' && p.mesa_id)) throw errorHttp(403, 'Tu usuario solo puede cobrar pedidos de mesa');
@@ -308,7 +318,9 @@ app.post('/api/pedidos/:id/cobro', autenticar, requiereCobro, async (req, res) =
     let resultadoFactura = null;
     if (r.cerrado && factura) {
       try {
-        resultadoFactura = await emitirFactura(pedidoId, factura.tipo, factura.cuit);
+        resultadoFactura = await emitirFactura(pedidoId, factura.tipo, factura.cuit, {
+          condicionIva: factura.condicion, razonSocial: body.factura.razon_social
+        });
       } catch (e) {
         console.error('[AFIP cobro en mesa]', e.message);
         resultadoFactura = { ok: false, error: e.message };
@@ -328,7 +340,7 @@ app.post('/api/pedidos/:id/cobro', autenticar, requiereCobro, async (req, res) =
   }
 });
 
-app.put('/api/pedidos/:id/cancelar', autenticar, requiere('pedidos.cancelar'), async (req, res) => {
+app.put('/api/pedidos/:id/cancelar', autenticar, requiereAutorizacion('pedidos.cancelar', 'Cancelar pedido'), async (req, res) => {
   try {
     await transaccion(async () => {
       const pedido = await get('SELECT * FROM pedidos WHERE id = ?', [req.params.id]);

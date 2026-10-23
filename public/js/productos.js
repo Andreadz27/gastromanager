@@ -52,6 +52,8 @@ const Productos = {
         ${
           esAdmin ? `
           <td>
+            <button class="btn btn-outline btn-sm" onclick="Productos.receta(${p.id})" title="Receta e ingredientes">
+              <i class="fas fa-blender"></i>${p.ingredientes_receta ? ` ${p.ingredientes_receta}` : ''}</button>
             <button class="btn btn-outline btn-sm" onclick="Productos.editar(${p.id})"><i class="fas fa-edit"></i></button>
             <button class="btn btn-danger btn-sm" onclick="Productos.eliminar(${p.id})"><i class="fas fa-trash"></i></button>
           </td>
@@ -157,7 +159,8 @@ nuevo() {
           </div>
           <div class="form-group">
             <label>Costo ($)</label>
-            <input type="number" id="prodCosto" min="0" step="0.01" value="${p ? p.costo : '0'}">
+            <input type="number" id="prodCosto" min="0" step="0.01" value="${p ? p.costo : '0'}" ${p && p.ingredientes_receta ? 'readonly' : ''}>
+            ${p && p.ingredientes_receta ? '<small class="form-hint">Lo calcula la receta: se actualiza solo cuando cambian los ingredientes.</small>' : ''}
           </div>
         </div>
         <div class="grid grid-2">
@@ -286,5 +289,86 @@ async guardar(e, id) {
     } catch (err) {
       App.showToast(err.message, 'error');
     }
+  },
+
+  // ===== Receta: ingredientes del plato, su costo y el margen =====
+  _receta: null,
+
+  async receta(id) {
+    try {
+      const [r, productos] = await Promise.all([API.getReceta(id), API.getProductos()]);
+      // Ingredientes posibles: productos activos sin receta propia (sin recetas anidadas)
+      this._ingredientes = productos.filter(x => x.id !== id && !x.ingredientes_receta);
+      this._receta = { id, nombre: r.nombre, precio: r.precio_venta,
+        lineas: r.lineas.map(l => ({ ingrediente_id: l.ingrediente_id, cantidad: l.cantidad })) };
+      if (!this._receta.lineas.length) this._receta.lineas.push({ ingrediente_id: '', cantidad: '' });
+      this.pintarReceta();
+    } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
+  costoReceta() {
+    const porId = Object.fromEntries(this._ingredientes.map(i => [i.id, i]));
+    return this._receta.lineas.reduce((s, l) => s + (Number(l.cantidad) || 0) * ((porId[l.ingrediente_id] || {}).costo || 0), 0);
+  },
+
+  pintarReceta() {
+    const r = this._receta;
+    const porId = Object.fromEntries(this._ingredientes.map(i => [i.id, i]));
+    const opciones = sel => '<option value="">Elegí un ingrediente</option>' + this._ingredientes.map(i =>
+      `<option value="${i.id}" ${String(sel) === String(i.id) ? 'selected' : ''}>${esc(i.nombre)} (${esc(i.unidad || 'unidad')})</option>`).join('');
+    const filas = r.lineas.map((l, n) => {
+      const ing = porId[l.ingrediente_id];
+      return `<div class="receta-linea">
+        <select onchange="Productos.setLinea(${n}, 'ingrediente_id', this.value)">${opciones(l.ingrediente_id)}</select>
+        <input type="number" min="0" step="0.001" value="${l.cantidad}" placeholder="Cantidad" aria-label="Cantidad"
+          oninput="Productos.setLinea(${n}, 'cantidad', this.value)">
+        <span class="text-muted">${ing ? esc(ing.unidad || 'unidad') + ' · ' + fmtMoneda((Number(l.cantidad) || 0) * (ing.costo || 0)) : ''}</span>
+        <button type="button" class="btn btn-sm btn-outline" onclick="Productos.quitarLinea(${n})" aria-label="Quitar"><i class="fas fa-times"></i></button>
+      </div>`;
+    }).join('');
+    const costo = this.costoReceta();
+    const margen = r.precio > 0 ? Math.round((r.precio - costo) / r.precio * 1000) / 10 : null;
+    const html = `
+      <p class="text-muted">Al cobrar, se descuenta el stock de cada ingrediente según la cantidad vendida.
+        La cantidad va en la unidad del ingrediente (ej. 0.15 kg de carne).</p>
+      ${filas}
+      <button type="button" class="btn btn-sm btn-outline mt-10" onclick="Productos.agregarLinea()"><i class="fas fa-plus"></i> Ingrediente</button>
+      <div class="cobro-totales mt-20">
+        <div><span>Costo del plato</span><strong>${fmtMoneda(costo)}</strong></div>
+        <div><span>Precio de venta</span><strong>${fmtMoneda(r.precio)}</strong></div>
+        <div class="cobro-saldo"><span>Margen</span><strong>${margen === null ? '-' : margen + ' %'}</strong></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" onclick="Productos.guardarReceta(true)">Quitar receta</button>
+        <button type="button" class="btn btn-outline" onclick="App.closeModal()">Cancelar</button>
+        <button type="button" class="btn btn-success" onclick="Productos.guardarReceta(false)"><i class="fas fa-save"></i> Guardar receta</button>
+      </div>`;
+    const cuerpo = document.getElementById('recetaCuerpo');
+    if (cuerpo && cuerpo.dataset.producto === String(r.id)) { cuerpo.innerHTML = html; return; }
+    App.showModal(`<div id="recetaCuerpo" data-producto="${r.id}">${html}</div>`, { title: `Receta: ${r.nombre}`, large: true });
+  },
+
+  setLinea(n, campo, valor) {
+    this._receta.lineas[n][campo] = valor;
+    // Al tipear la cantidad no se redibuja la fila (no se pierde el foco): solo los totales
+    if (campo === 'ingrediente_id') return this.pintarReceta();
+    const totales = document.querySelector('#recetaCuerpo .cobro-totales strong');
+    if (totales) totales.textContent = fmtMoneda(this.costoReceta());
+  },
+
+  agregarLinea() { this._receta.lineas.push({ ingrediente_id: '', cantidad: '' }); this.pintarReceta(); },
+  quitarLinea(n) { this._receta.lineas.splice(n, 1); this.pintarReceta(); },
+
+  async guardarReceta(quitar) {
+    const lineas = quitar ? [] : this._receta.lineas
+      .filter(l => l.ingrediente_id && Number(l.cantidad) > 0)
+      .map(l => ({ ingrediente_id: Number(l.ingrediente_id), cantidad: Number(l.cantidad) }));
+    if (quitar && !confirm('¿Quitar la receta? El producto vuelve a descontar su propio stock.')) return;
+    try {
+      const r = await API.guardarReceta(this._receta.id, lineas);
+      App.closeModal();
+      App.showToast(r.costo !== null && r.costo !== undefined ? `${r.message}. Costo: ${fmtMoneda(r.costo)}` : r.message, 'success');
+      this.render();
+    } catch (err) { App.showToast(err.message, 'error'); }
   }
 };

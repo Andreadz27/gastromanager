@@ -30,6 +30,8 @@ const Cobro = {
       if (p.estado !== 'abierto') return App.showToast('El pedido ya fue cobrado o cancelado', 'warning');
       this.p = p;
       this.afipActiva = estado.afip === 'conectada';
+      this.waActiva = estado.whatsapp === 'conectada';
+      Integraciones._padron = null;
       this.partes = Math.max(1, partes);
       this.propina = null;
       this.pagos = [{ metodo: 'efectivo', monto: this.montoParte(), recibido: '' }];
@@ -137,8 +139,10 @@ const Cobro = {
             <option value="1">Factura A (con CUIT)</option>
             <option value="11">Factura C (monotributo)</option>
           </select>
-          <input type="text" id="cobroCuit" placeholder="CUIT del cliente" maxlength="13" style="display:none">
+          <input type="text" id="cobroCuit" placeholder="CUIT del cliente" maxlength="13" style="display:none"
+            onchange="Integraciones.buscarCuit('cobroCuit', 'cobroPadronInfo')">
         </div>
+        <div id="cobroPadronInfo" class="mt-10"></div>
       </div>`;
   },
 
@@ -147,6 +151,8 @@ const Cobro = {
     const cuit = document.getElementById('cobroCuit');
     const activo = document.getElementById('cobroFacturar');
     if (tipo && cuit) cuit.style.display = activo.checked && tipo.value === '1' ? '' : 'none';
+    const info = document.getElementById('cobroPadronInfo');
+    if (info && cuit && cuit.style.display === 'none') info.innerHTML = '';
   },
 
   textoResumen() {
@@ -219,7 +225,7 @@ const Cobro = {
       const tipo = Number(document.getElementById('cobroTipoCbte').value);
       const cuit = (document.getElementById('cobroCuit').value || '').replace(/\D/g, '');
       if (tipo === 1 && cuit.length !== 11) return App.showToast('Ingresá el CUIT del cliente (11 dígitos) para la Factura A', 'warning');
-      body.factura = { tipo_comprobante: tipo, ...(tipo === 1 ? { cuit_receptor: cuit } : {}) };
+      body.factura = { tipo_comprobante: tipo, ...(tipo === 1 ? { cuit_receptor: cuit, ...Integraciones.datosReceptor(cuit) } : {}) };
     }
 
     const btn = document.getElementById('cobroBtn');
@@ -260,8 +266,55 @@ const Cobro = {
     `, { title: r.cerrado ? 'Cobro completo' : 'Pago parcial registrado' });
   },
 
-  // Comprobante por WhatsApp: el mozo lo manda al cliente desde su celular
+  // Comprobante por WhatsApp. Con WhatsApp Business conectado lo manda el sistema al teléfono del cliente;
+  // si no, se abre WhatsApp en el dispositivo con el texto listo.
+  async compartir(pedidoId) {
+    try {
+      const [p, estado] = await Promise.all([API.getPedido(pedidoId), API.getIntegracionesEstado().catch(() => ({}))]);
+      this.p = p;
+      this.waActiva = estado.whatsapp === 'conectada';
+      this.whatsapp();
+    } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
   whatsapp() {
+    if (this.waActiva) return this.pedirTelefono();
+    this.whatsappManual();
+  },
+
+  pedirTelefono() {
+    const p = this.p;
+    const tel = (p.entrega && p.entrega.telefono) || '';
+    App.showModal(`
+      <form onsubmit="Cobro.enviarWhatsApp(event)">
+        <div class="form-group">
+          <label><i class="fab fa-whatsapp"></i> Celular del cliente</label>
+          <input type="tel" id="waTelCliente" value="${esc(tel)}" placeholder="11 1234-5678" required autofocus>
+          <small class="form-hint">Con característica, sin 0 ni 15 (también se aceptan).</small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="Cobro.whatsappManual()">Abrir WhatsApp acá</button>
+          <button type="submit" class="btn btn-success" id="waEnviarBtn"><i class="fas fa-paper-plane"></i> Enviar comprobante</button>
+        </div>
+      </form>
+    `, { title: `Comprobante ${p.numero_pedido}` });
+  },
+
+  async enviarWhatsApp(e) {
+    e.preventDefault();
+    const btn = document.getElementById('waEnviarBtn');
+    btn.disabled = true;
+    try {
+      const r = await API.enviarComprobanteWhatsApp(this.p.id, document.getElementById('waTelCliente').value);
+      App.closeModal();
+      App.showToast(`Comprobante enviado por WhatsApp a +${r.telefono}`, 'success');
+    } catch (err) {
+      btn.disabled = false;
+      App.showToast(err.message, 'error', 8000);
+    }
+  },
+
+  whatsappManual() {
     const p = this.p;
     const negocio = (App.config && App.config.nombre_negocio) || '';
     const c = (p.comprobantes || [])[0];
