@@ -31,7 +31,7 @@ app.post('/api/clientes', autenticar, requiere('clientes'), async (req, res) => 
 
 app.put('/api/clientes/:id', autenticar, requiere('clientes'), async (req, res) => {
   try {
-    await actualizarParcial('clientes', req.params.id, req.body || {}, ['nombre', 'telefono', 'email', 'direccion', 'puntos', 'notas']);
+    await actualizarParcial('clientes', req.params.id, req.body || {}, ['nombre', 'telefono', 'email', 'direccion', 'notas']);
     res.json({ message: 'Cliente actualizado' });
   } catch (err) {
     errorInterno(res, err);

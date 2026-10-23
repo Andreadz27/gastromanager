@@ -141,8 +141,13 @@ test('carta online: menú público, pedido del cliente y seguimiento del deliver
 
 test('altas, cambios y bajas: clientes, promociones, categorías, productos y configuración', async () => {
   const cli = await ok(api('cajero', 'POST', '/api/clientes', { nombre: 'Juan Pérez', telefono: '1133332222', notas: 'Celíaco' }), 201);
-  await ok(api('cajero', 'PUT', `/api/clientes/${cli.id}`, { puntos: 150 }));
-  assert.equal((await ok(api('cajero', 'GET', '/api/clientes'))).find(c => c.id === cli.id).puntos, 150);
+  // Los puntos valen plata (fidelización): editar el cliente no los cambia; el ajuste es del encargado, con motivo
+  await ok(api('cajero', 'PUT', `/api/clientes/${cli.id}`, { notas: 'Celíaco, sin TACC', puntos: 150 }));
+  let guardado = (await ok(api('cajero', 'GET', '/api/clientes'))).find(c => c.id === cli.id);
+  assert.deepEqual([guardado.notas, guardado.puntos], ['Celíaco, sin TACC', 0]);
+  await ok(api('admin', 'POST', `/api/clientes/${cli.id}/puntos`, { puntos: 150, motivo: 'Saldo de la tarjeta anterior' }));
+  guardado = (await ok(api('cajero', 'GET', '/api/clientes'))).find(c => c.id === cli.id);
+  assert.equal(guardado.puntos, 150);
   await ok(api('cajero', 'DELETE', `/api/clientes/${cli.id}`));
   assert.ok(!(await ok(api('cajero', 'GET', '/api/clientes'))).some(c => c.id === cli.id));
 

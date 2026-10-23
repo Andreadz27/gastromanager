@@ -2192,3 +2192,12 @@ tr:hover td {
 .turno-chip .badge { display: inline-block; margin-top: 2px; font-size: 10px; }
 .turno-agregar { width: 100%; border: 1px dashed var(--border); background: none; border-radius: 6px; color: var(--text-light); cursor: pointer; }
 .tipo-reparto { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+
+/* Fidelización en el cobro */
+.cobro-fidelizacion { border: 1px dashed var(--border); border-radius: 8px; padding: 10px; }
+.cobro-input-corto { width: 150px; }
+.cobro-buscar-cliente { margin-top: 8px; }
+.cobro-buscar-cliente input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.cobro-cliente-opcion { display: block; width: 100%; text-align: left; border: none; border-bottom: 1px solid var(--border); background: none; padding: 8px 6px; cursor: pointer; }
+.cobro-cliente-opcion:hover { background: rgba(249, 115, 22, .08); }
+.cobro-cliente-opcion small { color: var(--text-light); margin-left: 6px; }

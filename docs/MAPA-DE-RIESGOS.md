@@ -64,6 +64,17 @@ Pago, cierre del pedido, liberación de la mesa y descuento de stock son una sol
 - **Lo protege:** `sin-conexion.test.js` (ARCA caído, corte justo después de emitir, vuelta de internet, rechazo al
   reintentar). Probado que sin la recuperación el test falla.
 
+### Fidelización — `src/servicios/fidelizacion.js` · riesgo ALTO (mueve plata)
+- **Puntos:** el saldo (`clientes.puntos`) solo cambia con `moverPuntosTx` (deja movimiento). La pantalla de Clientes ya no
+  edita puntos; los ajustes piden permiso `catalogo` y motivo. Se ganan en `cerrarPedidoTx` (consumo sin propina).
+  **Lo rompe:** volver a permitir `puntos` en `PUT /api/clientes`.
+- **Descuentos:** puntos y cupón van en `descuento_puntos` / `descuento_cupon`; `recalcularTotales` los resta y nunca deja el
+  consumo bajo cero. Cancelar el pedido devuelve los puntos y libera el cupón (`revertirFidelizacionTx`).
+- **Gift cards:** el saldo se descuenta con `UPDATE … WHERE saldo >= monto` dentro de la transacción del cobro: dos cajas a la
+  vez no la usan de más. Venderla es deuda (2.1.04), usarla es venta. **Lo rompe:** registrar la venta de la gift card como venta.
+- **Ciclo de módulos:** `pedidos.js` carga `fidelizacion.js` dentro de las funciones (fidelizacion.js usa pedidos.js).
+- **Lo protege:** `fidelizacion.test.js` y el e2e.
+
 ### Personal y propinas — `src/servicios/personal.js` · riesgo MEDIO
 - **Reparto de propinas:** el total sale de los pagos (mismo cálculo que contabilidad) y los montos los calcula el servidor;
   `repartirCentavos` hace que la suma dé exacto. Un período no se reparte dos veces (salvo anulando el reparto).

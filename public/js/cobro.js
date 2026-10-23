@@ -11,7 +11,9 @@ const Cobro = {
   pagos: [],
   afipActiva: false,
 
-  METODOS: { efectivo: 'Efectivo', tarjeta: 'Tarjeta', mercadopago: 'Mercado Pago', transferencia: 'Transferencia', otro: 'Otro' },
+  METODOS: { efectivo: 'Efectivo', tarjeta: 'Tarjeta', mercadopago: 'Mercado Pago', transferencia: 'Transferencia', giftcard: 'Gift card', otro: 'Otro' },
+  puntosCfg: null,    // programa de puntos (Configuración)
+  clientes: null,     // para elegir el cliente del pedido (se cargan al buscar)
 
   // Puede cobrar: cajero/encargado/admin, o el mozo en sus mesas si está activado en Configuración
   puedeCobrar(p) {
@@ -23,12 +25,15 @@ const Cobro = {
   // partes: al dividir la cuenta, cuántas personas faltan pagar (se mantiene entre un pago y el siguiente)
   async abrir(pedidoId, partes = 1) {
     try {
-      const [p, estado] = await Promise.all([
+      const [p, estado, puntos] = await Promise.all([
         API.getPedido(pedidoId),
-        API.getIntegracionesEstado().catch(() => ({}))
+        API.getIntegracionesEstado().catch(() => ({})),
+        API.getFidelizacionConfig().catch(() => ({ activo: false }))
       ]);
       if (p.estado !== 'abierto') return App.showToast('El pedido ya fue cobrado o cancelado', 'warning');
       this.p = p;
+      this.puntosCfg = puntos;
+      this.buscandoCliente = false;
       this.afipActiva = estado.afip === 'conectada';
       this.waActiva = estado.whatsapp === 'conectada';
       Integraciones._padron = null;
@@ -74,7 +79,9 @@ const Cobro = {
         <input type="number" min="0" step="0.01" value="${x.monto}" aria-label="Monto"
           oninput="Cobro.setPago(${i}, 'monto', this.value)">
         ${x.metodo === 'efectivo' ? `<input type="number" min="0" step="0.01" value="${x.recibido}" placeholder="Recibido"
-          aria-label="Efectivo recibido" oninput="Cobro.setPago(${i}, 'recibido', this.value)">` : '<span></span>'}
+          aria-label="Efectivo recibido" oninput="Cobro.setPago(${i}, 'recibido', this.value)">`
+          : x.metodo === 'giftcard' ? `<input type="text" value="${esc(x.referencia || '')}" placeholder="Código GM-XXXX-XXXX" maxlength="20"
+          aria-label="Código de la gift card" oninput="Cobro.setPago(${i}, 'referencia', this.value)" onchange="Cobro.saldoGiftCard(this.value)">` : '<span></span>'}
         ${this.pagos.length > 1 ? `<button type="button" class="btn btn-sm btn-outline" onclick="Cobro.quitarPago(${i})" aria-label="Quitar"><i class="fas fa-times"></i></button>` : '<span></span>'}
       </div>`).join('');
 
@@ -84,6 +91,8 @@ const Cobro = {
         ${pagado > 0 ? `<div><span>Ya cobrado</span><strong>${fmtMoneda(pagado)}</strong></div>` : ''}
         <div class="cobro-saldo"><span>Falta cobrar</span><strong>${fmtMoneda(saldo)}</strong></div>
       </div>
+
+      ${this.htmlFidelizacion()}
 
       <div class="form-group">
         <label><i class="fas fa-hand-holding-usd"></i> Propina</label>
@@ -124,6 +133,112 @@ const Cobro = {
     if (cuerpo && cuerpo.dataset.pedido === String(p.id)) { cuerpo.innerHTML = html; return; }
     App.showModal(`<div id="cobroCuerpo" data-pedido="${p.id}">${html}</div>`,
       { title: `Cobrar ${p.mesa_nombre ? p.mesa_nombre : 'pedido ' + p.numero_pedido}` });
+  },
+
+  // ===== Cliente, puntos y cupón =====
+  htmlFidelizacion() {
+    const p = this.p;
+    const cfg = this.puntosCfg || {};
+    const cliente = p.cliente_id
+      ? `<strong>${esc(p.cliente)}</strong>${cfg.activo ? ` &middot; ${Number(p.cliente_puntos) || 0} puntos` : ''}
+         <button type="button" class="btn btn-sm btn-outline" onclick="Cobro.buscarCliente()">Cambiar</button>`
+      : `<button type="button" class="btn btn-sm btn-outline" onclick="Cobro.buscarCliente()"><i class="fas fa-user-plus"></i> Elegir cliente</button>`;
+    const buscador = this.buscandoCliente ? `
+      <div class="cobro-buscar-cliente">
+        <input type="search" id="cobroBuscarCliente" placeholder="Nombre o teléfono" oninput="Cobro.filtrarClientes(this.value)" autocomplete="off">
+        <div id="cobroListaClientes"></div>
+      </div>` : '';
+    // Canje: con cliente, programa activo y sin canje hecho
+    const puedeCanjear = cfg.activo && p.cliente_id && !p.puntos_canjeados && (Number(p.cliente_puntos) || 0) >= cfg.minimo;
+    const puntos = p.puntos_canjeados
+      ? `<span class="badge badge-green">Canje: ${p.puntos_canjeados} puntos (-${fmtMoneda(p.descuento_puntos)})</span>
+         <button type="button" class="btn btn-sm btn-outline" onclick="Cobro.quitarCanje()">Quitar</button>`
+      : puedeCanjear ? `<input type="number" id="cobroPuntos" min="${cfg.minimo}" max="${Number(p.cliente_puntos)}" step="1"
+          placeholder="Puntos" aria-label="Puntos a canjear" class="cobro-input-corto">
+         <button type="button" class="btn btn-sm btn-outline" onclick="Cobro.canjear()"><i class="fas fa-star"></i> Canjear ($${cfg.valor} c/u)</button>` : '';
+    const cupon = p.cupon_id
+      ? `<span class="badge badge-green">Cupón ${esc(p.cupon_codigo)} (-${fmtMoneda(p.descuento_cupon)})</span>
+         <button type="button" class="btn btn-sm btn-outline" onclick="Cobro.quitarCupon()">Quitar</button>`
+      : `<input type="text" id="cobroCupon" placeholder="Código de cupón" maxlength="30" aria-label="Código de cupón" class="cobro-input-corto">
+         <button type="button" class="btn btn-sm btn-outline" onclick="Cobro.aplicarCupon()"><i class="fas fa-ticket-alt"></i> Aplicar</button>`;
+    return `
+      <div class="form-group cobro-fidelizacion">
+        <label><i class="fas fa-gift"></i> Cliente y beneficios</label>
+        <div class="cobro-chips">${cliente}</div>
+        ${buscador}
+        ${puntos ? `<div class="cobro-chips mt-10">${puntos}</div>` : ''}
+        <div class="cobro-chips mt-10">${cupon}</div>
+      </div>`;
+  },
+
+  async buscarCliente() {
+    this.buscandoCliente = true;
+    if (!this.clientes) this.clientes = await API.getClientes().catch(() => []);
+    this.paint();
+    const i = document.getElementById('cobroBuscarCliente');
+    if (i) i.focus();
+    this.filtrarClientes('');
+  },
+
+  filtrarClientes(texto) {
+    const t = String(texto || '').toLowerCase().trim();
+    const lista = (this.clientes || []).filter(c => !t || c.nombre.toLowerCase().includes(t) || String(c.telefono || '').includes(t)).slice(0, 8);
+    const el = document.getElementById('cobroListaClientes');
+    if (!el) return;
+    el.innerHTML = lista.length ? lista.map(c => `<button type="button" class="cobro-cliente-opcion" onclick="Cobro.elegirCliente(${c.id})">
+        ${esc(c.nombre)} <small>${esc(c.telefono || '')}${this.puntosCfg && this.puntosCfg.activo ? ` · ${c.puntos || 0} pts` : ''}</small></button>`).join('')
+      : '<p class="text-muted">Sin resultados. Cargalo en Clientes.</p>';
+  },
+
+  async elegirCliente(id) {
+    try {
+      await API.asignarClientePedido(this.p.id, id);
+      this.buscandoCliente = false;
+      await this.recargar();
+    } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
+  // Después de un canje o cupón cambia el total: se relee el pedido y se rearma el pago
+  async recargar() {
+    this.p = await API.getPedido(this.p.id);
+    this.pagos = [{ metodo: this.pagos[0].metodo, monto: this.montoParte(), recibido: '' }];
+    this.paint();
+  },
+
+  async canjear() {
+    const puntos = parseInt((document.getElementById('cobroPuntos') || {}).value, 10);
+    if (!puntos) return App.showToast('Ingresá los puntos a canjear', 'warning');
+    try {
+      const r = await API.canjearPuntos(this.p.id, puntos);
+      App.showToast(`${puntos} puntos canjeados: -${fmtMoneda(r.descuento)}`, 'success');
+      await this.recargar();
+    } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
+  async quitarCanje() {
+    try { await API.quitarCanjePuntos(this.p.id); await this.recargar(); } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
+  async aplicarCupon() {
+    const codigo = (document.getElementById('cobroCupon') || {}).value;
+    if (!codigo) return App.showToast('Ingresá el código del cupón', 'warning');
+    try {
+      const r = await API.aplicarCupon(this.p.id, codigo);
+      App.showToast(`Cupón ${r.codigo}: -${fmtMoneda(r.descuento)}`, 'success');
+      await this.recargar();
+    } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
+  async quitarCupon() {
+    try { await API.quitarCupon(this.p.id); await this.recargar(); } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
+  async saldoGiftCard(codigo) {
+    if (!codigo) return;
+    try {
+      const g = await API.consultarGiftCard(codigo);
+      App.showToast(g.vencida ? `La gift card venció el ${g.vence}` : `Gift card ${g.codigo}: saldo ${fmtMoneda(g.saldo)}`, g.vencida ? 'warning' : 'info', 6000);
+    } catch (err) { App.showToast(err.message, 'error'); }
   },
 
   htmlFactura() {
@@ -213,9 +328,11 @@ const Cobro = {
 
   async confirmar() {
     const pagos = this.pagos
-      .map(x => ({ metodo: x.metodo, monto: this.r2(x.monto), ...(x.metodo === 'efectivo' && x.recibido !== '' ? { recibido: Number(x.recibido) } : {}) }))
+      .map(x => ({ metodo: x.metodo, monto: this.r2(x.monto), ...(x.metodo === 'efectivo' && x.recibido !== '' ? { recibido: Number(x.recibido) } : {}),
+        ...(x.metodo === 'giftcard' ? { referencia: String(x.referencia || '').trim() } : {}) }))
       .filter(x => x.monto > 0);
     if (!pagos.length) return App.showToast('Ingresá el monto a cobrar', 'warning');
+    if (pagos.some(x => x.metodo === 'giftcard' && !x.referencia)) return App.showToast('Ingresá el código de la gift card', 'warning');
     if (this.aCobrar() > this.saldo() + 0.009) return App.showToast('El monto supera lo que falta cobrar', 'warning');
 
     const body = { pagos };
