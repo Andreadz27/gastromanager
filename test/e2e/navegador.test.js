@@ -8,6 +8,9 @@ const { iniciarServidor } = require('../helpers');
 const { iniciarArcaSimulado } = require('../afip-simulado');
 
 const CANAL = process.env.GM_E2E_NAVEGADOR || (process.platform === 'win32' ? 'msedge' : 'chrome');
+// El navegador en la zona del negocio, como en un local real. Sin esto, en el CI (UTC) después de las 21 h de
+// Argentina la pantalla pide los pedidos "de mañana" y la lista sale vacía (ver docs/MAPA-DE-RIESGOS.md).
+const ZONA = process.env.ZONA_HORARIA || 'America/Argentina/Buenos_Aires';
 let s, navegador, arca;
 
 before(async () => {
@@ -30,7 +33,7 @@ after(async () => {
 
 // Página nueva que registra errores de JavaScript (deben quedar en cero)
 async function nuevaPagina() {
-  const contexto = await navegador.newContext({ serviceWorkers: 'block' });
+  const contexto = await navegador.newContext({ serviceWorkers: 'block', timezoneId: ZONA });
   const page = await contexto.newPage();
   page.errores = [];
   page.on('pageerror', e => page.errores.push(e.message));
@@ -183,7 +186,7 @@ test('el mozo no ve cobrar, descuentos ni cancelar', async () => {
 test('cobro en la mesa: el mozo divide la cuenta entre dos desde su celular', async () => {
   await s.llamar('PUT', '/api/config', { mozo_cobra_mesa: 1 }, s.tokenAdmin);
   const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'salon', mesa_id: 9, items: [{ producto_id: 1, cantidad: 2 }] }, s.tokenVendedor);
-  const contexto = await navegador.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 }, isMobile: true });
+  const contexto = await navegador.newContext({ serviceWorkers: 'block', timezoneId: ZONA, viewport: { width: 390, height: 844 }, isMobile: true });
   const page = await contexto.newPage();
   page.errores = [];
   page.on('pageerror', e => page.errores.push(e.message));
