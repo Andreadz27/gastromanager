@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Inicialización de Base de Datos
+// MORFI - Inicialización de Base de Datos
 // Crea todas las tablas y datos iniciales
 // =============================================
 
@@ -13,7 +13,8 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const db = new sqlite3.Database(path.join(dataDir, 'gastromanager.db'));
+const { rutaBase } = require('./src/archivo-base');
+const db = new sqlite3.Database(rutaBase(dataDir));
 
 db.serialize(() => {
   // ============ TABLAS BASE ============
@@ -321,7 +322,7 @@ db.serialize(() => {
 
   // Usuario administrador por defecto
   db.run(`INSERT OR IGNORE INTO usuarios (nombre, email, password, rol) 
-          VALUES ('Administrador', 'admin@gastromanager.com', 'admin123', 'admin')`);
+          VALUES ('Administrador', 'admin@morfi.local', 'admin123', 'admin')`);
 
   // Configuración por defecto
   db.run(`INSERT OR IGNORE INTO configuracion (id, nombre_negocio) VALUES (1, 'Mi Restaurante')`);
@@ -430,10 +431,10 @@ db.serialize(() => {
   console.log('✅ Mesas, proveedores y promociones creados.');
   console.log('');
   console.log('🎉 BASE DE DATOS INICIALIZADA CON ÉXITO');
-  console.log('   Archivo: data/gastromanager.db');
+  console.log('   Archivo: data/morfi.db');
   console.log('');
   console.log('👤 Usuario por defecto:');
-  console.log('   Email: admin@gastromanager.com');
+  console.log('   Email: admin@morfi.local');
   console.log('   Password: admin123');
 });
 

@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Integraciones
+// MORFI - Integraciones
 // Mercado Pago, Delivery (PedidosYa/Rappi/iFood/UberEats),
 // AFIP Factura Electrónica, Tienda Nube
 // =============================================
@@ -157,7 +157,7 @@ const Integraciones = {
     view.innerHTML = `
       <div class="page-header"><div>
         <h2><i class="fas fa-plug"></i> Integraciones</h2>
-        <p>Conectá GastroManager con las plataformas más usadas del mercado</p>
+        <p>Conectá Morfi con las plataformas más usadas del mercado</p>
       </div></div>
       ${mpHtml}${deliveryHtml}
       <div id="waCard"></div>

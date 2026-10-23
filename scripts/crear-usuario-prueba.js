@@ -13,7 +13,7 @@ const arg = (nombre, defecto) => {
 };
 const datos = {
   nombre: arg('nombre', 'Usuario de Prueba'),
-  email: arg('email', 'prueba@gastromanager.com').trim().toLowerCase(),
+  email: arg('email', 'prueba@morfi.local').trim().toLowerCase(),
   clave: arg('clave', 'Prueba2026!'),
   rol: arg('rol', 'admin')
 };

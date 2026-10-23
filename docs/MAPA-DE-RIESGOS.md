@@ -1,4 +1,4 @@
-# Mapa de riesgos de GastroManager
+# Mapa de riesgos de Morfi
 
 Qué partes se rompen más fácil, qué cambios las rompen y qué las protege hoy.
 Actualizarlo cuando se toque una de estas partes o aparezca un bug nuevo.
@@ -110,7 +110,7 @@ Las ventas del turno se buscan por **rango de fechas** de `pagos.fecha` entre ap
 Corren al iniciar, en una transacción, con copia previa si el archivo cambió.
 - **Lo rompe:** agregar una columna `NOT NULL` sin `DEFAULT`, borrar o renombrar columnas (SQLite no lo hace en todas
   las versiones), o poner `PRAGMA journal_mode` / `VACUUM` dentro (no se pueden en una transacción).
-- **Marcha atrás:** detener el servidor, reemplazar `data/gastromanager.db` por la copia `backups/` más reciente
+- **Marcha atrás:** detener el servidor, reemplazar `data/morfi.db` por la copia `backups/` más reciente
   anterior a la actualización (borrar `-wal` y `-shm`) e iniciar la versión anterior del código. Probado en `migraciones.test.js`.
 
 ### 6. Base y transacciones — `src/db.js` · riesgo MEDIO

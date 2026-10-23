@@ -1,4 +1,4 @@
-# Demo pública de GastroManager en Render (plan gratuito).
+# Demo pública de Morfi en Render (plan gratuito).
 # En Render: New → Blueprint → elegir este repositorio. Ver README, sección "Demo pública".
 services:
   - type: web

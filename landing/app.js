@@ -1,4 +1,4 @@
-/* ── GastroManager Landing — app.js ─────────────────────────── */
+/* ── Morfi Landing — app.js ─────────────────────────── */
 
 /* ── 1. NAVBAR: scroll shadow ──────────────────────────────── */
 (function () {

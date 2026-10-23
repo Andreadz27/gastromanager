@@ -1,4 +1,4 @@
-# Instalar GastroManager en un restaurante
+# Instalar Morfi en un restaurante
 
 Modelo recomendado (ver el estudio "Dónde alojar el sistema"): el servidor corre **en el local**, así vende e imprime
 aunque se corte internet; la nube guarda las copias y da acceso remoto.
@@ -11,7 +11,7 @@ aunque se corte internet; la nube guarda las copias y da acceso remoto.
 | Conexión | Por cable a la red del local | Las tablets y las impresoras la encuentran siempre |
 | IP fija en el router | Reservar la IP de la PC | Las tablets y las impresoras apuntan a esa dirección |
 | UPS (batería) | Para la PC y el router | Un corte de luz no corta la caja ni corrompe la base |
-| BIOS: *Restore on AC power loss* = **Power On** | En la configuración de la PC | Si la luz se corta más que la UPS, la PC se prende sola al volver y GastroManager arranca solo (no hace falta iniciar sesión) |
+| BIOS: *Restore on AC power loss* = **Power On** | En la configuración de la PC | Si la luz se corta más que la UPS, la PC se prende sola al volver y Morfi arranca solo (no hace falta iniciar sesión) |
 
 ## 2. Instalar (una vez por local, unos 15 minutos)
 
@@ -36,8 +36,8 @@ powershell -ExecutionPolicy Bypass -File instalar.ps1 -Cliente "la-buena-mesa" -
 El instalador deja el sistema corriendo y muestra la dirección para las tablets (ej. `http://192.168.0.10:3000`).
 Se puede volver a ejecutar: no borra datos.
 
-- **Arranca al encender la PC**, aunque nadie inicie sesión (tarea de Windows *GastroManager*, cuenta SYSTEM).
-  pm2 usa una carpeta compartida para toda la PC (`PM2_HOME=C:\ProgramData\GastroManager\pm2`): `pm2 list` y
+- **Arranca al encender la PC**, aunque nadie inicie sesión (tarea de Windows *Morfi*, cuenta SYSTEM).
+  pm2 usa una carpeta compartida para toda la PC (`PM2_HOME=C:\ProgramData\Morfi\pm2`): `pm2 list` y
   `pm2 logs` desde una consola de administrador ven el mismo proceso.
 - **Clave de las copias:** la genera el instalador (`BACKUP_CLAVE` en el `.env`) y la muestra en rojo al final.
   **Guardala en tu gestor de contraseñas con el nombre del cliente.** Si la PC se rompe, sin esa clave las copias
@@ -60,7 +60,7 @@ no por carpeta.)
 2. En el bucket, **Settings → Object lifecycle rules → Add rule**: borrar objetos a los **30 días**.
 3. **R2 → Manage API tokens → Create API token**: permiso **Object Read & Write**, **solo para ese bucket**.
    Copiar **Access Key ID**, **Secret Access Key** y el endpoint `https://<account-id>.r2.cloudflarestorage.com`.
-4. Completar en `C:\GastroManager\.env` (`BACKUP_CLAVE` ya la puso el instalador):
+4. Completar en `C:\Morfi\.env` (`BACKUP_CLAVE` ya la puso el instalador):
 
 ```
 BACKUP_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
@@ -70,7 +70,7 @@ BACKUP_S3_SECRET=<Secret Access Key>
 BACKUP_S3_PREFIJO=la-buena-mesa
 ```
 
-5. `pm2 restart gastromanager --update-env`. Cada copia (al iniciar, cada 24 h y las manuales) se sube
+5. `pm2 restart morfi --update-env`. Cada copia (al iniciar, cada 24 h y las manuales) se sube
    **cifrada** a `gm-la-buena-mesa/la-buena-mesa/` (archivos `.db.cifrado`).
 6. Comprobar: `npm run restaurar -- --listar` muestra las copias locales y las de la nube.
 
@@ -83,11 +83,11 @@ Si un local decide no tener copia fuera de la PC (no recomendado), poner `BACKUP
 En la carpeta de la instalación (PowerShell como Administrador):
 
 ```powershell
-pm2 stop gastromanager
+pm2 stop morfi
 npm run restaurar -- --listar                                         # ver las copias
-npm run restaurar -- gastromanager_2026-10-23_050000.db               # una copia de esta PC
-npm run restaurar -- --nube gastromanager_2026-10-23_050000.db.cifrado  # una de la nube
-pm2 start gastromanager
+npm run restaurar -- morfi_2026-10-23_050000.db               # una copia de esta PC
+npm run restaurar -- --nube morfi_2026-10-23_050000.db.cifrado  # una de la nube
+pm2 start morfi
 ```
 
 Antes de reemplazar nada, verifica que la copia sea una base sana y guarda la base actual en
@@ -118,7 +118,7 @@ Necesario para que el dueño vea el sistema desde afuera y para recibir avisos d
 4. En la PC del local, PowerShell como Administrador:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File C:\GastroManager\scripts\windows\tunel.ps1 -Token "<token>" -Direccion "https://la-buena-mesa.tudominio.com.ar"
+powershell -ExecutionPolicy Bypass -File C:\Morfi\scripts\windows\tunel.ps1 -Token "<token>" -Direccion "https://la-buena-mesa.tudominio.com.ar"
 ```
 
 No se abren puertos del router: la conexión sale del local hacia Cloudflare, con HTTPS.

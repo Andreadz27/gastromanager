@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Usuarios
+// MORFI - Usuarios
 // Gestión de cuentas de acceso (solo admin)
 // =============================================
 

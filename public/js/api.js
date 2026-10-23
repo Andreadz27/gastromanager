@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - API Client
+// MORFI - API Client
 // Manejador de peticiones HTTP al backend
 // =============================================
 

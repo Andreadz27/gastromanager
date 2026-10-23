@@ -36,7 +36,7 @@ test('copia de seguridad con el sistema en uso', async () => {
   const lecturas = Array.from({ length: 30 }, () => s.llamar('GET', '/api/productos', undefined, s.tokenVendedor));
   const [[st, copia]] = await Promise.all([s.llamar('POST', '/api/backups', undefined, s.tokenAdmin), Promise.all(lecturas)]);
   assert.equal(st, 201);
-  assert.match(copia.nombre, /^gastromanager_/);
+  assert.match(copia.nombre, /^morfi_/);
 });
 
 // Encontrado por la prueba de fuego: ningún test de API verificaba que una clave incorrecta no entre

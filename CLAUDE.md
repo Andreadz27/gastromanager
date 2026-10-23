@@ -1,4 +1,4 @@
-# GastroManager — reglas para trabajar en este proyecto
+# Morfi — reglas para trabajar en este proyecto
 
 - Cada bug arreglado lleva su test de regresión (en el test del módulo o en `test/regresiones.test.js`).
 - No se mergea con el CI en rojo. Antes de commitear: `npm run check` (lint + nombres + tests).

@@ -43,7 +43,7 @@ async function tnRequest(cfg, method, ruta, body, reintento = true) {
     method,
     headers: {
       Authentication: `bearer ${cfg.access_token}`,
-      'User-Agent': 'GastroManager/2.0',
+      'User-Agent': 'Morfi/2.0',
       'Content-Type': 'application/json'
     },
     body: body ? JSON.stringify(body) : undefined,

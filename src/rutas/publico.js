@@ -48,7 +48,7 @@ app.get('/api/publico/info', async (req, res) => {
     // (antes salían con localhost y el QR impreso en las mesas no abría en ningún celular)
     const base = urlPublica();
     res.json({
-      nombre: config?.nombre_negocio || 'GastroManager',
+      nombre: config?.nombre_negocio || 'Morfi',
       descripcion: config?.direccion ? `Dirección: ${config.direccion}` : '',
       telefono: config?.telefono || '',
       email: config?.email || '',

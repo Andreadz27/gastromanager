@@ -1,5 +1,5 @@
 {
-  "name": "gastromanager",
+  "name": "morfi",
   "version": "1.0.0",
   "description": "Sistema de gestión gastronómica - POS, inventario, comandas, reportes y más.",
   "main": "server.js",
@@ -31,7 +31,7 @@
     "gastronomia",
     "sistema"
   ],
-  "author": "GastroManager",
+  "author": "Morfi",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "dependencies": {

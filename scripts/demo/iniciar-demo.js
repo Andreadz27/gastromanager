@@ -12,7 +12,7 @@ const RAIZ = path.join(__dirname, '..', '..');
 const DATOS = path.join(RAIZ, 'demo', 'datos');
 const PUERTO = process.env.DEMO_PUERTO || '3100';
 
-if (!process.argv.includes('--mantener') || !fs.existsSync(path.join(DATOS, 'gastromanager.db'))) {
+if (!process.argv.includes('--mantener') || !fs.existsSync(path.join(DATOS, 'morfi.db'))) {
   execFileSync(process.execPath, [path.join(__dirname, 'generar-datos.js'), DATOS], { stdio: 'inherit' });
 }
 

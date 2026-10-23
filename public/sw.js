@@ -1,10 +1,10 @@
 // =============================================
-// GASTROMANAGER - Service Worker
+// MORFI - Service Worker
 // Primero la red y, sin conexión, la última copia guardada.
 // (Antes era cache-first: después de una actualización los celulares seguían con el JS viejo.)
 // =============================================
 
-const CACHE_NAME = 'gastromanager-v17';
+const CACHE_NAME = 'morfi-v18';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

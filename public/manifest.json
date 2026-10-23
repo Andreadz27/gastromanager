@@ -1,7 +1,7 @@
 {
-  "name": "GastroManager",
-  "short_name": "GastroManager",
-  "description": "Sistema integral de gestión gastronómica",
+  "name": "Morfi",
+  "short_name": "Morfi",
+  "description": "Tu negocio, a punto. El sistema para todo el rubro gastronómico.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1e293b",

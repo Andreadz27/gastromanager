@@ -1,14 +1,14 @@
 // Restaura una copia de seguridad (local o de la nube) sobre la base del sistema.
-// 1. Se niega si el servidor está corriendo (hay que detenerlo: pm2 stop gastromanager).
+// 1. Se niega si el servidor está corriendo (hay que detenerlo: pm2 stop morfi).
 // 2. Baja la copia de la nube y la descifra (BACKUP_CLAVE), si es de la nube.
-// 3. Comprueba que la copia es una base de GastroManager sana (integrity_check) ANTES de tocar nada.
+// 3. Comprueba que la copia es una base de Morfi sana (integrity_check) ANTES de tocar nada.
 // 4. Guarda la base actual en data/backups/antes-de-restaurar_... y recién ahí la reemplaza.
 //
 // Uso (en la carpeta de la instalación):
 //   npm run restaurar -- --listar                 copias locales y de la nube
 //   npm run restaurar -- <copia.db>               una copia local (nombre en data/backups o ruta)
 //   npm run restaurar -- --nube <nombre>          una copia de la nube (sirve para armar el local en otra PC)
-// Después: pm2 start gastromanager
+// Después: pm2 start morfi
 'use strict';
 require('../src/env');
 const fs = require('fs');
@@ -16,10 +16,11 @@ const os = require('os');
 const path = require('path');
 const sqlite3 = require('sqlite3');
 const { DATA_DIR, PORT } = require('../src/config');
+const { rutaBase } = require('../src/archivo-base');
 const { DIR_BACKUPS, listarBackups } = require('../src/servicios/backups');
 const { configNube, claveCopias, descifrarCopia, bajarCopiaNube, listarCopiasNube } = require('../src/servicios/copia-nube');
 
-const BASE = path.join(DATA_DIR, 'gastromanager.db');
+const BASE = rutaBase(DATA_DIR);
 const args = process.argv.slice(2);
 
 const abrir = archivo => new sqlite3.Database(archivo, sqlite3.OPEN_READWRITE);
@@ -43,7 +44,7 @@ async function verificarCopia(archivo) {
     const [{ integrity_check: estado }] = await consulta(db, 'PRAGMA integrity_check');
     if (estado !== 'ok') throw new Error(`la copia está dañada (${estado})`);
     const tablas = (await consulta(db, "SELECT name FROM sqlite_master WHERE type = 'table'")).map(t => t.name);
-    for (const t of ['usuarios', 'pedidos', 'productos']) if (!tablas.includes(t)) throw new Error(`no es una base de GastroManager (falta la tabla ${t})`);
+    for (const t of ['usuarios', 'pedidos', 'productos']) if (!tablas.includes(t)) throw new Error(`no es una base de Morfi (falta la tabla ${t})`);
     const [{ n }] = await consulta(db, 'SELECT COUNT(*) AS n FROM pedidos');
     return { pedidos: n };
   } catch (e) {
@@ -80,7 +81,7 @@ async function restaurar() {
   const desdeNube = args.includes('--nube');
   const nombre = desdeNube ? args[args.indexOf('--nube') + 1] : args.find(a => !a.startsWith('--'));
   if (!nombre) throw new Error('Indicá qué copia restaurar (npm run restaurar -- --listar para verlas).');
-  if (await servidorCorriendo()) throw new Error('El servidor está corriendo. Detenelo primero: pm2 stop gastromanager');
+  if (await servidorCorriendo()) throw new Error('El servidor está corriendo. Detenelo primero: pm2 stop morfi');
 
   // La copia a restaurar queda primero en un archivo temporal: la base no se toca hasta verificarla
   const temporal = path.join(os.tmpdir(), `gm-restaurar-${process.pid}.db`);
@@ -103,7 +104,7 @@ async function restaurar() {
     fs.mkdirSync(DATA_DIR, { recursive: true });
     for (const extra of ['-wal', '-shm']) fs.rmSync(BASE + extra, { force: true });
     fs.copyFileSync(temporal, BASE);
-    console.log('Copia restaurada. Ahora: pm2 start gastromanager');
+    console.log('Copia restaurada. Ahora: pm2 start morfi');
   } finally {
     fs.rmSync(temporal, { force: true });
   }

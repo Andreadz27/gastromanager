@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Dashboard
+// MORFI - Dashboard
 // Panel de inteligencia de negocio con insights
 // =============================================
 

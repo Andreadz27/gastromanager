@@ -1,4 +1,4 @@
-# GastroManager
+# Morfi
 
 Sistema de gestión gastronómica: POS, mesas, comandas de cocina, delivery, stock, caja con arqueo, contabilidad,
 reportes y facturación electrónica (AFIP/ARCA), con integraciones de Mercado Pago y Tienda Nube.
@@ -12,17 +12,17 @@ reportes y facturación electrónica (AFIP/ARCA), con integraciones de Mercado P
 
 ```bash
 npm install
-npm run init-db     # crea data/gastromanager.db con datos iniciales
+npm run init-db     # crea data/morfi.db con datos iniciales
 npm start           # http://localhost:3000
 ```
 
-Usuario inicial: `admin@gastromanager.com` / `admin123`. El sistema obliga a cambiar la contraseña en el primer ingreso.
+Usuario inicial: `admin@morfi.local` / `admin123`. El sistema obliga a cambiar la contraseña en el primer ingreso.
 
 ### Usuario de prueba
 
 ```bash
 npm run usuario:prueba
-# → prueba@gastromanager.com / Prueba2026!  (administrador, entra sin cambiar la clave)
+# → prueba@morfi.local / Prueba2026!  (administrador, entra sin cambiar la clave)
 npm run usuario:prueba -- --email qa@miresto.com --clave OtraClave123 --rol cajero --nombre "QA Caja"
 ```
 
@@ -188,9 +188,9 @@ Se configuran en **Configuración → Impresoras térmicas**. Papel de 58 u 80 m
 - Copia automática al iniciar y cada 24 horas en `data/backups/`.
 - Desde **Configuración → Copias de seguridad** se crea una copia manual y se descarga.
 - Con `BACKUP_S3_*` cada copia se sube a la nube, cifrada con `BACKUP_CLAVE` (ver `docs/INSTALACION.md`).
-- **Restaurar:** `pm2 stop gastromanager`, `npm run restaurar -- --listar` y `npm run restaurar -- <copia>`
-  (o `--nube <copia>`), y `pm2 start gastromanager`. Verifica la copia y guarda la base actual antes de reemplazarla.
-- La base usa modo WAL: no copiar `gastromanager.db` a mano con el servidor en marcha; usar las copias del sistema.
+- **Restaurar:** `pm2 stop morfi`, `npm run restaurar -- --listar` y `npm run restaurar -- <copia>`
+  (o `--nube <copia>`), y `pm2 start morfi`. Verifica la copia y guarda la base actual antes de reemplazarla.
+- La base usa modo WAL: no copiar `morfi.db` a mano con el servidor en marcha; usar las copias del sistema.
 
 ## Actualizaciones y migraciones
 

@@ -1,9 +1,9 @@
 'use strict';
 // Conexiones SQLite, helpers run/get/all y transacciones
-const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { AsyncLocalStorage } = require('async_hooks');
 const { DATA_DIR } = require('./config');
+const { rutaBase } = require('./archivo-base');
 
 // Contexto de la transacción en curso (ver transaccion()): conexión y eventos pendientes
 const txContexto = new AsyncLocalStorage();
@@ -13,7 +13,8 @@ let emisor = () => {};
 const setEmisor = fn => { emisor = fn; };
 
 // Base de datos
-const dbPath = path.join(DATA_DIR, 'gastromanager.db');
+// morfi.db (si todavía se llama gastromanager.db, se renombra antes de abrirla)
+const dbPath = rutaBase(DATA_DIR);
 const db = new sqlite3.Database(dbPath);
 db.configure('busyTimeout', 10000);
 // WAL: las lecturas no se bloquean mientras hay una escritura en curso

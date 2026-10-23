@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Productos
+// MORFI - Productos
 // CRUD de productos y categor\u00edas
 // =============================================
 

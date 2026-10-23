@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Stock / Inventario
+// MORFI - Stock / Inventario
 // Movimientos de stock y niveles
 // =============================================
 

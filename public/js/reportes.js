@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Reportes
+// MORFI - Reportes
 // Ventas, rentabilidad y auditoría del sistema
 // =============================================
 
@@ -272,7 +272,7 @@ const rows = this.rentabilidad.map(r => `
         <td style="text-align:right">${fmtMoneda(p.total)}</td>
       </tr>
     `).join('');
-    const negocio = (App && App.nombreNegocio) ? App.nombreNegocio : 'GastroManager';
+    const negocio = (App && App.nombreNegocio) ? App.nombreNegocio : 'Morfi';
     const win = window.open('', '_blank', 'width=800,height=600');
     if (!win) { App.showToast('Habilita las ventanas emergentes', 'warning'); return; }
     win.document.write(`

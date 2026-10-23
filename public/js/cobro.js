@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Cobro en la mesa
+// MORFI - Cobro en la mesa
 // Cobrar, dividir la cuenta, propina y factura AFIP/ARCA en un solo paso,
 // desde la caja o desde el celular del mozo
 // =============================================

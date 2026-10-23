@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Proveedores
+// MORFI - Proveedores
 // CRUD de proveedores
 // =============================================
 

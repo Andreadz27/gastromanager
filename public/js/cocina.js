@@ -1,4 +1,4 @@
-// GASTROMANAGER - Cocina - tiempo real via Socket.IO
+// MORFI - Cocina - tiempo real via Socket.IO
 
 const Cocina = {
   pedidos: [],

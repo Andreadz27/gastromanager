@@ -1,5 +1,5 @@
 // =============================================
-// GASTROMANAGER - Contabilidad
+// MORFI - Contabilidad
 // Estado de resultados, gastos, cuentas a pagar, IVA y libro diario
 // =============================================
 
