@@ -141,3 +141,22 @@ test('permisos: el mozo no anula facturas ni consulta el padrón sin cobro en la
   assert.equal((await notaCredito({ comprobante_id: id, motivo: 'x' }, tokenMozo))[0], 403, 'anular sigue siendo de la caja');
 });
 
+
+// La fecha de la factura era la del servidor: en Render (UTC) las de después de las 21 h de Argentina salían
+// con la fecha de mañana. Con servidores en UTC+14 y UTC-12, al menos uno tiene otra fecha que Argentina.
+test('la factura lleva la fecha del negocio aunque el servidor esté en otra zona', async () => {
+  for (const TZ of ['Pacific/Kiritimati', 'Etc/GMT+12']) {
+    const srv = await iniciarServidor({ TZ, GM_AFIP_API_URL: arca.url });
+    try {
+      await srv.llamar('PUT', '/api/integraciones/config/afip', { cuit: '20-11111111-2', access_token: 'x', activa: true }, srv.tokenAdmin);
+      const [{ id: prodId }] = await srv.q('SELECT id FROM productos WHERE activo = 1 LIMIT 1');
+      const [, p] = await srv.llamar('POST', '/api/pedidos', { tipo: 'takeaway', items: [{ producto_id: prodId, cantidad: 1 }] }, srv.tokenVendedor);
+      const [{ total }] = await srv.q('SELECT total FROM pedidos WHERE id = ?', [p.id]);
+      await srv.llamar('POST', `/api/pedidos/${p.id}/pagar`, { metodo: 'efectivo', monto: total }, srv.tokenVendedor);
+      const [st] = await srv.llamar('POST', '/api/integraciones/afip/facturar', { pedido_id: p.id, tipo_comprobante: 6 }, srv.tokenVendedor);
+      assert.equal(st, 200);
+      const hoyArg = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date()).replace(/-/g, '');
+      assert.equal(String(detalle(ultimoCAE()).CbteFch), hoyArg, TZ);
+    } finally { await srv.cerrar(); }
+  }
+});

@@ -4,7 +4,7 @@
 const Afip = require('@afipsdk/afip.js');
 const { run, get } = require('../db');
 const { emitEvento } = require('../realtime');
-const { LOCAL } = require('../tiempo');
+const { LOCAL, fechaLocal } = require('../tiempo');
 const { errorHttp } = require('../util');
 const { getIntCfg } = require('./integraciones');
 
@@ -121,9 +121,9 @@ async function solicitarCAE(cfg, { pedidoId, tipo, total, receptor, neto, iva, c
   // Obtener último número de comprobante para calcular el siguiente
   const nroComprobante = (await afip.ElectronicBilling.getLastVoucher(ptoVenta, tipo)) + 1;
 
-  // Fecha en formato YYYYMMDD que requiere AFIP
-  const hoy = new Date();
-  const fechaAFIP = `${hoy.getFullYear()}${String(hoy.getMonth() + 1).padStart(2, '0')}${String(hoy.getDate()).padStart(2, '0')}`;
+  // Fecha en formato YYYYMMDD que requiere AFIP. Es la del negocio (ZONA_HORARIA), no la del servidor:
+  // en un servidor en UTC las facturas de después de las 21 h de Argentina salían con la fecha de mañana.
+  const fechaAFIP = fechaLocal().replace(/-/g, '');
 
   const voucherData = {
     CbteTipo:   tipo,

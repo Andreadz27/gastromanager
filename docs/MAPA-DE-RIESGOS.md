@@ -38,9 +38,9 @@ Pago, cierre del pedido, liberación de la mesa y descuento de stock son una sol
 - **Factura vigente** = factura A/B/C sin nota de crédito asociada (`comprobante_asociado_id`). La usan el control de
   duplicados, el botón *Facturar* y el ticket. **Lo rompe:** buscar "cualquier comprobante del pedido" (una nota de
   crédito bloquearía refacturar o saldría en el ticket).
-- **Fecha del comprobante:** usa la hora del servidor (`new Date()`), no `ZONA_HORARIA`. En un servidor en UTC
-  (Render) una factura de después de las 21 h sale con la fecha de mañana. ARCA lo acepta (±5 días), pero es el mismo
-  bug que tenía el número de pedido. **Pendiente de decisión** (cambia la fecha que ve el cliente).
+- **Fecha del comprobante · CORREGIDO (22/10/2026):** usaba la hora del servidor; en Render (UTC) las facturas de
+  después de las 21 h salían con la fecha de mañana. Ahora usa `fechaLocal()` (`ZONA_HORARIA`). Test en
+  `afip.test.js` con servidores en UTC+14 y UTC-12.
 - **Lo protege:** `afip.test.js` y el e2e, contra AfipSDK simulado.
 
 ### 2. Precios — `resolverItems` y la carta online (`src/rutas/publico.js`) · riesgo ALTO
@@ -91,11 +91,11 @@ Con usuarios y claves conocidos en internet. Lo peligroso se bloquea por lista.
 Usaba la hora del servidor: en Render (UTC) los pedidos de después de las 21 h salían con la fecha de mañana.
 Ahora usa `ZONA_HORARIA`. Test en `regresiones.test.js` con servidores en UTC+14 y UTC-12.
 
-### 9b. "Hoy" en el navegador — `hoyLocal()` en `public/js/api.js` · PENDIENTE DE DECISIÓN
-La pantalla de Pedidos pide los pedidos de `hoyLocal()`, que usa la zona horaria **del navegador**; el servidor
-filtra con `ZONA_HORARIA`. Si el dispositivo tiene otra zona (o en el CI, en UTC), después de las 21 h de Argentina
-la lista sale vacía. Encontrado el 22/10/2026 cuando el CI corrió de noche. Los e2e ahora fijan el navegador en
-`ZONA_HORARIA`. Arreglarlo en el sistema (tomar la fecha de la zona del negocio) cambia lo que ve el usuario.
+### 9b. "Hoy" en el navegador — `hoyLocal()` en `public/js/api.js` · CORREGIDO (22/10/2026)
+Usaba la zona horaria **del dispositivo** y el servidor filtra con `ZONA_HORARIA`: en un dispositivo con otra zona
+(o en el CI, en UTC), después de las 21 h de Argentina la lista de Pedidos salía vacía. Ahora la sesión trae
+`zona_horaria` y `hoyLocal()` la usa. Test e2e con navegadores en UTC+14 y UTC-12. **Lo rompe:** volver a armar la
+fecha con `new Date()` en el navegador (ojo con `toISOString().slice(0, 10)`, que además es UTC).
 
 ### 10. Copias de seguridad — `src/servicios/backups.js` · riesgo BAJO
 - **Bugs corregidos:** dos copias en el mismo segundo daban error 500 (nombre repetido); una copia con el sistema en

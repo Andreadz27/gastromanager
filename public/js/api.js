@@ -274,7 +274,13 @@ function parseFecha(fecha) {
 }
 
 // Fecha local de hoy (AAAA-MM-DD). toISOString() da la fecha UTC: después de las 21 hs era "mañana".
+// Fecha de hoy en la zona horaria del negocio (la manda el servidor con la sesión). Con la del dispositivo,
+// un celular o un navegador en otra zona pedía los pedidos "de mañana" después de las 21 h y la lista salía vacía.
 function hoyLocal() {
+  const zona = typeof App !== 'undefined' && App.usuario && App.usuario.zona_horaria;
+  if (zona) {
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: zona }).format(new Date()); } catch (e) {}
+  }
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }

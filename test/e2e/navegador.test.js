@@ -315,3 +315,18 @@ test('factura A con datos del padrón de ARCA, anulación con nota de crédito y
   sinErrores(page);
   await page.context().close();
 });
+
+// La pantalla calculaba "hoy" con la zona del dispositivo: en uno con otra zona, después de las 21 h de Argentina
+// la lista de Pedidos salía vacía. Con navegadores en UTC+14 y UTC-12, al menos uno tiene otra fecha que Argentina.
+test('la lista de pedidos de hoy usa la fecha del negocio aunque el dispositivo esté en otra zona', async () => {
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', cliente: 'Zona horaria', items: [{ producto_id: 1, cantidad: 1 }] }, s.tokenVendedor);
+  for (const zona of ['Pacific/Kiritimati', 'Etc/GMT+12']) {
+    const contexto = await navegador.newContext({ serviceWorkers: 'block', timezoneId: zona });
+    const page = await contexto.newPage();
+    await ingresarOk(page, 'vendedor@test.com', 'vendedor123');
+    await ir(page, 'pedidos');
+    await page.waitForSelector(`tr[onclick="Pedidos.verDetalle(${p.id})"]`, { timeout: 8000 });
+    await contexto.close();
+  }
+});
+
