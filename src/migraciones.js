@@ -174,6 +174,13 @@ async function migrarEsquema() {
   // Pedido online que entró por Morfi Nube: su id allá (traerlo dos veces no lo duplica)
   await agregarColumna('pedidos', 'nube_pedido_id', 'INTEGER');
   await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_pedidos_nube ON pedidos(nube_pedido_id) WHERE nube_pedido_id IS NOT NULL');
+  // Asistente IA por WhatsApp: la conversación de cada cliente (tal cual la devuelve la API) y el uso por día
+  await run(`CREATE TABLE IF NOT EXISTS asistente_conversaciones (
+    telefono TEXT PRIMARY KEY, nombre TEXT NOT NULL DEFAULT '', mensajes TEXT NOT NULL DEFAULT '[]', pausado_hasta TEXT,
+    actualizado_en TEXT DEFAULT CURRENT_TIMESTAMP)`);
+  await run(`CREATE TABLE IF NOT EXISTS asistente_uso (
+    fecha TEXT PRIMARY KEY, respuestas INTEGER NOT NULL DEFAULT 0, tokens_entrada INTEGER NOT NULL DEFAULT 0,
+    tokens_salida INTEGER NOT NULL DEFAULT 0, tokens_cache INTEGER NOT NULL DEFAULT 0)`);
   // Puntos: 1 punto cada $puntos_cada consumidos; cada punto vale $puntos_valor al canjear (desde puntos_minimo)
   await agregarColumna('configuracion', 'puntos_activo', 'INTEGER DEFAULT 0');
   await agregarColumna('configuracion', 'puntos_cada', 'REAL DEFAULT 1000');

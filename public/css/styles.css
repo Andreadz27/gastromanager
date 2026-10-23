@@ -2213,3 +2213,15 @@ tr:hover td {
 .conectar-direccion { display: flex; gap: 14px; align-items: center; }
 .conectar-direccion img { border: 1px solid var(--border); border-radius: 8px; padding: 4px; background: #fff; }
 .conectar-ayuda { padding: 10px 16px; margin: 0; }
+
+/* Asistente IA (Integraciones) */
+.integracion-logo.asistente-logo { background: linear-gradient(135deg, #f97316, #dc2626); }
+.asistente-chat { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; padding: 12px;
+  background: #ece5dd; border-radius: 12px; min-height: 80px; }
+.asistente-burbuja { max-width: 80%; padding: 8px 12px; border-radius: 10px; white-space: pre-wrap; font-size: 14px; line-height: 1.4;
+  color: #111b21; box-shadow: 0 1px 1px rgba(0,0,0,.08); }
+.asistente-burbuja.cliente { align-self: flex-end; background: #d9fdd3; }
+.asistente-burbuja.asistente { align-self: flex-start; background: #fff; }
+.asistente-burbuja.espera { color: #667781; font-style: italic; }
+.asistente-entrada { display: flex; gap: 8px; margin-top: 8px; }
+.asistente-entrada input { flex: 1; }

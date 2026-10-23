@@ -10,6 +10,8 @@ const { run, get, all } = require('../db');
 const { emitEvento } = require('../realtime');
 const { offsetZonaMin } = require('../tiempo');
 const { getIntCfg } = require('./integraciones');
+// Se carga al usarlo: el asistente usa pedidos, que a su vez avisan por WhatsApp
+const asistente = () => require('./asistente');
 
 // GM_WA_API_URL: API de Meta alternativa (los tests usan una simulada)
 const API_WA = (process.env.GM_WA_API_URL || 'https://graph.facebook.com').replace(/\/$/, '');
@@ -104,6 +106,28 @@ async function enviarPlantilla({ telefono, plantilla, parametros = [], motivo, r
   }
 }
 
+// Mensaje de texto libre (lo usa el asistente). Meta lo permite solo dentro de las 24 h desde el último mensaje
+// del cliente: el asistente siempre contesta a un mensaje recién llegado.
+async function enviarTexto({ telefono, texto, motivo = 'asistente', cfg }) {
+  cfg = cfg || await configWhatsApp();
+  if (!listo(cfg)) throw Object.assign(new Error('WhatsApp no está configurado o activo (Integraciones → WhatsApp).'), { status: 400 });
+  const destino = normalizarTelefono(telefono) || String(telefono || '').replace(/\D/g, '');
+  if (!destino) throw Object.assign(new Error('Teléfono inválido'), { status: 400 });
+  const cuerpo = String(texto || '').slice(0, 4000);
+  const { id } = await run(`INSERT INTO whatsapp_mensajes (telefono, plantilla, motivo, parametros, estado)
+    VALUES (?, '', ?, ?, 'enviando')`, [destino, motivo, JSON.stringify([cuerpo.slice(0, 1000)])]);
+  try {
+    const r = await waRequest(cfg, { messaging_product: 'whatsapp', to: destino, type: 'text', text: { body: cuerpo, preview_url: false } });
+    const waId = (r.messages && r.messages[0] && r.messages[0].id) || '';
+    await run("UPDATE whatsapp_mensajes SET estado = 'enviado', wa_message_id = ? WHERE id = ?", [waId, id]);
+    emitEvento('whatsapp:mensaje', { id, motivo, estado: 'enviado' });
+    return { id, wa_message_id: waId };
+  } catch (e) {
+    await run("UPDATE whatsapp_mensajes SET estado = 'error', error = ? WHERE id = ?", [String(e.message).slice(0, 500), id]);
+    throw e;
+  }
+}
+
 const moneda = n => '$ ' + new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(Number(n) || 0);
 const nombreNegocio = async () => ((await get('SELECT nombre_negocio FROM configuracion WHERE id = 1')) || {}).nombre_negocio || 'el local';
 
@@ -195,7 +219,7 @@ function firmaValida(cfg, cuerpoCrudo, firma) {
 const ESTADOS_META = { sent: 'enviado', delivered: 'entregado', read: 'leido', failed: 'error' };
 const ORDEN_ESTADO = { enviando: 0, enviado: 1, entregado: 2, leido: 3 };
 
-// Estados de los mensajes enviados y mensajes que escriben los clientes (quedan para responder y para un futuro asistente)
+// Estados de los mensajes enviados y mensajes que escriben los clientes (quedan para responder; si el asistente IA está activo, los contesta)
 async function procesarWebhook(body) {
   for (const entrada of [].concat((body && body.entry) || [])) {
     for (const cambio of [].concat(entrada.changes || [])) {
@@ -216,12 +240,19 @@ async function procesarWebhook(body) {
         await run('INSERT INTO whatsapp_entrantes (wa_message_id, telefono, nombre, texto) VALUES (?, ?, ?, ?)',
           [String(m.id), String(m.from || ''), contactos[m.from] || '', String(texto).slice(0, 2000)]);
         emitEvento('whatsapp:entrante', { telefono: m.from, nombre: contactos[m.from] || '', texto: String(texto).slice(0, 200) });
+        // Asistente IA (si está activo): contesta en segundo plano; no a mensajes viejos (Meta reintenta tras un corte)
+        const reciente = !m.timestamp || Date.now() / 1000 - Number(m.timestamp) < 30 * 60;
+        if (reciente && m.from) {
+          const tipo = m.type === 'text' || m.type === 'button' || !m.type ? 'text' : m.type;
+          asistente().atender({ telefono: String(m.from), nombre: contactos[m.from] || '', texto, tipo },
+            { enviar: t => enviarTexto({ telefono: String(m.from), texto: t }) });
+        }
       }
     }
   }
 }
 
 module.exports = {
-  normalizarTelefono, configWhatsApp, enviarPlantilla, enviarComprobante, avisarEstadoPedido, whatsappListo: listo,
+  normalizarTelefono, configWhatsApp, enviarPlantilla, enviarTexto, enviarComprobante, avisarEstadoPedido, whatsappListo: listo,
   enviarRecordatoriosReservas, iniciarRecordatoriosWhatsApp, firmaValida, procesarWebhook, PLANTILLAS_POR_DEFECTO
 };

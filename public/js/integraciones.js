@@ -161,9 +161,11 @@ const Integraciones = {
       </div></div>
       ${mpHtml}${deliveryHtml}
       <div id="waCard"></div>
+      <div id="asistenteCard"></div>
       <div id="afipCard"></div>
       <div id="tnCard"></div>`;
     this._paintWA(this.cfg.whatsapp || {}, est);
+    this._paintAsistente(this.cfg.asistente || {}, est);
     this._paintAFIP(afip, est);
     this._paintTN(tn, est);
     this._setWebhookUrls();
@@ -257,6 +259,159 @@ const Integraciones = {
         </div>
       </div>`;
     if (est.whatsapp === 'conectada') this._cargarMensajesWA();
+  },
+
+  // ──────── ASISTENTE IA (Claude por WhatsApp) ────────
+  _paintAsistente(as, est) {
+    const el = document.getElementById('asistenteCard');
+    if (!el) return;
+    const opt = (v, actual, txt) => `<option value="${v}" ${String(actual) === String(v) ? 'selected' : ''}>${txt}</option>`;
+    const sinWA = est.whatsapp !== 'conectada';
+    el.innerHTML = `
+      <div class="integracion-card ${as.activa ? 'activa' : ''}">
+        <div class="integracion-header">
+          <div class="integracion-logo asistente-logo"><i class="fas fa-robot"></i></div>
+          <div class="integracion-info">
+            <div class="integracion-nombre">Asistente IA por WhatsApp</div>
+            <div class="integracion-desc">Contesta las 24 horas: carta y precios, pedidos para retirar o con envío, reservas y estado del pedido. Si no puede resolver algo, avisa al personal.</div>
+          </div>
+          <div class="integracion-estado">${this._badgeEstado(est.asistente)}</div>
+        </div>
+        <div class="integracion-body">
+          ${sinWA ? '<div class="card-info mb-10"><i class="fas fa-exclamation-triangle"></i><div>Primero conectá WhatsApp Business (arriba): el asistente contesta los mensajes que llegan por ahí.</div></div>' : ''}
+          <form onsubmit="Integraciones.guardarAsistente(event)">
+            <div class="grid grid-2">
+              <div class="form-group">
+                <label>Clave de la API de Claude</label>
+                <input type="password" id="asKey" value="${esc(as.api_key || '')}" placeholder="sk-ant-..." autocomplete="off">
+                <small class="form-hint">De platform.claude.com → API Keys. El consumo se paga a Anthropic según lo que se use.</small>
+              </div>
+              <div class="form-group"><label>Estado</label>
+                <select id="asActiva">${opt(0, as.activa ? 1 : 0, 'Desactivado')}${opt(1, as.activa ? 1 : 0, 'Activo: contesta los WhatsApp')}</select>
+              </div>
+            </div>
+            <div class="grid grid-3">
+              <div class="form-group"><label>Pedidos por WhatsApp</label>
+                <select id="asPedidos">${opt(1, as.pedidos ? 1 : 0, 'Los toma')}${opt(0, as.pedidos ? 1 : 0, 'No (solo informa)')}</select>
+              </div>
+              <div class="form-group"><label>Reservas por WhatsApp</label>
+                <select id="asReservas">${opt(1, as.reservas ? 1 : 0, 'Las toma')}${opt(0, as.reservas ? 1 : 0, 'No (solo informa)')}</select>
+              </div>
+              <div class="form-group"><label>Máximo de personas por reserva</label>
+                <input type="number" id="asMaxPersonas" min="1" max="100" value="${esc(as.max_personas || 10)}">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Horarios</label>
+              <input type="text" id="asHorarios" maxlength="300" value="${esc(as.horarios || '')}" placeholder="Martes a domingo de 20 a 24 h. Mediodía solo sábados y domingos.">
+            </div>
+            <div class="form-group">
+              <label>Indicaciones para el asistente</label>
+              <textarea id="asInstrucciones" rows="3" maxlength="1500" placeholder="Ej: Envíos hasta 3 km, costo $1.500. Pago en efectivo o transferencia al recibir. Los lunes cerramos.">${esc(as.instrucciones || '')}</textarea>
+              <small class="form-hint">Lo que diría alguien del local: zonas y costo de envío, formas de pago, promociones vigentes, qué no hacer.</small>
+            </div>
+            <div class="integracion-actions">
+              <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar</button>
+            </div>
+          </form>
+          ${as.api_key ? `
+          <div class="mt-20">
+            <div class="card-header"><span class="card-title"><i class="fas fa-comments"></i> Probalo como si fueras un cliente</span></div>
+            <p class="form-hint">Usa la carta y los datos reales, pero en la prueba no se crean pedidos ni reservas.</p>
+            <div id="asChat" class="asistente-chat"></div>
+            <form class="asistente-entrada" onsubmit="Integraciones.probarAsistente(event)">
+              <input type="text" id="asMensaje" placeholder="Hola, ¿qué tienen para cenar?" autocomplete="off" maxlength="1000">
+              <button type="submit" class="btn btn-primary" id="asEnviar"><i class="fas fa-paper-plane"></i></button>
+              <button type="button" class="btn btn-outline" onclick="Integraciones.reiniciarPrueba()" title="Empezar otra conversación"><i class="fas fa-redo"></i></button>
+            </form>
+          </div>
+          <div class="mt-20" id="asEstado"></div>` : ''}
+        </div>
+      </div>`;
+    this._pruebaNueva = true;
+    if (as.api_key) this._cargarEstadoAsistente();
+  },
+
+  async guardarAsistente(e) {
+    e.preventDefault();
+    const val = id => document.getElementById(id).value.trim();
+    try {
+      await API.saveIntegracionConfig('asistente', {
+        api_key: val('asKey'),
+        activa: val('asActiva') === '1',
+        pedidos: val('asPedidos') === '1',
+        reservas: val('asReservas') === '1',
+        max_personas: Math.max(1, Number(val('asMaxPersonas')) || 10),
+        horarios: val('asHorarios'),
+        instrucciones: val('asInstrucciones')
+      });
+      App.showToast('Asistente guardado', 'success');
+      this.render();
+    } catch (err) { App.showToast(err.message, 'error'); }
+  },
+
+  _burbuja(texto, quien) {
+    const chat = document.getElementById('asChat');
+    if (!chat) return null;
+    const b = document.createElement('div');
+    b.className = 'asistente-burbuja ' + quien;
+    b.textContent = texto;
+    chat.appendChild(b);
+    chat.scrollTop = chat.scrollHeight;
+    return b;
+  },
+
+  async probarAsistente(e) {
+    e.preventDefault();
+    const input = document.getElementById('asMensaje');
+    const texto = input.value.trim();
+    if (!texto) return;
+    input.value = '';
+    this._burbuja(texto, 'cliente');
+    const espera = this._burbuja('Escribiendo...', 'asistente espera');
+    const btn = document.getElementById('asEnviar');
+    btn.disabled = true;
+    try {
+      const r = await API.probarAsistente(texto, this._pruebaNueva);
+      this._pruebaNueva = false;
+      espera.textContent = r.respuesta;
+      espera.classList.remove('espera');
+      this._cargarEstadoAsistente();
+    } catch (err) {
+      espera.remove();
+      App.showToast(err.message, 'error', 8000);
+    } finally { btn.disabled = false; input.focus(); }
+  },
+
+  reiniciarPrueba() {
+    this._pruebaNueva = true;
+    const chat = document.getElementById('asChat');
+    if (chat) chat.innerHTML = '';
+  },
+
+  async _cargarEstadoAsistente() {
+    const cont = document.getElementById('asEstado');
+    if (!cont) return;
+    try {
+      const { uso, derivadas } = await API.getEstadoAsistente();
+      const total = uso.reduce((a, u) => ({ r: a.r + u.respuestas, e: a.e + u.tokens_entrada, s: a.s + u.tokens_salida, c: a.c + u.tokens_cache }), { r: 0, e: 0, s: 0, c: 0 });
+      // Estimado con los precios de Claude Opus 5.5 (US$ por millón de tokens: 4 entrada, 20 salida, 0,20 caché)
+      const usd = (total.e * 4 + total.s * 20 + total.c * 0.2) / 1e6;
+      cont.innerHTML = `
+        ${derivadas.length ? `<div class="card-header"><span class="card-title"><i class="fas fa-headset"></i> Conversaciones pasadas a una persona</span></div>
+          <div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Teléfono</th><th>El asistente vuelve</th><th></th></tr></thead><tbody>
+          ${derivadas.map(d => `<tr><td>${esc(d.nombre || '—')}</td><td>${esc(d.telefono)}</td>
+            <td>${esc(new Date(d.pausado_hasta).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }))}</td>
+            <td><button class="btn btn-outline btn-xs" onclick="Integraciones.reactivarAsistente('${esc(d.telefono)}')">Reactivar ya</button></td></tr>`).join('')}
+          </tbody></table></div>` : ''}
+        <div class="card-header mt-10"><span class="card-title"><i class="fas fa-chart-line"></i> Uso de los últimos 30 días</span></div>
+        <p>${total.r} respuestas · costo estimado US$ ${usd.toFixed(2)} <small class="form-hint">(aprox., con precios de Claude Opus 5.5; el detalle está en platform.claude.com)</small></p>`;
+    } catch (err) { cont.innerHTML = ''; }
+  },
+
+  async reactivarAsistente(telefono) {
+    try { await API.reactivarAsistente(telefono); App.showToast('El asistente vuelve a contestar a ese cliente', 'success'); this._cargarEstadoAsistente(); }
+    catch (err) { App.showToast(err.message, 'error'); }
   },
 
   async guardarWA(e) {
