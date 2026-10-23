@@ -13,6 +13,7 @@ const { migrarConRespaldo } = require('./src/migraciones');
 const { backupSiCorresponde, crearBackup } = require('./src/servicios/backups');
 const { iniciarMonitoreo } = require('./src/servicios/monitoreo');
 const { iniciarRecordatoriosWhatsApp } = require('./src/servicios/whatsapp');
+const { iniciarModoSinConexion } = require('./src/servicios/sin-conexion');
 
 iniciarRealtime(server);
 
@@ -34,6 +35,8 @@ migrarConRespaldo({ respaldar: crearBackup }).then(() => server.listen(PORT, () 
   iniciarMonitoreo();
   // Recordatorios de reservas por WhatsApp (si está activado en Integraciones)
   iniciarRecordatoriosWhatsApp();
+  // Aviso de "sin internet" y facturas en espera que se emiten solas al volver la conexión
+  iniciarModoSinConexion();
 })).catch(err => {
   console.error('Error al migrar la base de datos:', err);
   process.exit(1);

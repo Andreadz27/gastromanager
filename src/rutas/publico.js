@@ -4,8 +4,20 @@ const {
   comandaAutomatica, resolverItems, recalcularTotales, mesaPorToken, estadoMesa, solicitarPedidoMesa, llamarMozo,
   iniciarPagoMesa, verificarPagoMesa, pedirComprobanteMesa
 } = require('../contexto');
+const QRCode = require('qrcode');
 
 module.exports = function registrarRutas(app) {
+
+// Imagen QR de un texto (link de la carta, de pago de Mercado Pago...). Antes se pedía a api.qrserver.com:
+// sin internet no salía ningún QR. Es pública porque la usa <img src> (sin token) y solo dibuja el texto.
+app.get('/api/publico/qr.svg', async (req, res) => {
+  try {
+    const texto = String(req.query.d || '');
+    if (!texto || texto.length > 1000) return res.status(400).json({ error: 'Texto inválido para el QR' });
+    res.type('image/svg+xml').set('Cache-Control', 'public, max-age=86400')
+      .send(await QRCode.toString(texto, { type: 'svg', margin: 2, errorCorrectionLevel: 'M' }));
+  } catch (err) { errorInterno(res, err); }
+});
 
 // ============ MENÚ PÚBLICO (carta QR - sin autenticación) ============
 

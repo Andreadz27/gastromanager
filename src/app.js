@@ -17,7 +17,8 @@ app.use(helmet({
   crossOriginResourcePolicy:  { policy: 'cross-origin' },
   crossOriginOpenerPolicy:    false, // requiere HTTPS, causa warnings en red local
   originAgentCluster:         false, // idem
-  // CSP: solo recursos propios + Font Awesome (cdnjs) + imágenes QR (api.qrserver.com).
+  // CSP: solo recursos propios. Los íconos (Font Awesome) y los QR se sirven desde el propio sistema:
+  // antes venían de cdnjs y api.qrserver.com y sin internet la pantalla quedaba sin íconos ni QR.
   // 'unsafe-inline' en scripts sigue siendo necesario por los onclick="" del HTML;
   // igual bloquea scripts de otros dominios, plugins, <base> y embeber la app en otros sitios.
   contentSecurityPolicy: {
@@ -26,9 +27,9 @@ app.use(helmet({
       defaultSrc:     ["'self'"],
       scriptSrc:      ["'self'", "'unsafe-inline'"],
       scriptSrcAttr:  ["'unsafe-inline'"],
-      styleSrc:       ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
-      fontSrc:        ["'self'", 'data:', 'https://cdnjs.cloudflare.com'],
-      imgSrc:         ["'self'", 'data:', 'blob:', 'https://api.qrserver.com'],
+      styleSrc:       ["'self'", "'unsafe-inline'"],
+      fontSrc:        ["'self'", 'data:'],
+      imgSrc:         ["'self'", 'data:', 'blob:'],
       connectSrc:     ["'self'"],
       workerSrc:      ["'self'"],
       manifestSrc:    ["'self'"],
@@ -65,6 +66,10 @@ app.use((err, req, res, next) => {
 });
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
+// Íconos desde el propio sistema (funcionan sin internet). Solo la hoja de estilos y las fuentes del paquete.
+const FONT_AWESOME = path.join(__dirname, '..', 'node_modules', '@fortawesome', 'fontawesome-free');
+app.use('/vendor/fontawesome/css', express.static(path.join(FONT_AWESOME, 'css'), { maxAge: '30d' }));
+app.use('/vendor/fontawesome/webfonts', express.static(path.join(FONT_AWESOME, 'webfonts'), { maxAge: '30d' }));
 
 // Apply API rate limiter to all /api routes
 app.use('/api/', apiLimiter);

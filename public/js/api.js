@@ -235,6 +235,11 @@ const API = {
   getComprobantesAFIP(limit = 10)   { return this.request('GET',  `/integraciones/afip/comprobantes?limit=${limit}`); },
   generarComprobante(data)          { return this.request('POST', '/integraciones/afip/facturar', data); },
   emitirNotaCredito(data)           { return this.request('POST', '/integraciones/afip/nota-credito', data); },
+  // Modo sin conexión: estado de internet y facturas en espera
+  getConexion()                     { return this.request('GET', '/conexion'); },
+  getFacturasPendientes()           { return this.request('GET', '/integraciones/afip/pendientes'); },
+  reintentarFacturasPendientes()    { return this.request('POST', '/integraciones/afip/pendientes/reintentar'); },
+  descartarFacturaPendiente(id)     { return this.request('POST', `/integraciones/afip/pendientes/${id}/descartar`); },
   enviarComprobanteWhatsApp(pedidoId, telefono) { return this.request('POST', `/whatsapp/comprobante/${pedidoId}`, { telefono }); },
   pruebaWhatsApp(telefono)          { return this.request('POST', '/whatsapp/prueba', { telefono }); },
   getMensajesWhatsApp()             { return this.request('GET',  '/whatsapp/mensajes'); },
@@ -359,6 +364,11 @@ function esc(str) {
 // JSON.stringify genera un literal JS válido y esc() lo protege dentro del atributo HTML.
 function jsArg(valor) {
   return esc(JSON.stringify(valor === null || valor === undefined ? '' : valor));
+}
+
+// Imagen QR generada por el propio sistema (funciona sin internet)
+function urlQr(texto) {
+  return '/api/publico/qr.svg?d=' + encodeURIComponent(texto);
 }
 
 function fmtEstado(estado) {

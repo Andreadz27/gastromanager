@@ -1,7 +1,7 @@
 'use strict';
 const {
   run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPagoTx, METODOS_PAGO, comandaAutomatica, ticketAlCobrar, requiere,
-  registrarCobroTx, saldoPedido, requiereCobro, emitirFactura, validarDatosFactura, avisarEstadoPedido,
+  registrarCobroTx, saldoPedido, requiereCobro, facturarOEncolar, validarDatosFactura, avisarEstadoPedido,
   autorizar, requiereAutorizacion, facturaVigente, datosTicketFiscalConQR, getIntCfg
 } = require('../contexto');
 
@@ -290,13 +290,12 @@ app.post('/api/pedidos/:id/cobro', autenticar, requiereCobro, async (req, res) =
       [req.usuario.id, 'cobro_mesa', `Pedido ${r.pedido.numero_pedido}: cobrado ${r.cobrado} (${pagos.map(p => p.metodo).join(' + ')})` +
         (r.cerrado ? ', cerrado' : `, falta ${r.saldo}`)]);
 
-    // Fuera de la transacción: AFIP es una llamada HTTP. Si falla, el cobro queda hecho y se reintenta desde el pedido
+    // Fuera de la transacción: AFIP es una llamada HTTP. Si falla, el cobro queda hecho; sin conexión con ARCA
+    // la factura queda en espera y se emite sola (servicios/sin-conexion.js), si ARCA la rechaza se reintenta desde el pedido
     let resultadoFactura = null;
     if (r.cerrado && factura) {
       try {
-        resultadoFactura = await emitirFactura(pedidoId, factura.tipo, factura.cuit, {
-          condicionIva: factura.condicion, razonSocial: body.factura.razon_social
-        });
+        resultadoFactura = await facturarOEncolar(pedidoId, { ...factura, razonSocial: body.factura.razon_social });
       } catch (e) {
         console.error('[AFIP cobro en mesa]', e.message);
         resultadoFactura = { ok: false, error: e.message };

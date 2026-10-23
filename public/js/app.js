@@ -149,9 +149,56 @@ const App = {
         if (App.currentView === 'dashboard') Dashboard.render();
       });
 
+      // Modo sin conexión: se cortó o volvió internet, y facturas en espera que se emitieron (o no)
+      this.socket.on('conexion:internet', (data) => {
+        if (data.internet) this.showToast('Volvió internet: las facturas en espera se están emitiendo', 'success', 8000);
+        this.revisarConexion();
+      });
+      this.socket.on('afip:pendientes', () => this.revisarConexion());
+      this.socket.on('afip:pendiente_emitida', (data) => {
+        if (this.puede('pedidos.cobrar')) this.showToast(`${data.tipo_nombre} del pedido ${data.numero_pedido} emitida (estaba en espera)`, 'success', 8000);
+      });
+      this.socket.on('afip:pendiente_error', (data) => {
+        if (this.puede('pedidos.cobrar')) this.showToast(`La factura en espera del pedido ${data.numero_pedido} no se pudo emitir: ${data.error}`, 'error', 12000);
+      });
+
     } catch (e) {
       console.warn('Socket.IO no disponible:', e.message);
     }
+  },
+
+  // Aviso arriba de todo: sin internet se sigue trabajando; lo que necesita internet queda en espera
+  async revisarConexion() {
+    try { this.pintarConexion(await API.getConexion()); } catch (e) { /* sin servidor: ya lo marca el punto rojo */ }
+  },
+
+  pintarConexion(c) {
+    const el = document.getElementById('avisoConexion');
+    if (!el) return;
+    const cobra = this.puede('pedidos.cobrar');
+    const { pendientes, con_error } = c.facturas || {};
+    const partes = [];
+    if (!c.internet) {
+      const desde = c.desde ? ` desde las ${parseFecha(c.desde).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}` : '';
+      partes.push(`<strong><i class="fas fa-wifi"></i> Sin internet${desde}.</strong> Pedidos, cocina, mesas y cobros en efectivo o tarjeta
+        siguen funcionando. Mercado Pago y WhatsApp vuelven cuando vuelva la conexión.`);
+    }
+    if (cobra && pendientes) partes.push(`<i class="fas fa-clock"></i> ${pendientes === 1 ? '1 factura en espera' : `${pendientes} facturas en espera`}
+      de ARCA: se emiten solas cuando vuelva internet. <button class="btn btn-outline btn-sm" onclick="App.reintentarFacturas()">Reintentar ahora</button>`);
+    if (cobra && con_error) partes.push(`<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> ${con_error === 1 ? '1 factura en espera no se pudo emitir' : `${con_error} facturas en espera no se pudieron emitir`}:
+      revisalas en <a href="#" onclick="App.navigateTo('integraciones');return false;">Integraciones → AFIP</a>.</span>`);
+    el.innerHTML = partes.map(p => `<div>${p}</div>`).join('');
+    el.style.display = partes.length ? '' : 'none';
+    el.classList.toggle('sin-internet', !c.internet);
+  },
+
+  async reintentarFacturas() {
+    try {
+      const r = await API.reintentarFacturasPendientes();
+      this.showToast(r.emitidas ? `${r.emitidas} factura(s) emitida(s)` : r.siguen ? 'Sigue sin conexión con ARCA: se reintenta sola' : 'No quedan facturas en espera',
+        r.emitidas ? 'success' : 'info');
+    } catch (e) { this.showToast(e.message, 'error'); }
+    this.revisarConexion();
   },
 
   // Contador de "Mesas" en el menú: pedidos y llamados del QR sin resolver
@@ -322,6 +369,7 @@ const App = {
     // Iniciar conexión Socket.IO realtime
     this.initSocket();
     this.contarSolicitudesMesa();
+    this.revisarConexion();
 
     // Cargar módulos activos y verificar setup
     this.cargarModulos();

@@ -210,8 +210,7 @@ const QRView = {
     if (!cont) return;
     const url  = this._qrUrl || (window.location.origin + '/menu.html');
     const size = parseInt((document.getElementById('qrSizeSelect') || {}).value || '220');
-    this._qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size +
-                     '&data=' + encodeURIComponent(url) + '&format=png&margin=10';
+    this._qrApiUrl = urlQr(url); // generado por el sistema: funciona sin internet
     cont.innerHTML = '<img id="qrImg" src="' + this._qrApiUrl + '" width="' + size +
       '" height="' + size + '" alt="QR Carta Digital" style="display:block;border-radius:6px;"' +
       ' onerror="this.parentElement.innerHTML=\'<p style=&quot;color:var(--danger);font-size:12px;padding:8px;&quot;>No se pudo cargar el QR</p>\'">';
@@ -222,8 +221,7 @@ const QRView = {
   _generarQRMini(containerId, url, size) {
     const cont = document.getElementById(containerId);
     if (!cont) return;
-    const apiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size +
-                   '&data=' + encodeURIComponent(url) + '&format=png&margin=6';
+    const apiUrl = urlQr(url);
     cont.innerHTML = '<img src="' + apiUrl + '" width="' + size + '" height="' + size +
       '" alt="QR" style="display:block;border-radius:4px;">';
   },
@@ -232,7 +230,7 @@ const QRView = {
     if (!this._qrApiUrl) { App.showToast('Generá el QR primero', 'warning'); return; }
     const a = document.createElement('a');
     a.href = this._qrApiUrl;
-    a.download = 'qr-carta-digital.png';
+    a.download = 'qr-carta-digital.svg';
     a.target = '_blank';
     a.rel = 'noopener';
     a.click();

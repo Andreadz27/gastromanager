@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="favicon.svg">
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/mobile.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
 </head>
 <body>
   <!-- ===== LOGIN SCREEN ===== -->
@@ -153,6 +153,8 @@
 
     <!-- Main content -->
     <main class="main-content">
+      <!-- Sin internet: qué sigue andando y qué queda en espera (modo sin conexión) -->
+      <div id="avisoConexion" class="aviso-conexion" style="display:none" role="status" aria-live="polite"></div>
       <div id="view-dashboard" class="view active"></div>
       <div id="view-pos" class="view"></div>
       <div id="view-mesas" class="view"></div>

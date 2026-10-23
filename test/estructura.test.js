@@ -19,7 +19,9 @@ test('todas las rutas de la API exigen sesión, salvo las públicas y los webhoo
     // QR de la mesa: el cliente pide sin login; la clave de la mesa va en la ruta (test/mesa-qr.test.js)
     'GET /api/publico/mesa/:token', 'POST /api/publico/mesa/:token/pedido', 'POST /api/publico/mesa/:token/llamar',
     // Pago desde la mesa (test/pago-mesa.test.js)
-    'POST /api/publico/mesa/:token/pagar', 'POST /api/publico/mesa/:token/pago/:id/verificar', 'POST /api/publico/mesa/:token/pago/:id/comprobante'];
+    'POST /api/publico/mesa/:token/pagar', 'POST /api/publico/mesa/:token/pago/:id/verificar', 'POST /api/publico/mesa/:token/pago/:id/comprobante',
+    // Imagen QR para <img src> (sin token): solo dibuja el texto que recibe (test/sin-conexion.test.js)
+    'GET /api/publico/qr.svg'];
   const sinSesion = [];
   for (const archivo of fs.readdirSync(path.join(RAIZ, 'src', 'rutas'))) {
     const codigo = fs.readFileSync(path.join(RAIZ, 'src', 'rutas', archivo), 'utf8');
