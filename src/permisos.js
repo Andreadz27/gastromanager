@@ -19,6 +19,8 @@ const PERMISOS = {
   'reportes': 'Dashboard y reportes de ventas',
   'reportes.costos': 'Rentabilidad y costos',
   'contabilidad': 'Contabilidad: gastos, cuentas a pagar, IVA, estado de resultados y libro diario',
+  // Fichar y ver los turnos propios lo puede hacer cualquiera; esto es manejar los del equipo
+  'personal': 'Personal: turnos, fichadas del equipo, correcciones y reparto de propinas',
   'admin': 'Usuarios, configuración, integraciones, impresoras y copias de seguridad'
 };
 

@@ -64,6 +64,15 @@ Pago, cierre del pedido, liberación de la mesa y descuento de stock son una sol
 - **Lo protege:** `sin-conexion.test.js` (ARCA caído, corte justo después de emitir, vuelta de internet, rechazo al
   reintentar). Probado que sin la recuperación el test falla.
 
+### Personal y propinas — `src/servicios/personal.js` · riesgo MEDIO
+- **Reparto de propinas:** el total sale de los pagos (mismo cálculo que contabilidad) y los montos los calcula el servidor;
+  `repartirCentavos` hace que la suma dé exacto. Un período no se reparte dos veces (salvo anulando el reparto).
+  **Lo rompe:** guardar montos que manda el navegador o cambiar la fórmula de propinas en un solo lado.
+- **Pago de propinas:** en efectivo es un egreso de la caja vinculado al reparto; en el libro diario cancela "Propinas a
+  pagar al personal" y **no** es gasto. **Lo rompe:** sacar la exclusión de `movimientosCajaSueltos` (se contaría dos veces).
+- **Fichadas:** no se cargan horarios futuros (una salida a futuro bloqueaba fichar). El doble toque en el mismo minuto no hace nada.
+- **Lo protege:** `personal.test.js` y el e2e.
+
 ### Pago desde la mesa — `src/servicios/pago-mesa.js` · riesgo ALTO
 - El pago se acredita **solo** consultando la API de Mercado Pago (webhook o `/verificar` al volver); se controla que el
   `external_reference` sea `<pedido>-T<intento>` de esa mesa. Idempotente por `MP-<payment_id>`.

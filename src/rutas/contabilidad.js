@@ -86,13 +86,19 @@ const cobrosPorDia = (desde, hasta) => all(`
   WHERE p.estado = 'pagado' AND date(pg.fecha, ${LOCAL()}) BETWEEN ? AND ?
   GROUP BY dia, pg.metodo ORDER BY dia`, [desde, hasta]);
 
-// Egresos e ingresos de caja que no corresponden a un gasto cargado
+// Egresos e ingresos de caja que no corresponden a un gasto cargado ni a un pago de propinas
+// (las propinas no son gasto del local: su pago cancela la deuda con el personal)
 const movimientosCajaSueltos = (desde, hasta) => all(`
   SELECT m.id, date(m.fecha, ${LOCAL()}) AS dia, m.tipo, m.concepto, m.monto
   FROM movimientos_caja m
   WHERE date(m.fecha, ${LOCAL()}) BETWEEN ? AND ?
     AND m.id NOT IN (SELECT caja_movimiento_id FROM gastos WHERE caja_movimiento_id IS NOT NULL)
+    AND m.id NOT IN (SELECT caja_movimiento_id FROM repartos_propinas WHERE caja_movimiento_id IS NOT NULL)
   ORDER BY m.fecha`, [desde, hasta]);
+
+// Repartos de propinas pagados en el período (Personal → Propinas)
+const repartosPagados = (desde, hasta) => all(`SELECT id, desde, hasta, total, medio_pago, pagado_en FROM repartos_propinas
+  WHERE estado = 'pagado' AND pagado_en BETWEEN ? AND ? ORDER BY pagado_en`, [desde, hasta]);
 
 const SELECT_GASTO = `
   SELECT g.*, pr.nombre AS proveedor_nombre, pr.cuit AS proveedor_cuit, u.nombre AS usuario_nombre
@@ -425,6 +431,12 @@ app.get('/api/contabilidad/libro-diario', autenticar, requiere('contabilidad'), 
       asiento(m.dia, 4, `Caja: ${m.concepto}`, m.tipo === 'egreso'
         ? [linea('caja_menores', m.monto, 0), linea('caja', 0, m.monto)]
         : [linea('caja', m.monto, 0), linea('ajustes', 0, m.monto)]);
+    }
+
+    // Pago de propinas al personal: cancela la deuda (no es gasto del local)
+    for (const r of await repartosPagados(desde, hasta)) {
+      asiento(r.pagado_en, 4, `Pago de propinas del ${r.desde} al ${r.hasta}`,
+        [linea('propinas', r.total, 0), linea(cuentaDeMedio(r.medio_pago), 0, r.total)]);
     }
 
     asientos.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.orden - b.orden);
