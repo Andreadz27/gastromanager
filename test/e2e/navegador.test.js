@@ -575,3 +575,56 @@ test('pago desde la mesa: divide entre dos con propina, paga en Mercado Pago, vu
     await new Promise(ok => falso.close(ok));
   }
 });
+
+test('personal: el mozo ficha desde la barra; el encargado ve la fichada, arma un turno y reparte las propinas', async () => {
+  // Una propina cobrada hoy para repartir
+  const [prod] = await s.q('SELECT id, precio_venta FROM productos WHERE activo = 1 AND precio_venta > 0 ORDER BY id LIMIT 1');
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', items: [{ producto_id: prod.id, cantidad: 1 }] }, s.tokenVendedor);
+  await s.llamar('POST', `/api/pedidos/${p.id}/cobro`, { propina: 500, pagos: [{ metodo: 'tarjeta', monto: prod.precio_venta + 500 }] }, s.tokenVendedor);
+
+  const mozo = await nuevaPagina();
+  await ingresarOk(mozo, 'mozo@test.com', 'clave1234');
+  await mozo.click('#btnFichar');
+  await mozo.waitForSelector('#btnFichar.adentro');
+  assert.match(await mozo.textContent('#btnFicharTexto'), /Fichar salida \(desde \d\d:\d\d\)/);
+  await ir(mozo, 'personal');
+  await mozo.waitForSelector('.fichar-card.adentro');
+  assert.equal(await mozo.isVisible('.personal-tabs'), false, 'el mozo no ve lo del equipo');
+  // Tres horas trabajadas y sale
+  const [{ id: mozoId }] = await s.q("SELECT id FROM usuarios WHERE email = 'mozo@test.com'");
+  await s.q("UPDATE fichajes SET entrada = datetime('now', '-3 hours') WHERE usuario_id = ? AND salida IS NULL", [mozoId]);
+  await mozo.click('.fichar-card button');
+  await toast(mozo, 'success', 'Salida registrada');
+  await mozo.waitForSelector('#btnFichar:not(.adentro)');
+
+  await s.q('UPDATE configuracion SET setup_completado = 1'); // sin el asistente de primer ingreso
+  const enc = await nuevaPagina();
+  await ingresarOk(enc, 'admin@gastromanager.com', 'admin123');
+  await ir(enc, 'personal');
+  await enc.click('.personal-tabs button:has-text("Fichadas")');
+  await enc.waitForSelector('#personalContenido td:has-text("Usuario mozo")');
+  assert.match(await enc.textContent('#personalContenido'), /3 h/);
+
+  // Turno para el mozo hoy en la planilla
+  await enc.click('.personal-tabs button:has-text("Turnos")');
+  await enc.click(`td.hoy >> nth=${(await s.q('SELECT COUNT(*) n FROM usuarios WHERE activo = 1 AND nombre < ?', ['Usuario mozo']))[0].n} >> .turno-agregar`);
+  await enc.fill('#turInicio', '10:00');
+  await enc.fill('#turFin', '18:00');
+  await enc.selectOption('#turEmpleado', String(mozoId));
+  await enc.click('#modalContainer button[type=submit]');
+  await enc.waitForSelector('.turno-chip:has-text("10:00–18:00")');
+
+  // Propinas: calcular por horas y guardar
+  await enc.click('.personal-tabs button:has-text("Propinas")');
+  await enc.click('button:has-text("Calcular")');
+  await enc.waitForSelector('#personalContenido td:has-text("Usuario mozo")');
+  await enc.click('button:has-text("Guardar reparto")');
+  await toast(enc, 'success', 'Reparto guardado');
+  const [r] = await s.q("SELECT total, detalle FROM repartos_propinas WHERE estado = 'pendiente' ORDER BY id DESC LIMIT 1");
+  assert.equal(r.total, 500);
+  assert.deepEqual(JSON.parse(r.detalle).map(x => [x.nombre, x.monto]), [['Usuario mozo', 500]]);
+  sinErrores(mozo);
+  sinErrores(enc);
+  await mozo.context().close();
+  await enc.context().close();
+});

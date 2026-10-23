@@ -121,6 +121,47 @@ async function migrarEsquema() {
     creado_en TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
   await run('CREATE INDEX IF NOT EXISTS idx_pagos_mesa_pedido ON pagos_mesa(pedido_id)');
+  // Personal: fichadas (entrada y salida, horas en UTC como CURRENT_TIMESTAMP), turnos planificados y repartos de propinas
+  await run(`CREATE TABLE IF NOT EXISTS fichajes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER NOT NULL,
+    entrada TEXT NOT NULL,
+    salida TEXT,
+    corregido_por INTEGER,
+    motivo_correccion TEXT DEFAULT '',
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await run('CREATE INDEX IF NOT EXISTS idx_fichajes_usuario ON fichajes(usuario_id, entrada)');
+  // Una sola fichada abierta por persona (dos toques seguidos en "Fichar" no abren dos)
+  await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_fichajes_abierto ON fichajes(usuario_id) WHERE salida IS NULL');
+  // fecha AAAA-MM-DD y horas HH:MM del negocio; si fin < inicio el turno termina al día siguiente
+  await run(`CREATE TABLE IF NOT EXISTS turnos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER NOT NULL,
+    fecha TEXT NOT NULL,
+    inicio TEXT NOT NULL,
+    fin TEXT NOT NULL,
+    puesto TEXT DEFAULT '',
+    notas TEXT DEFAULT '',
+    creado_por INTEGER,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await run('CREATE INDEX IF NOT EXISTS idx_turnos_fecha ON turnos(fecha, usuario_id)');
+  // detalle: [{ usuario_id, nombre, horas, monto }]. estado: pendiente | pagado | anulado
+  await run(`CREATE TABLE IF NOT EXISTS repartos_propinas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    desde TEXT NOT NULL,
+    hasta TEXT NOT NULL,
+    total REAL NOT NULL,
+    metodo TEXT NOT NULL,
+    detalle TEXT NOT NULL DEFAULT '[]',
+    estado TEXT DEFAULT 'pendiente',
+    medio_pago TEXT DEFAULT '',
+    caja_movimiento_id INTEGER,
+    pagado_en TEXT,
+    creado_por INTEGER,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
   // Arqueo de caja
   await agregarColumna('caja', 'monto_esperado', 'REAL');
   await agregarColumna('caja', 'diferencia', 'REAL');

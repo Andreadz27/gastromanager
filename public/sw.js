@@ -4,7 +4,7 @@
 // (Antes era cache-first: después de una actualización los celulares seguían con el JS viejo.)
 // =============================================
 
-const CACHE_NAME = 'gastromanager-v15';
+const CACHE_NAME = 'gastromanager-v16';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -30,6 +30,7 @@ const STATIC_ASSETS = [
   '/js/usuarios.js',
   '/js/config.js',
   '/js/integraciones.js',
+  '/js/personal.js',
   '/favicon.svg',
   '/manifest.json',
   // Íconos servidos por el propio sistema

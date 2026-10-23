@@ -162,9 +162,31 @@ const App = {
         if (this.puede('pedidos.cobrar')) this.showToast(`La factura en espera del pedido ${data.numero_pedido} no se pudo emitir: ${data.error}`, 'error', 12000);
       });
 
+      // Personal: alguien fichó (el encargado ve las fichadas al día) o cambiaron los turnos
+      this.socket.on('personal:fichaje', (data) => {
+        if (this.usuario && data.usuario_id === this.usuario.id) this.revisarFichaje();
+        if (App.currentView === 'personal' && Personal.pestana !== 'propinas') Personal.render();
+      });
+      this.socket.on('personal:turnos', () => {
+        if (App.currentView === 'personal' && Personal.pestana === 'turnos') Personal.render();
+      });
+
     } catch (e) {
       console.warn('Socket.IO no disponible:', e.message);
     }
+  },
+
+  // Botón "Fichar" de la barra lateral: muestra si el usuario está adentro y desde qué hora
+  async revisarFichaje() {
+    try { this.marcarFichaje(await API.getMiFichaje()); } catch (e) { /* sin servidor: el botón queda como estaba */ }
+  },
+
+  marcarFichaje(f) {
+    const btn = document.getElementById('btnFichar');
+    if (!btn) return;
+    btn.classList.toggle('adentro', !!f.adentro);
+    document.getElementById('btnFicharTexto').textContent = f.adentro
+      ? `Fichar salida (desde ${String(f.fichada.entrada_local).slice(11, 16)})` : 'Fichar entrada';
   },
 
   // Aviso arriba de todo: sin internet se sigue trabajando; lo que necesita internet queda en espera
@@ -370,6 +392,7 @@ const App = {
     this.initSocket();
     this.contarSolicitudesMesa();
     this.revisarConexion();
+    this.revisarFichaje();
 
     // Cargar módulos activos y verificar setup
     this.cargarModulos();
@@ -545,7 +568,8 @@ const App = {
       'usuarios': () => Usuarios.render(),
       'config': () => ConfigView.render(),
       'integraciones': () => Integraciones.render(),
-      'qr': () => QRView.render()
+      'qr': () => QRView.render(),
+      'personal': () => Personal.render()
     };
 
     if (renderers[view]) {
