@@ -36,15 +36,25 @@ const importe = v => centavos(Math.max(0, Number(v) || 0));
 // Redondeo a centavos: ARCA rechaza importes como 3.4499999999999997 (1,15 × 3)
 const centavos = n => Math.round((Number(n) || 0) * 100) / 100;
 
-// Recalcula subtotal y total de un pedido a partir de sus ítems
+// Recalcula subtotal y total de un pedido a partir de sus ítems.
+// Descuentos: el manual y los de fidelización (puntos canjeados y cupón); nunca dejan el consumo por debajo de cero.
 async function recalcularTotales(pedidoId) {
-  const pedido = await get('SELECT descuento, propina FROM pedidos WHERE id = ?', [pedidoId]);
+  const pedido = await get('SELECT descuento, propina, descuento_puntos, descuento_cupon FROM pedidos WHERE id = ?', [pedidoId]);
   const { s } = await get('SELECT COALESCE(SUM(subtotal), 0) AS s FROM pedido_items WHERE pedido_id = ?', [pedidoId]);
   const subtotal = centavos(s);
   const descuento = Math.min(importe(pedido.descuento), subtotal);
-  const total = centavos(Math.max(0, subtotal - descuento + importe(pedido.propina)));
+  const fidelizacion = Math.min(importe(pedido.descuento_puntos) + importe(pedido.descuento_cupon), subtotal - descuento);
+  const total = centavos(Math.max(0, subtotal - descuento - fidelizacion + importe(pedido.propina)));
   await run('UPDATE pedidos SET subtotal = ?, descuento = ?, total = ? WHERE id = ?', [subtotal, descuento, total, pedidoId]);
   return { subtotal, total };
+}
+
+// Pago con gift card: descuenta el saldo dentro de la misma transacción (fidelizacion.js se carga acá:
+// fidelizacion.js usa este archivo y requerirlo arriba armaría un ciclo)
+async function pagoConGiftCardTx(pedidoId, p, usuarioId) {
+  if (p.metodo !== 'giftcard') return p.referencia || '';
+  const codigo = await require('./fidelizacion').usarGiftCardTx(pedidoId, p.referencia, p.monto, usuarioId);
+  return `GC-${codigo}`;
 }
 
 // Registra el pago, cierra el pedido, libera la mesa y descuenta stock.
@@ -58,8 +68,9 @@ function registrarPago(pedido, datosPago) {
 async function registrarPagoTx(pedido, { metodo, monto, referencia, usuarioId }) {
   // Se marca como pagado solo si sigue abierto: si dos cobros llegan a la vez, gana uno
   if (!(await cerrarPedidoTx(pedido, metodo, usuarioId))) return false;
+  const ref = await pagoConGiftCardTx(pedido.id, { metodo, monto, referencia }, usuarioId);
   await run('INSERT INTO pagos (pedido_id, metodo, monto, referencia) VALUES (?, ?, ?, ?)',
-    [pedido.id, metodo, monto, referencia || '']);
+    [pedido.id, metodo, monto, ref]);
   return true;
 }
 
@@ -82,6 +93,9 @@ async function cerrarPedidoTx(pedido, metodo, usuarioId) {
     if (item.producto_id) await descontarStockItemTx(item, pedido, usuarioId);
   }
 
+  // Puntos del cliente por el consumo (si el programa está activo y el pedido tiene cliente)
+  await require('./fidelizacion').acreditarPuntosTx(pedidoId);
+
   emitEvento('pedido:pagado', { id: Number(pedidoId), numero_pedido: pedido.numero_pedido });
   emitEvento('cocina:actualizar', { pedido_id: Number(pedidoId), accion: 'pagado' });
   emitEvento('delivery:actualizar', { pedido_id: Number(pedidoId), accion: 'pagado' });
@@ -90,7 +104,8 @@ async function cerrarPedidoTx(pedido, metodo, usuarioId) {
   return true;
 }
 
-const METODOS_PAGO = ['efectivo', 'tarjeta', 'mercadopago', 'transferencia', 'otro'];
+// giftcard: la referencia es el código de la tarjeta (se descuenta su saldo al cobrar)
+const METODOS_PAGO = ['efectivo', 'tarjeta', 'mercadopago', 'transferencia', 'giftcard', 'otro'];
 
 // Total, lo ya cobrado (pagos parciales al dividir la cuenta) y lo que falta
 async function saldoPedido(pedidoId) {
@@ -121,8 +136,9 @@ async function registrarCobroTx(pedidoId, { pagos, propina, usuarioId }) {
     throw Object.assign(new Error(`Se quiere cobrar ${aCobrar} y el saldo es ${saldo}`), { status: 400 });
 
   for (const p of pagos) {
+    const ref = await pagoConGiftCardTx(pedido.id, p, usuarioId);
     await run('INSERT INTO pagos (pedido_id, metodo, monto, referencia) VALUES (?, ?, ?, ?)',
-      [pedido.id, p.metodo, p.monto, p.referencia || '']);
+      [pedido.id, p.metodo, p.monto, ref]);
   }
 
   const restante = centavos(saldo - aCobrar);

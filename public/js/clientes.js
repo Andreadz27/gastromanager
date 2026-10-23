@@ -92,12 +92,8 @@ const Clientes = {
           <input type="text" id="cliDireccion" value="${c ? esc(c.direccion || '') : ''}">
         </div>
         ${
-          c ? `
-          <div class="form-group">
-            <label>Puntos</label>
-            <input type="number" id="cliPuntos" min="0" value="${c.puntos || 0}">
-          </div>
-          ` : ''
+          // Los puntos no se editan acá: cambian con las compras, los canjes o un ajuste en Fidelización (queda registrado)
+          c ? `<p class="text-muted"><i class="fas fa-star"></i> ${c.puntos || 0} puntos</p>` : ''
         }
         <div class="form-group">
           <label>Notas</label>
@@ -120,7 +116,6 @@ const Clientes = {
       direccion: document.getElementById('cliDireccion').value,
       notas: document.getElementById('cliNotas').value
     };
-    if (id) data.puntos = parseInt(document.getElementById('cliPuntos').value || 0);
     try {
       if (id) {
         await API.updateCliente(id, data);

@@ -2,7 +2,7 @@
 const {
   run, get, all, transaccion, LOCAL, errorHttp, errorInterno, autenticar, emitEvento, generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPagoTx, METODOS_PAGO, comandaAutomatica, ticketAlCobrar, requiere,
   registrarCobroTx, saldoPedido, requiereCobro, facturarOEncolar, validarDatosFactura, avisarEstadoPedido,
-  autorizar, requiereAutorizacion, facturaVigente, datosTicketFiscalConQR, getIntCfg
+  autorizar, requiereAutorizacion, facturaVigente, datosTicketFiscalConQR, getIntCfg, revertirFidelizacionTx
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -154,7 +154,9 @@ app.put('/api/cocina/:id/listo', autenticar, requiere('cocina'), marcarListo);
 
 app.get('/api/pedidos/:id', autenticar, requiere('pedidos.ver'), async (req, res) => {
   try {
-    const pedido = await get(`SELECT p.*, m.nombre as mesa_nombre, u.nombre as usuario_nombre
+    const pedido = await get(`SELECT p.*, m.nombre as mesa_nombre, u.nombre as usuario_nombre,
+                                (SELECT codigo FROM cupones WHERE id = p.cupon_id) AS cupon_codigo,
+                                (SELECT puntos FROM clientes WHERE id = p.cliente_id) AS cliente_puntos
                               FROM pedidos p
                               LEFT JOIN mesas m ON p.mesa_id = m.id
                               LEFT JOIN usuarios u ON p.usuario_id = u.id
@@ -326,6 +328,8 @@ app.put('/api/pedidos/:id/cancelar', autenticar, requiereAutorizacion('pedidos.c
       const { changes } = await run(
         `UPDATE pedidos SET estado = 'cancelado', cerrado_en = CURRENT_TIMESTAMP WHERE id = ? AND estado = 'abierto'`, [pedido.id]);
       if (!changes) throw errorHttp(400, 'Solo se pueden cancelar pedidos abiertos');
+      // Vuelven los puntos canjeados y el uso del cupón
+      await revertirFidelizacionTx(pedido.id, req.usuario.id);
       await run('INSERT INTO auditoria (usuario_id, accion, detalle) VALUES (?, ?, ?)',
         [req.usuario.id, 'cancelar_pedido', `Pedido ${pedido.numero_pedido} cancelado`]);
       if (pedido.mesa_id) {

@@ -164,7 +164,7 @@ async function opcionesImpresion() {
 
 async function datosPedido(pedidoId) {
   const pedido = await get(`
-    SELECT p.*, m.nombre AS mesa_nombre, u.nombre AS usuario_nombre
+    SELECT p.*, m.nombre AS mesa_nombre, u.nombre AS usuario_nombre, (SELECT codigo FROM cupones WHERE id = p.cupon_id) AS cupon_codigo
     FROM pedidos p LEFT JOIN mesas m ON m.id = p.mesa_id LEFT JOIN usuarios u ON u.id = p.usuario_id
     WHERE p.id = ?`, [pedidoId]);
   if (!pedido) return null;
@@ -256,6 +256,8 @@ function plantillaTicket(pedido, negocio, opciones, impresora, extra = {}) {
   t.separador();
   t.columnas2('Subtotal', moneda(pedido.subtotal));
   if (pedido.descuento) t.columnas2('Descuento', '-' + moneda(pedido.descuento));
+  if (pedido.descuento_puntos) t.columnas2(`Canje ${pedido.puntos_canjeados} puntos`, '-' + moneda(pedido.descuento_puntos));
+  if (pedido.descuento_cupon) t.columnas2(`Cupón ${pedido.cupon_codigo || ''}`, '-' + moneda(pedido.descuento_cupon));
   if (pedido.propina) t.columnas2('Propina', moneda(pedido.propina));
   if (pedido.entrega && pedido.entrega.costo_envio) t.columnas2('Envío', moneda(pedido.entrega.costo_envio));
   t.negrita().tamano(2, 2).columnas2('TOTAL', moneda(pedido.total)).normal();

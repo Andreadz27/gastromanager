@@ -79,7 +79,7 @@ app.use(bloqueoDemo);
 rutasDemo(app);
 
 // Rutas de la API (una por módulo)
-for (const modulo of ["auth","publico","configuracion","usuarios","catalogo","mesas","promociones","pedidos","delivery","caja","contabilidad","proveedores","stock","clientes","reportes","integraciones","whatsapp","backups","impresion","personal","salud"]) {
+for (const modulo of ["auth","publico","configuracion","usuarios","catalogo","mesas","promociones","pedidos","delivery","caja","contabilidad","proveedores","stock","clientes","reportes","integraciones","whatsapp","backups","impresion","personal","fidelizacion","salud"]) {
   require('./rutas/' + modulo)(app);
 }
 

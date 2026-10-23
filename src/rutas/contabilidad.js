@@ -42,13 +42,15 @@ const CUENTAS = {
   proveedores: { codigo: '2.1.01', nombre: 'Proveedores' },
   iva_df: { codigo: '2.1.02', nombre: 'IVA débito fiscal' },
   propinas: { codigo: '2.1.03', nombre: 'Propinas a pagar al personal' },
+  // Gift cards vendidas y no usadas: se le debe al cliente. Pagar con una gift card la cancela (y ahí es venta)
+  giftcards: { codigo: '2.1.04', nombre: 'Gift cards a canjear' },
   ajustes: { codigo: '3.1.01', nombre: 'Aportes y ajustes de caja' },
   ventas: { codigo: '4.1.01', nombre: 'Ventas' },
   ...Object.fromEntries(CATEGORIAS.map(c => [c.id, { codigo: c.codigo, nombre: c.nombre }])),
   caja_menores: { codigo: '5.2.09', nombre: 'Gastos menores de caja' }
 };
 const CUENTA_DE_MEDIO = {
-  efectivo: 'caja', tarjeta: 'bancos', transferencia: 'bancos', cheque: 'bancos', mercadopago: 'mp'
+  efectivo: 'caja', tarjeta: 'bancos', transferencia: 'bancos', cheque: 'bancos', mercadopago: 'mp', giftcard: 'giftcards'
 };
 const cuentaDeMedio = metodo => CUENTA_DE_MEDIO[metodo] || 'otros_medios';
 
@@ -94,7 +96,12 @@ const movimientosCajaSueltos = (desde, hasta) => all(`
   WHERE date(m.fecha, ${LOCAL()}) BETWEEN ? AND ?
     AND m.id NOT IN (SELECT caja_movimiento_id FROM gastos WHERE caja_movimiento_id IS NOT NULL)
     AND m.id NOT IN (SELECT caja_movimiento_id FROM repartos_propinas WHERE caja_movimiento_id IS NOT NULL)
+    AND m.id NOT IN (SELECT caja_movimiento_id FROM gift_cards WHERE caja_movimiento_id IS NOT NULL)
   ORDER BY m.fecha`, [desde, hasta]);
+
+// Gift cards vendidas en el período (se asientan como deuda con el cliente, no como venta)
+const giftCardsVendidas = (desde, hasta) => all(`SELECT codigo, monto, medio_cobro, fecha FROM gift_cards
+  WHERE fecha BETWEEN ? AND ? ORDER BY id`, [desde, hasta]);
 
 // Repartos de propinas pagados en el período (Personal → Propinas)
 const repartosPagados = (desde, hasta) => all(`SELECT id, desde, hasta, total, medio_pago, pagado_en FROM repartos_propinas
@@ -437,6 +444,11 @@ app.get('/api/contabilidad/libro-diario', autenticar, requiere('contabilidad'), 
     for (const r of await repartosPagados(desde, hasta)) {
       asiento(r.pagado_en, 4, `Pago de propinas del ${r.desde} al ${r.hasta}`,
         [linea('propinas', r.total, 0), linea(cuentaDeMedio(r.medio_pago), 0, r.total)]);
+    }
+
+    // Venta de gift cards: entra la plata y queda la deuda con el cliente hasta que la use
+    for (const g of await giftCardsVendidas(desde, hasta)) {
+      asiento(g.fecha, 4, `Venta de gift card ${g.codigo}`, [linea(cuentaDeMedio(g.medio_cobro), g.monto, 0), linea('giftcards', 0, g.monto)]);
     }
 
     asientos.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.orden - b.orden);

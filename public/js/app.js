@@ -438,7 +438,7 @@ const App = {
     dashboard: 'reportes', pos: 'pedidos.tomar', mesas: 'pedidos.ver', pedidos: 'pedidos.ver',
     delivery: 'delivery', cocina: 'cocina', productos: 'catalogo', stock: 'stock.ver',
     proveedores: 'stock.ver', clientes: 'clientes', caja: 'caja.operar', reportes: 'reportes', contabilidad: 'contabilidad',
-    integraciones: 'admin', usuarios: 'admin', config: 'admin', qr: 'catalogo'
+    integraciones: 'admin', usuarios: 'admin', config: 'admin', qr: 'catalogo', fidelizacion: 'pedidos.cobrar'
   },
 
   puede(permiso) {
@@ -569,7 +569,8 @@ const App = {
       'config': () => ConfigView.render(),
       'integraciones': () => Integraciones.render(),
       'qr': () => QRView.render(),
-      'personal': () => Personal.render()
+      'personal': () => Personal.render(),
+      'fidelizacion': () => Fidelizacion.render()
     };
 
     if (renderers[view]) {
@@ -745,6 +746,8 @@ const App = {
         <table>
           <tr><td>Subtotal</td><td class="right">${fmtMoneda((p.pedido && p.pedido.subtotal) || p.subtotal || total)}</td></tr>
           ${desc ? `<tr><td>Descuento</td><td class="right">-${fmtMoneda(desc)}</td></tr>` : ''}
+          ${p.descuento_puntos ? `<tr><td>Canje ${p.puntos_canjeados} puntos</td><td class="right">-${fmtMoneda(p.descuento_puntos)}</td></tr>` : ''}
+          ${p.descuento_cupon ? `<tr><td>Cup&oacute;n ${esc(p.cupon_codigo || '')}</td><td class="right">-${fmtMoneda(p.descuento_cupon)}</td></tr>` : ''}
           ${propina ? `<tr><td>Propina</td><td class="right">${fmtMoneda(propina)}</td></tr>` : ''}
           <tr class="tot bold"><td>TOTAL</td><td class="right">${fmtMoneda(total)}</td></tr>
         </table>

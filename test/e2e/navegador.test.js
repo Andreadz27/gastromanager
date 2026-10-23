@@ -628,3 +628,44 @@ test('personal: el mozo ficha desde la barra; el encargado ve la fichada, arma u
   await mozo.context().close();
   await enc.context().close();
 });
+
+test('fidelización en el cobro: el cajero elige el cliente, canjea puntos, aplica un cupón y paga con gift card', async () => {
+  await s.llamar('PUT', '/api/config', { puntos_activo: 1, puntos_cada: 100, puntos_valor: 1, puntos_minimo: 10 }, s.tokenAdmin);
+  const [, cli] = await s.llamar('POST', '/api/clientes', { nombre: 'Clienta Fiel', telefono: '1144443333' }, s.tokenAdmin);
+  await s.llamar('POST', `/api/clientes/${cli.id}/puntos`, { puntos: 200, motivo: 'Bienvenida' }, s.tokenAdmin);
+  await s.llamar('POST', '/api/fidelizacion/cupones', { codigo: 'E2E10', tipo: 'porcentaje', valor: 10 }, s.tokenAdmin);
+  const [, caja] = await s.llamar('GET', '/api/caja/estado', null, s.tokenVendedor);
+  if (!caja) await s.llamar('POST', '/api/caja/abrir', { monto_inicial: 0 }, s.tokenVendedor);
+  const [, gift] = await s.llamar('POST', '/api/fidelizacion/gift-cards', { monto: 100000, medio: 'efectivo' }, s.tokenVendedor);
+  const [prod] = await s.q('SELECT id FROM productos WHERE activo = 1 ORDER BY id LIMIT 1');
+  await s.q('UPDATE productos SET precio_venta = 1000 WHERE id = ?', [prod.id]);
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', items: [{ producto_id: prod.id, cantidad: 2 }] }, s.tokenVendedor);
+
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'vendedor@test.com', 'vendedor123');
+  await page.evaluate(`Cobro.abrir(${Number(p.id)})`);
+  await page.waitForSelector('.cobro-fidelizacion');
+  await page.click('.cobro-fidelizacion button:has-text("Elegir cliente")');
+  await page.fill('#cobroBuscarCliente', '4444');
+  await page.click('.cobro-cliente-opcion:has-text("Clienta Fiel")');
+  await page.waitForSelector('.cobro-fidelizacion :text("200 puntos")');
+  await page.fill('#cobroPuntos', '150');
+  await page.click('.cobro-fidelizacion button:has-text("Canjear")');
+  await page.waitForSelector('.cobro-fidelizacion :text("Canje: 150 puntos")');
+  await page.fill('#cobroCupon', 'e2e10');
+  await page.click('.cobro-fidelizacion button:has-text("Aplicar")');
+  await page.waitForSelector('.cobro-fidelizacion :text("Cupón E2E10")');
+  // $2000 - $150 de puntos - 10% de $2000 = $1650
+  assert.match(await page.textContent('.cobro-saldo'), /1\.650/);
+  await page.selectOption('.cobro-pago select', 'giftcard');
+  await page.fill('.cobro-pago input[aria-label="Código de la gift card"]', gift.codigo);
+  await page.click('#cobroBtn');
+  await page.waitForSelector('.cobro-ok');
+  const [ped] = await s.q('SELECT estado, total, descuento_puntos, descuento_cupon FROM pedidos WHERE id = ?', [p.id]);
+  assert.deepEqual([ped.estado, ped.total, ped.descuento_puntos, ped.descuento_cupon], ['pagado', 1650, 150, 200]);
+  assert.equal((await s.q('SELECT saldo FROM gift_cards WHERE id = ?', [gift.id]))[0].saldo, 98350);
+  // 200 - 150 canjeados + 16 ganados por $1650
+  assert.equal((await s.q('SELECT puntos FROM clientes WHERE id = ?', [cli.id]))[0].puntos, 66);
+  sinErrores(page);
+  await page.context().close();
+});

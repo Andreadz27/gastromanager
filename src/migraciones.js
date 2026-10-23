@@ -162,6 +162,82 @@ async function migrarEsquema() {
     creado_por INTEGER,
     creado_en TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
+  // ---- Fidelización: puntos, cupones y gift cards ----
+  // El pedido guarda su cliente y los descuentos de fidelización aparte del descuento manual
+  await agregarColumna('pedidos', 'cliente_id', 'INTEGER');
+  await agregarColumna('pedidos', 'puntos_canjeados', 'INTEGER DEFAULT 0');
+  await agregarColumna('pedidos', 'descuento_puntos', 'REAL DEFAULT 0');
+  await agregarColumna('pedidos', 'cupon_id', 'INTEGER');
+  await agregarColumna('pedidos', 'descuento_cupon', 'REAL DEFAULT 0');
+  // Puntos: 1 punto cada $puntos_cada consumidos; cada punto vale $puntos_valor al canjear (desde puntos_minimo)
+  await agregarColumna('configuracion', 'puntos_activo', 'INTEGER DEFAULT 0');
+  await agregarColumna('configuracion', 'puntos_cada', 'REAL DEFAULT 1000');
+  await agregarColumna('configuracion', 'puntos_valor', 'REAL DEFAULT 10');
+  await agregarColumna('configuracion', 'puntos_minimo', 'INTEGER DEFAULT 50');
+  // clientes.puntos es el saldo; cada cambio queda en puntos_movimientos (gana, canje, devolucion, ajuste)
+  await run(`CREATE TABLE IF NOT EXISTS puntos_movimientos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cliente_id INTEGER NOT NULL,
+    pedido_id INTEGER,
+    puntos INTEGER NOT NULL,
+    tipo TEXT NOT NULL,
+    detalle TEXT DEFAULT '',
+    usuario_id INTEGER,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await run('CREATE INDEX IF NOT EXISTS idx_puntos_cliente ON puntos_movimientos(cliente_id)');
+  // Saldo inicial: los puntos que ya tenían los clientes (cargados a mano antes) quedan como ajuste
+  if (!(await get('SELECT 1 AS x FROM puntos_movimientos LIMIT 1')))
+    await run(`INSERT INTO puntos_movimientos (cliente_id, puntos, tipo, detalle)
+      SELECT id, puntos, 'ajuste', 'Saldo anterior a fidelización' FROM clientes WHERE COALESCE(puntos, 0) != 0`);
+  await run(`CREATE TABLE IF NOT EXISTS cupones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    codigo TEXT NOT NULL UNIQUE,
+    descripcion TEXT DEFAULT '',
+    tipo TEXT NOT NULL DEFAULT 'porcentaje',
+    valor REAL NOT NULL,
+    minimo REAL DEFAULT 0,
+    desde TEXT,
+    hasta TEXT,
+    usos_max INTEGER,
+    usos_por_cliente INTEGER,
+    activo INTEGER DEFAULT 1,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  // Un uso por pedido (se borra si el pedido se cancela o se saca el cupón)
+  await run(`CREATE TABLE IF NOT EXISTS cupon_usos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cupon_id INTEGER NOT NULL,
+    pedido_id INTEGER NOT NULL UNIQUE,
+    cliente_id INTEGER,
+    descuento REAL NOT NULL,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  // Gift card: se cobra al venderla (queda como deuda con el cliente) y se usa como medio de pago
+  await run(`CREATE TABLE IF NOT EXISTS gift_cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    codigo TEXT NOT NULL UNIQUE,
+    monto REAL NOT NULL,
+    saldo REAL NOT NULL,
+    vence TEXT,
+    comprador TEXT DEFAULT '',
+    destinatario TEXT DEFAULT '',
+    medio_cobro TEXT NOT NULL,
+    caja_movimiento_id INTEGER,
+    estado TEXT DEFAULT 'activa',
+    usuario_id INTEGER,
+    fecha TEXT NOT NULL,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await run(`CREATE TABLE IF NOT EXISTS gift_card_movimientos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    gift_card_id INTEGER NOT NULL,
+    pedido_id INTEGER,
+    monto REAL NOT NULL,
+    tipo TEXT NOT NULL,
+    usuario_id INTEGER,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
   // Arqueo de caja
   await agregarColumna('caja', 'monto_esperado', 'REAL');
   await agregarColumna('caja', 'diferencia', 'REAL');

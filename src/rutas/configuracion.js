@@ -42,9 +42,12 @@ app.put('/api/config', autenticar, esAdmin, async (req, res) => {
     if (b.terminologia !== undefined) b.terminologia = JSON.stringify(b.terminologia && typeof b.terminologia === 'object' ? b.terminologia : {});
     if (b.nombre_negocio !== undefined && !String(b.nombre_negocio).trim()) throw errorHttp(400, 'El nombre del negocio es obligatorio');
     if (b.qr_mesa_modo !== undefined && !MODOS_QR_MESA.includes(b.qr_mesa_modo)) throw errorHttp(400, 'Modo de pedido por QR inválido');
+    // Programa de puntos: cada cuántos pesos se gana un punto, cuánto vale al canjear y desde cuántos se canjea
+    for (const c of ['puntos_cada', 'puntos_valor']) if (b[c] !== undefined && !(Number(b[c]) > 0)) throw errorHttp(400, 'Los valores de los puntos tienen que ser mayores a cero');
+    if (b.puntos_minimo !== undefined && !(Number(b.puntos_minimo) >= 0)) throw errorHttp(400, 'Mínimo de puntos inválido');
     await actualizarParcial('configuracion', 1, b, ['nombre_negocio', 'direccion', 'telefono', 'email', 'cuit', 'tasa_iva',
       'moneda', 'activar_impresion', 'tipo_negocio', 'modulos_activos', 'terminologia', 'setup_completado', 'mozo_cobra_mesa', 'pin_autorizacion', 'arqueo_ciego',
-      'qr_mesa_modo']);
+      'qr_mesa_modo', 'puntos_activo', 'puntos_cada', 'puntos_valor', 'puntos_minimo']);
     const config = await get('SELECT * FROM configuracion WHERE id = 1');
     if (config) {
       try { config.modulos_activos = JSON.parse(config.modulos_activos || '[]'); } catch(e) { config.modulos_activos = []; }
