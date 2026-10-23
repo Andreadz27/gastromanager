@@ -1,7 +1,7 @@
 'use strict';
 const {
-  rateLimit, PORT, run, get, all, transaccion, errorHttp, errorInterno, emitEvento, generarNumeroPedido,
-  comandaAutomatica
+  rateLimit, urlPublica, run, get, all, transaccion, errorHttp, errorInterno, emitEvento, generarNumeroPedido,
+  comandaAutomatica, resolverItems, recalcularTotales
 } = require('../contexto');
 
 module.exports = function registrarRutas(app) {
@@ -31,73 +31,74 @@ app.get('/api/publico/menu', async (req, res) => {
 app.get('/api/publico/info', async (req, res) => {
   try {
     const config = await get('SELECT nombre_negocio, direccion, telefono, email FROM configuracion WHERE id = 1');
-    const base = (process.env.BASE_URL || `http://localhost:${PORT}`).replace(/\/$/,'');
+    // Sin BASE_URL no hay links: el navegador arma los suyos con la dirección por la que entró
+    // (antes salían con localhost y el QR impreso en las mesas no abría en ningún celular)
+    const base = urlPublica();
     res.json({
       nombre: config?.nombre_negocio || 'GastroManager',
       descripcion: config?.direccion ? `Dirección: ${config.direccion}` : '',
       telefono: config?.telefono || '',
       email: config?.email || '',
-      links: {
+      links: base ? {
         carta:     `${base}/menu.html`,
         whatsapp:  `${base}/pedido.html?origen=whatsapp`,
         instagram: `${base}/pedido.html?origen=instagram`
-      }
+      } : {}
     });
   } catch (err) { errorInterno(res, err); }
 });
 
 const pedidoOnlineLimiter = rateLimit({ windowMs: 60000, max: 10 });
+// Topes del pedido online (sin login): nadie pide 30 platos distintos ni 50 de uno por la web
+const MAX_ITEMS_ONLINE = 30;
+const MAX_CANTIDAD_ONLINE = 50;
 app.post('/api/publico/pedido', pedidoOnlineLimiter, async (req, res) => {
   try {
-    const { cliente, telefono, tipo, direccion, notas, origen, items } = req.body;
+    const { tipo, direccion, notas, origen, items } = req.body || {};
+    const cliente = String((req.body && req.body.cliente) || '').trim().slice(0, 80);
+    const telefono = String((req.body && req.body.telefono) || '').trim().slice(0, 30);
     if (!cliente || !telefono)
       return res.status(400).json({ error: 'Nombre y teléfono son obligatorios' });
     if (!Array.isArray(items) || !items.length)
-      return res.status(400).json({ error: 'El pedido no tiene items' });
+      return res.status(400).json({ error: 'El pedido no tiene ítems' });
+    if (items.length > MAX_ITEMS_ONLINE || items.some(i => !i || !(Number(i.cantidad) >= 1) || Number(i.cantidad) > MAX_CANTIDAD_ONLINE))
+      return res.status(400).json({ error: `Para pedidos grandes llamá al local (máximo ${MAX_CANTIDAD_ONLINE} unidades por producto)` });
     const tipoFin  = tipo === 'delivery' ? 'delivery' : 'takeaway';
     const orig     = ['whatsapp','instagram','web'].includes(origen) ? origen : 'web';
-    const { pid, numero, sub } = await transaccion(async () => {
-      for (const item of items) {
-        const prod = await get(
-          'SELECT id, nombre, precio_venta FROM productos WHERE id = ? AND activo = 1',
-          [item.producto_id]);
-        if (!prod) throw errorHttp(400, 'Producto no disponible');
-        item.precio = prod.precio_venta;
-        item.nombre = prod.nombre;
-      }
+    const { pid, numero, total } = await transaccion(async () => {
+      // Precio y nombre salen de la base (nunca del navegador); por la web no se venden insumos sin precio
+      const resueltos = await resolverItems(items.map(i => ({ ...i, cantidad: parseInt(i.cantidad, 10), notas: String(i.notas || '').slice(0, 200) })));
+      if (resueltos.some(i => !(i.precio > 0))) throw errorHttp(400, 'Producto no disponible');
       const numero   = await generarNumeroPedido();
       const result   = await run(
         `INSERT INTO pedidos (numero_pedido,tipo,cliente,usuario_id,notas,descuento,propina,origen)
          VALUES (?,?,?,NULL,?,0,0,?)`,
-        [numero, tipoFin, `${cliente} (${telefono})`, notas||'', orig]);
+        [numero, tipoFin, `${cliente} (${telefono})`, String(notas || '').slice(0, 500), orig]);
       const pid = result.id;
-      for (const item of items) {
-        const cant  = Math.max(1, parseInt(item.cantidad)||1);
-        const price = parseFloat(item.precio)||0;
+      for (const item of resueltos) {
         await run(
           `INSERT INTO pedido_items
            (pedido_id,producto_id,nombre_producto,cantidad,precio_unitario,subtotal,notas)
            VALUES (?,?,?,?,?,?,?)`,
-          [pid, item.producto_id, item.nombre, cant, price, cant*price, item.notas||'']);
+          [pid, item.producto_id, item.nombre, item.cantidad, item.precio, item.subtotal, item.notas]);
       }
-      const rows = await all('SELECT subtotal FROM pedido_items WHERE pedido_id=?',[pid]);
-      const sub  = rows.reduce((a,r)=>a+r.subtotal,0);
-      await run('UPDATE pedidos SET subtotal=?,total=? WHERE id=?',[sub,sub,pid]);
-      if (tipoFin==='delivery' && direccion) {
+      const { total } = await recalcularTotales(pid);
+      // La entrega guarda el teléfono: con eso sale el aviso de WhatsApp "listo" o "en camino"
+      if (tipoFin === 'takeaway' || direccion) {
         await run(
           `INSERT INTO entregas (pedido_id,tipo,direccion,telefono,costo_envio,estado,plataforma,codigo_externo)
-           VALUES (?,'delivery',?,?,0,'pendiente',?,'') `,
-          [pid, direccion, telefono, orig]);
+           VALUES (?,?,?,?,0,'pendiente',?,'') `,
+          [pid, tipoFin, String(direccion || '').slice(0, 200), telefono, orig]);
       }
       emitEvento('pedido:nuevo',{id:pid,numero_pedido:numero,tipo:tipoFin,origen:orig,cliente});
       emitEvento('cocina:actualizar',{pedido_id:pid,accion:'creado'});
       emitEvento('dashboard:actualizar',{motivo:'pedido_creado'});
-      if (tipoFin==='delivery') emitEvento('delivery:actualizar',{pedido_id:pid,accion:'creado'});
-      return { pid, numero, sub };
+      emitEvento('delivery:actualizar',{pedido_id:pid,accion:'creado'});
+      return { pid, numero, total };
     });
     await comandaAutomatica(pid).catch(() => false);
     const label = {whatsapp:'WhatsApp',instagram:'Instagram',web:'Web'}[orig]||orig;
-    res.status(201).json({id:pid,numero_pedido:numero,subtotal:sub,total:sub,origen:label});
+    res.status(201).json({id:pid,numero_pedido:numero,subtotal:total,total,origen:label});
   } catch (err) { errorInterno(res, err); }
 });
 

@@ -19,30 +19,44 @@ const MUTACIONES = [
   ['cantidad: aceptar cantidades negativas', 'src/servicios/pedidos.js',
     'cantidad <= 0 || cantidad > 1000', 'cantidad > 1000'],
   ['total: el descuento no se resta', 'src/servicios/pedidos.js',
-    'const total = Math.max(0, s - descuento + importe(pedido.propina));', 'const total = Math.max(0, s + importe(pedido.propina));'],
+    'centavos(Math.max(0, subtotal - descuento + importe(pedido.propina)))', 'centavos(Math.max(0, subtotal + importe(pedido.propina)))'],
   ['descuento: puede superar el subtotal', 'src/servicios/pedidos.js',
-    'const descuento = Math.min(importe(pedido.descuento), s);', 'const descuento = importe(pedido.descuento);'],
-  ['carta online: precio del navegador', 'src/rutas/publico.js',
-    'item.precio = prod.precio_venta;', 'item.precio = item.precio ?? prod.precio_venta;'],
+    'const descuento = Math.min(importe(pedido.descuento), subtotal);', 'const descuento = importe(pedido.descuento);'],
+  ['carta online: sin tope de cantidad', 'src/rutas/publico.js',
+    'Number(i.cantidad) > MAX_CANTIDAD_ONLINE', 'false'],
+  ['carta online: vende productos sin precio', 'src/rutas/publico.js',
+    "if (resueltos.some(i => !(i.precio > 0))) throw", 'if (false) throw'],
+  ['importes: sin redondear a centavos', 'src/servicios/pedidos.js',
+    'const centavos = n => Math.round((Number(n) || 0) * 100) / 100;', 'const centavos = n => Number(n) || 0;'],
   // Cobro
   ['cobro: se puede cobrar dos veces', 'src/servicios/pedidos.js',
     "WHERE id = ? AND estado = 'abierto'`,\n    [metodo || '', pedidoId]);", "WHERE id = ?`,\n    [metodo || '', pedidoId]);"],
   ['cobro: no libera la mesa', 'src/servicios/pedidos.js',
     "await run('UPDATE mesas SET estado = ? WHERE id = ?', ['libre', pedido.mesa_id]);", '/* mesa sin liberar */'],
-  ['cobro: no descuenta stock', 'src/servicios/pedidos.js',
+  ['cobro: no descuenta stock', 'src/servicios/recetas.js',
     "await run('UPDATE productos SET stock_actual = stock_actual - ? WHERE id = ?'", "await run('UPDATE productos SET stock_actual = stock_actual - 0 * ? WHERE id = ?'"],
   ['cobro: acepta un monto menor al total', 'src/rutas/pedidos.js',
-    'recibido < total - 0.009', 'recibido < 0'],
+    'recibido < saldo - 0.009', 'recibido < 0'],
   ['cobro: registra lo recibido en vez del total', 'src/rutas/pedidos.js',
-    'registrarPago(pedido, { metodo, monto: total,', 'registrarPago(pedido, { metodo, monto: recibido,'],
-  ['cancelar: se puede cancelar un pedido cobrado', 'src/rutas/pedidos.js',
-    "WHERE id = ? AND estado = 'abierto'`, [pedido.id]);", 'WHERE id = ?`, [pedido.id]);'],
+    'registrarPagoTx(pedido, { metodo, monto: saldo,', 'registrarPagoTx(pedido, { metodo, monto: recibido,'],
+  ['cancelar: se puede cancelar un pedido con una parte cobrada', 'src/rutas/pedidos.js',
+    "if (pago) throw errorHttp(400, 'El pedido tiene una parte cobrada", "if (false) throw errorHttp(400, 'El pedido tiene una parte cobrada"],
+  ['mercado pago: cierra el pedido sin mirar el monto', 'src/rutas/integraciones.js',
+    "pagos: [{ metodo: 'mercadopago', monto: Math.min(monto, saldo), referencia }]", "pagos: [{ metodo: 'mercadopago', monto: saldo, referencia }]"],
+  ['mercado pago: el reenvío cobra dos veces', 'src/rutas/integraciones.js',
+    "if (pago.status === 'approved' && !yaRegistrado) {", "if (pago.status === 'approved') {"],
+  ['factura: incluye la propina', 'src/servicios/facturacion.js',
+    "- (parseFloat(pedido.propina) || 0)) * 100", ") * 100"],
   // Caja
   ['caja: el esperado ignora los egresos', 'src/rutas/caja.js',
     'caja.monto_inicial + ventasEfectivo + ingresos - egresos', 'caja.monto_inicial + ventasEfectivo + ingresos'],
   ['caja: diferencia con el signo invertido', 'src/rutas/caja.js',
     'const diferencia = redondear(contado - resumen.efectivo_esperado);', 'const diferencia = redondear(resumen.efectivo_esperado - contado);'],
   // Permisos y sesiones
+  ['demo: el bloqueo distingue mayúsculas', 'src/demo.js',
+    'const ruta = req.path.toLowerCase();', 'const ruta = req.path;'],
+  ['PIN: el intento se cuenta después de comparar', 'src/servicios/autorizacion.js',
+    'if (!contarIntento(usuario.id))', 'if (false)'],
   ['permisos: el mozo puede cobrar', 'src/permisos.js',
     "mozo: { nombre: 'Mozo', permisos: ['pedidos.ver', 'pedidos.tomar', 'clientes'] }",
     "mozo: { nombre: 'Mozo', permisos: ['pedidos.ver', 'pedidos.tomar', 'clientes', 'pedidos.cobrar'] }"],
@@ -56,7 +70,11 @@ const MUTACIONES = [
     'if (!passwordValido) {', 'if (false) {'],
   ['usuarios: se puede quedar sin administradores', 'src/rutas/usuarios.js',
     "if (!n) throw errorHttp(400, 'Tiene que quedar al menos un administrador activo');", '/* sin control */'],
-  // Mesas y reservas
+  // Mesas, reservas y cocina
+  ['mesas: dos pedidos abiertos en la misma mesa', 'src/rutas/pedidos.js',
+    'if (abierto) throw errorHttp(409, `La mesa ya tiene', 'if (false) throw errorHttp(409, `La mesa ya tiene'],
+  ['cocina: LISTO no saca la comanda', 'src/rutas/pedidos.js',
+    "WHERE p.estado = 'abierto' AND p.listo_en IS NULL", "WHERE p.estado = 'abierto'"],
   ['reservas: la mesa no pasa a ocupada', 'src/rutas/mesas.js',
     "await run('UPDATE mesas SET estado = ? WHERE id = ?', ['ocupada', reservaActual.mesa_id]);", '/* sin ocupar */'],
   // Contabilidad
@@ -91,9 +109,11 @@ const filtro = process.argv[2];
 const lista = MUTACIONES.filter(([nombre]) => !filtro || nombre.includes(filtro));
 const resultados = [];
 
-for (const [nombre, archivo, original, roto] of lista) {
+for (let [nombre, archivo, original, roto] of lista) {
   const ruta = path.join(RAIZ, archivo);
   const antes = fs.readFileSync(ruta, 'utf8');
+  // En Windows (git con autocrlf) los archivos tienen CRLF: los textos de varias líneas no coincidían nunca
+  if (antes.includes('\r\n')) [original, roto] = [original, roto].map(t => t.replace(/\r?\n/g, '\r\n'));
   const veces = antes.split(original).length - 1;
   if (veces !== 1) {
     resultados.push({ nombre, estado: 'NO APLICA', detalle: `el texto aparece ${veces} veces en ${archivo} (¿cambió el código?)` });

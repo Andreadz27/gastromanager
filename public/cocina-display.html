@@ -162,7 +162,10 @@
       }
     }
 
+    var marcando = {};
     async function marcarListo(id, num){
+      if (marcando[id]) return; // doble toque
+      marcando[id] = true;
       try {
         var r = await fetch('/api/cocina/display/' + id + '/listo', { method: 'POST', headers: authHeaders() });
         if (r.status === 401 || r.status === 403) { token = null; return pedirLogin(); }
@@ -171,6 +174,8 @@
         await cargar();
       } catch(e){
         toast('<i class="fas fa-times"></i> Error: ' + esc(e.message), '#dc2626');
+      } finally {
+        delete marcando[id];
       }
     }
 

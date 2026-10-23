@@ -512,7 +512,12 @@ const Contabilidad = {
       </form>`, { title: 'Registrar pago' });
   },
 
-  async confirmarPago(e, id) {
+  confirmarPago(e, id) {
+    e.preventDefault();
+    return App.sinDobleEnvio('contabilidad.pago', () => this._confirmarPago(e, id));
+  },
+
+  async _confirmarPago(e, id) {
     e.preventDefault();
     const metodo = document.getElementById('pagMetodo').value;
     try {

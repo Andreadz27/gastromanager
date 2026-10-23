@@ -200,7 +200,9 @@ async function emitirFactura(pedidoId, tipoComprobante, cuitReceptor, { condicio
     if (yaFacturado)
       throw errorHttp(409, `Este pedido ya tiene ${yaFacturado.tipo_comprobante_nombre} con CAE ${yaFacturado.cae}.`);
 
-    const total = parseFloat(pedido.total) || 0;
+    // La propina es del personal: no es venta del local, no se factura ni lleva IVA
+    const total = Math.round(((parseFloat(pedido.total) || 0) - (parseFloat(pedido.propina) || 0)) * 100) / 100;
+    if (!(total > 0)) throw errorHttp(400, 'El pedido no tiene importe para facturar.');
     const { neto, iva, codigoAlicuota } = importes(cfg, tipo, total);
     return await solicitarCAE(cfg, {
       pedidoId, tipo, total, neto, iva, codigoAlicuota,

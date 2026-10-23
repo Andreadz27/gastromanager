@@ -41,10 +41,16 @@ app.put('/api/mesas/:id', autenticar, requiere('catalogo'), async (req, res) => 
 // Cambiar solo el estado de una mesa (ej. el mozo sienta a un cliente con reserva).
 // Lo puede hacer cualquier usuario; editar nombre, capacidad o sector sigue siendo solo del admin.
 const ESTADOS_MESA = ['libre', 'ocupada', 'reservada'];
+const pedidoAbiertoEnMesa = mesaId =>
+  get("SELECT id, numero_pedido FROM pedidos WHERE mesa_id = ? AND estado = 'abierto' LIMIT 1", [mesaId]);
+
 app.put('/api/mesas/:id/estado', autenticar, requiere('pedidos.tomar'), async (req, res) => {
   try {
     const estado = req.body && req.body.estado;
     if (!ESTADOS_MESA.includes(estado)) return res.status(400).json({ error: 'Estado de mesa inválido' });
+    // Una mesa con pedido abierto se libera al cobrar o cancelar el pedido, no a mano
+    const abierto = estado !== 'ocupada' && await pedidoAbiertoEnMesa(req.params.id);
+    if (abierto) return res.status(409).json({ error: `La mesa tiene el pedido ${abierto.numero_pedido} abierto: cobralo o cancelalo primero` });
     await actualizarParcial('mesas', req.params.id, { estado }, ['estado']);
     emitEvento('mesas:actualizar', { mesa_id: Number(req.params.id), estado });
     res.json({ message: 'Estado de la mesa actualizado' });
@@ -131,7 +137,9 @@ app.put('/api/reservas/:id', autenticar, requiere('pedidos.tomar'), async (req, 
     // Si la reserva se cancela o llega el cliente, liberar/ocupar la mesa
     if (reservaActual.mesa_id) {
       if (estado === 'cancelada') {
-        await run('UPDATE mesas SET estado = ? WHERE id = ?', ['libre', reservaActual.mesa_id]);
+        // Si la mesa ya está ocupada con un pedido, cancelar la reserva no la libera
+        if (!(await pedidoAbiertoEnMesa(reservaActual.mesa_id)))
+          await run('UPDATE mesas SET estado = ? WHERE id = ?', ['libre', reservaActual.mesa_id]);
       } else if (estado === 'llego') {
         await run('UPDATE mesas SET estado = ? WHERE id = ?', ['ocupada', reservaActual.mesa_id]);
       } else if (estado === 'confirmada') {

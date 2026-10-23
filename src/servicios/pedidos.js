@@ -25,22 +25,26 @@ async function resolverItems(items) {
     const prod = await get('SELECT id, nombre, precio_venta FROM productos WHERE id = ? AND activo = 1', [item.producto_id]);
     if (!prod) throw Object.assign(new Error('Producto no disponible'), { status: 400 });
     const precio = Number(prod.precio_venta) || 0;
-    resueltos.push({ producto_id: prod.id, nombre: prod.nombre, cantidad, precio, notas: String(item.notas || '') });
+    resueltos.push({ producto_id: prod.id, nombre: prod.nombre, cantidad, precio, subtotal: centavos(cantidad * precio), notas: String(item.notas || '') });
   }
   return resueltos;
 }
 
-// Importe no negativo (descuento, propina, envío)
-const importe = v => Math.max(0, Number(v) || 0);
+// Importe no negativo (descuento, propina, envío), en centavos
+const importe = v => centavos(Math.max(0, Number(v) || 0));
+
+// Redondeo a centavos: ARCA rechaza importes como 3.4499999999999997 (1,15 × 3)
+const centavos = n => Math.round((Number(n) || 0) * 100) / 100;
 
 // Recalcula subtotal y total de un pedido a partir de sus ítems
 async function recalcularTotales(pedidoId) {
   const pedido = await get('SELECT descuento, propina FROM pedidos WHERE id = ?', [pedidoId]);
   const { s } = await get('SELECT COALESCE(SUM(subtotal), 0) AS s FROM pedido_items WHERE pedido_id = ?', [pedidoId]);
-  const descuento = Math.min(importe(pedido.descuento), s);
-  const total = Math.max(0, s - descuento + importe(pedido.propina));
-  await run('UPDATE pedidos SET subtotal = ?, descuento = ?, total = ? WHERE id = ?', [s, descuento, total, pedidoId]);
-  return { subtotal: s, total };
+  const subtotal = centavos(s);
+  const descuento = Math.min(importe(pedido.descuento), subtotal);
+  const total = centavos(Math.max(0, subtotal - descuento + importe(pedido.propina)));
+  await run('UPDATE pedidos SET subtotal = ?, descuento = ?, total = ? WHERE id = ?', [subtotal, descuento, total, pedidoId]);
+  return { subtotal, total };
 }
 
 // Registra el pago, cierra el pedido, libera la mesa y descuenta stock.
@@ -88,8 +92,6 @@ async function cerrarPedidoTx(pedido, metodo, usuarioId) {
 
 const METODOS_PAGO = ['efectivo', 'tarjeta', 'mercadopago', 'transferencia', 'otro'];
 
-const centavos = n => Math.round((Number(n) || 0) * 100) / 100;
-
 // Total, lo ya cobrado (pagos parciales al dividir la cuenta) y lo que falta
 async function saldoPedido(pedidoId) {
   const pedido = await get('SELECT total FROM pedidos WHERE id = ?', [pedidoId]);
@@ -136,6 +138,6 @@ async function registrarCobroTx(pedidoId, { pagos, propina, usuarioId }) {
 }
 
 module.exports = {
-  generarNumeroPedido, resolverItems, importe, recalcularTotales, registrarPago, registrarPagoTx,
+  generarNumeroPedido, resolverItems, importe, centavos, recalcularTotales, registrarPago, registrarPagoTx,
   registrarCobroTx, saldoPedido, METODOS_PAGO
 };

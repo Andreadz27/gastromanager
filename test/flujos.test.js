@@ -173,6 +173,8 @@ test('altas, cambios y bajas: clientes, promociones, categorías, productos y co
   const info = await ok(s.llamar('GET', '/api/publico/info'));
   assert.equal(info.nombre, 'La Esquina');
   assert.equal(info.telefono, '1140001234');
+  // Sin BASE_URL los links salían con localhost y el QR impreso no abría en los celulares
+  assert.ok(!JSON.stringify(info.links).includes('localhost'), JSON.stringify(info.links));
   assert.ok(Object.keys(await ok(api('mozo', 'GET', '/api/config/perfiles'))).includes('restaurante_mediano'));
 });
 

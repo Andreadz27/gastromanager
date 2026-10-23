@@ -249,7 +249,10 @@ async abrirPedidoDeMesa(mesaId) {
       if (pedidoDeMesa) {
         this.verDetalle(pedidoDeMesa.id);
       } else {
-        App.showToast('No hay pedido abierto en esa mesa', 'warning');
+        // Ocupada sin pedido (ej. se sentó a alguien y no pidió): se libera para poder usarla
+        await API.cambiarEstadoMesa(mesaId, 'libre');
+        App.showToast('La mesa no tenía pedido abierto: quedó libre', 'info');
+        App.navigateTo('mesas');
       }
     } catch (err) {
       App.showToast(err.message, 'error');
@@ -283,7 +286,12 @@ async abrirPedidoDeMesa(mesaId) {
     }).catch(err => App.showToast(err.message, 'error'));
   },
 
-  async guardarItem(e, pedidoId) {
+  guardarItem(e, pedidoId) {
+    e.preventDefault();
+    return App.sinDobleEnvio('pedidos.item', () => this._guardarItem(e, pedidoId));
+  },
+
+  async _guardarItem(e, pedidoId) {
     e.preventDefault();
     const select = document.getElementById('itemProducto');
     const opt = select.options[select.selectedIndex];

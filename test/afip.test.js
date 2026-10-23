@@ -160,3 +160,13 @@ test('la factura lleva la fecha del negocio aunque el servidor esté en otra zon
     } finally { await srv.cerrar(); }
   }
 });
+
+test('la propina no se factura: la factura es por el consumo', async () => {
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', items: [{ producto_id: prod.id, cantidad: 1 }] }, s.tokenVendedor);
+  const [st, r] = await s.llamar('POST', `/api/pedidos/${p.id}/cobro`,
+    { propina: 121, pagos: [{ metodo: 'tarjeta', monto: 1331 }], factura: { tipo_comprobante: 6 } }, s.tokenVendedor);
+  assert.equal(st, 200, JSON.stringify(r));
+  assert.equal(r.factura.ok !== false, true, JSON.stringify(r.factura));
+  const d = detalle(ultimoCAE());
+  assert.deepEqual([d.ImpTotal, d.ImpNeto, d.ImpIVA], [1210, 1000, 210]);
+});

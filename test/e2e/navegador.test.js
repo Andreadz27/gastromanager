@@ -430,3 +430,42 @@ test('arqueo ciego: el cajero cierra la caja sin ver el efectivo esperado', asyn
   await page.context().close();
   await s.llamar('PUT', '/api/config', { arqueo_ciego: 0 }, s.tokenAdmin);
 });
+
+// Auditoría de lanzamiento: con mala señal el mozo tocaba dos veces y salían dos pedidos y dos comandas
+test('POS: doble toque en "Confirmar pedido" con la red lenta crea un solo pedido', async () => {
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'vendedor@test.com', 'vendedor123');
+  await page.route('**/api/pedidos', async ruta => { await new Promise(r => setTimeout(r, 800)); await ruta.continue(); });
+  await ir(page, 'pos');
+  await (await page.waitForSelector('.pos-product-btn')).click();
+  await page.click('#view-pos .pos-checkout-btn');
+  await page.selectOption('#checkoutTipo', 'takeaway');
+  await page.fill('#checkoutCliente', 'Doble toque');
+  await page.$eval('button[onclick="POS.confirmCheckout()"]', b => { b.click(); b.click(); b.click(); });
+  await toast(page, 'success', 'creado');
+  await page.waitForTimeout(1500);
+  assert.equal((await s.q("SELECT COUNT(*) c FROM pedidos WHERE cliente = 'Doble toque'"))[0].c, 1);
+  sinErrores(page);
+  await page.context().close();
+});
+
+// "Ocupar" una mesa reservada la marcaba ocupada y el POS no la ofrecía: el pedido salía sin mesa y la mesa quedaba trabada
+test('mesa reservada: "Ocupar" lleva al POS con la mesa elegida y el pedido queda en esa mesa', async () => {
+  const [mesa] = await s.q("INSERT INTO mesas (nombre, capacidad, sector, orden, estado) VALUES ('Reservada E2E', 4, 'Principal', 50, 'reservada') RETURNING id");
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'vendedor@test.com', 'vendedor123');
+  await ir(page, 'mesas');
+  await page.click(`button[onclick="Mesas.ocuparMesaReservada(${mesa.id})"]`);
+  await page.waitForSelector('#view-pos.active');
+  await (await page.waitForSelector('.pos-product-btn')).click();
+  await page.click('#view-pos .pos-checkout-btn');
+  await page.waitForSelector(`#checkoutMesa option[value="${mesa.id}"]`, { state: 'attached' });
+  assert.equal(await page.$eval('#checkoutMesa', el => el.value), String(mesa.id));
+  await page.click('button[onclick="POS.confirmCheckout()"]');
+  await toast(page, 'success', 'creado');
+  const [p] = await s.q("SELECT mesa_id FROM pedidos WHERE mesa_id = ? AND estado = 'abierto'", [mesa.id]);
+  assert.ok(p, 'el pedido quedó en la mesa');
+  assert.equal((await s.q('SELECT estado FROM mesas WHERE id = ?', [mesa.id]))[0].estado, 'ocupada');
+  sinErrores(page);
+  await page.context().close();
+});

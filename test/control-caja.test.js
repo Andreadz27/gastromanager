@@ -97,6 +97,25 @@ test('5 PIN incorrectos seguidos bloquean al usuario unos minutos, aunque despu�
   assert.equal((await s.llamar('PUT', `/api/pedidos/${p.id}/descuento`, { descuento: 10 }, s.tokenVendedor, conPin('4321')))[0], 200);
 });
 
+test('PIN: muchos intentos en paralelo no se saltean el bloqueo, y elegir PIN no sirve para adivinar el de otro', async () => {
+  const hash = bcrypt.hashSync('clave1234', 4);
+  await s.q("INSERT INTO usuarios (nombre, email, password, rol, debe_cambiar_password) VALUES ('Mozo Rafaga', 'rafaga@test.com', ?, 'mozo', 0)", [hash]);
+  const tokenRafaga = s.token((await s.q("SELECT id FROM usuarios WHERE email = 'rafaga@test.com'"))[0].id);
+  const p = await pedido();
+  const intentos = Array.from({ length: 40 }, (_, i) =>
+    s.llamar('PUT', `/api/pedidos/${p.id}/descuento`, { descuento: 10 }, tokenRafaga, conPin(String(5000 + i))));
+  const estados = (await Promise.all(intentos)).map(r => r[0]);
+  assert.equal(estados.filter(st => st === 403).length, 5, 'solo 5 PIN se llegan a probar');
+  assert.equal(estados.filter(st => st === 429).length, 35);
+
+  // El encargado prueba PINs al elegir el suyo: "ya lo usa otra persona" también se bloquea
+  await s.q("INSERT INTO usuarios (nombre, email, password, rol, debe_cambiar_password) VALUES ('Enc Curioso', 'curioso@test.com', ?, 'encargado', 0)", [hash]);
+  const tokenCurioso = s.token((await s.q("SELECT id FROM usuarios WHERE email = 'curioso@test.com'"))[0].id);
+  const definir = pin => s.llamar('PUT', '/api/auth/pin', { password: 'clave1234', pin }, tokenCurioso);
+  for (let i = 0; i < 5; i++) assert.equal((await definir('9999'))[0], 400);
+  assert.equal((await definir('2468'))[0], 429);
+});
+
 test('arqueo ciego: el cajero no ve lo esperado ni la diferencia; el encargado sí', async () => {
   await config({ arqueo_ciego: 1 });
   const p = await pedido();

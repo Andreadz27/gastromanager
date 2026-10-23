@@ -23,6 +23,19 @@ const BLOQUEO_MS = 5 * 60 * 1000;
 
 const pinValido = pin => /^\d{4,6}$/.test(String(pin || ''));
 
+// Cuenta el intento ANTES de comparar (bcrypt es lento): así muchos pedidos en paralelo
+// no pasan todos antes de que se registre el primer fallo. Devuelve false si el usuario está bloqueado.
+function contarIntento(usuarioId) {
+  const ahora = Date.now();
+  let e = fallidos.get(usuarioId);
+  if (e && e.hasta && e.hasta <= ahora) e = null; // ya pasó el bloqueo
+  if (e && e.hasta > ahora) return false;
+  e = { n: ((e && e.n) || 0) + 1, hasta: 0 };
+  if (e.n >= MAX_FALLIDOS) e.hasta = ahora + BLOQUEO_MS;
+  fallidos.set(usuarioId, e);
+  return true;
+}
+
 async function supervisorDelPin(pin) {
   if (!pinValido(pin)) return null;
   const candidatos = await all("SELECT id, nombre, rol, pin_hash FROM usuarios WHERE activo = 1 AND pin_hash IS NOT NULL AND pin_hash != ''");
@@ -42,18 +55,12 @@ async function autorizar(req, permiso, accion) {
   if (tiene && (!conPin || esSupervisor(usuario))) return { ok: true };
   if (!conPin) return { status: 403, error: 'Tu usuario no tiene permiso para esta acción' };
 
-  const bloqueo = fallidos.get(usuario.id);
-  if (bloqueo && bloqueo.hasta > Date.now())
-    return { status: 429, error: 'Demasiados PIN incorrectos. Esperá unos minutos.', requiere_pin: true };
-
   const pin = req.get('x-autorizacion-pin');
   if (!pin) return { status: 403, error: `${accion}: necesita el PIN de un encargado`, requiere_pin: true };
+  if (!contarIntento(usuario.id))
+    return { status: 429, error: 'Demasiados PIN incorrectos. Esperá unos minutos.', requiere_pin: true };
   const supervisor = await supervisorDelPin(pin);
-  if (!supervisor) {
-    const n = ((bloqueo && bloqueo.n) || 0) + 1;
-    fallidos.set(usuario.id, { n, hasta: n >= MAX_FALLIDOS ? Date.now() + BLOQUEO_MS : 0 });
-    return { status: 403, error: 'PIN incorrecto', requiere_pin: true };
-  }
+  if (!supervisor) return { status: 403, error: 'PIN incorrecto', requiere_pin: true };
   fallidos.delete(usuario.id);
   await run('INSERT INTO auditoria (usuario_id, accion, detalle) VALUES (?, ?, ?)',
     [usuario.id, 'autorizacion_pin', `${accion}: ${usuario.nombre || 'usuario ' + usuario.id} autorizado por ${supervisor.nombre}`]);
@@ -74,8 +81,11 @@ function requiereAutorizacion(permiso, accion) {
 // El supervisor elige su PIN (con su contraseña). No puede repetir el de otro supervisor.
 async function definirPin(usuarioId, pin) {
   if (!pinValido(pin)) throw Object.assign(new Error('El PIN tiene que ser de 4 a 6 números'), { status: 400 });
+  // "Ya lo usa otra persona" revela un PIN ajeno: los intentos cuentan igual que un PIN incorrecto
+  if (!contarIntento(usuarioId)) throw Object.assign(new Error('Demasiados intentos. Esperá unos minutos.'), { status: 429 });
   const otro = await supervisorDelPin(pin);
   if (otro && otro.id !== usuarioId) throw Object.assign(new Error('Ese PIN ya lo usa otra persona: elegí otro'), { status: 400 });
+  fallidos.delete(usuarioId);
   await run('UPDATE usuarios SET pin_hash = ? WHERE id = ?', [await bcrypt.hash(String(pin), 10), usuarioId]);
 }
 

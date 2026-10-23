@@ -33,6 +33,16 @@ Pago, cierre del pedido, liberación de la mesa y descuento de stock son una sol
   pagos (plata en la caja sin venta) o un descuento que deje el total debajo de lo cobrado.
   **Lo protege:** `cobro-mesa.test.js`.
 - **Factura en el cobro:** se emite después del COMMIT (`emitirFactura`, HTTP a AFIP). Si falla, el cobro no se deshace.
+- **Mercado Pago · CORREGIDO (23/10/2026):** el webhook cerraba el pedido con cualquier pago aprobado, sin mirar el
+  monto (un link viejo dejaba sin cobrar lo agregado después). Ahora entra como un cobro más (`registrarCobroTx`):
+  nunca por más que el saldo, una sola vez por pago (`referencia = MP-<id>`), y si sobra o el pedido ya estaba
+  cobrado queda una `alerta_mercadopago` en la auditoría para devolverle al cliente. Test en `integraciones.test.js`.
+- **Propina:** es del personal. Suma al total cobrado, pero **no** se factura ni entra en ventas ni en el IVA débito
+  (`facturacion.js`, `cobrosPorDia` en `contabilidad.js`); en el libro diario va a "Propinas a pagar al personal".
+- **Importes en centavos:** `recalcularTotales` y `resolverItems` redondean (1,15 × 3 daba 3,4499999999999997 y
+  así llegaba a ARCA). Test en `regresiones.test.js`.
+- **Un pedido abierto por mesa:** `POST /api/pedidos` rechaza (409) una mesa con pedido abierto, y una mesa con
+  pedido no se libera a mano ni al cancelar la reserva. Test en `regresiones.test.js`.
 
 ### Facturación AFIP — `src/servicios/facturacion.js` · riesgo MEDIO
 - **Factura vigente** = factura A/B/C sin nota de crédito asociada (`comprobante_asociado_id`). La usan el control de
@@ -45,9 +55,8 @@ Pago, cierre del pedido, liberación de la mesa y descuento de stock son una sol
 
 ### 2. Precios — `resolverItems` y la carta online (`src/rutas/publico.js`) · riesgo ALTO
 El precio siempre sale de la base, nunca del navegador.
-- **Lógica duplicada:** la carta online (pedido del cliente por QR) resuelve ítems por su cuenta en vez de usar
-  `resolverItems`. Las reglas ya difieren: allá una cantidad negativa se convierte en 1 y no hay tope de 1000.
-  Unificarlo cambia lo que ve el cliente → pendiente de decisión.
+- **Carta online · CORREGIDO (23/10/2026):** ahora usa `resolverItems`, con topes (30 ítems, 50 unidades por
+  producto) y sin productos de precio 0. Antes un script podía mandar a imprimir 999.999.999 unidades.
 - **Lo protege:** `pedidos.test.js` (precio de la base), `flujos.test.js` (carta online), prueba de fuego.
 
 ### 3. Arqueo de caja — `src/rutas/caja.js` (`resumenCaja`) · riesgo ALTO
@@ -81,11 +90,18 @@ pantallas en silencio; no hay tipos ni lint de nombres en el frontend.
 - **Lo protege:** e2e (sin errores de JavaScript en las pantallas que recorre). Las pantallas que el e2e no recorre
   (contabilidad, reportes, stock, proveedores, delivery) no tienen red.
 - Se encontró y borró un método `togglePlataforma` duplicado en `config.js`.
+- **Doble envío:** las acciones que crean algo (confirmar pedido, agregar ítem, movimientos de caja y stock, pagar
+  un gasto) pasan por `App.sinDobleEnvio`. Una acción nueva de ese tipo tiene que usarlo. Test e2e.
+- **Service worker (`sw.js`):** primero la red; la caché solo sin conexión. Volver a cache-first deja a los celulares
+  con el JS viejo después de cada actualización. Test en `estructura.test.js`.
+- **Cocina:** "LISTO" guarda `pedidos.listo_en` y la comanda sale de la pantalla; agregar un ítem la vuelve a mostrar.
 
 ### 8. Demo pública — `src/demo.js` · riesgo MEDIO
 Con usuarios y claves conocidos en internet. Lo peligroso se bloquea por lista.
 - **Antes dependía de acordarse:** una ruta nueva de administrador no se bloqueaba sola. Ahora
   `estructura.test.js` falla hasta que se la bloquee o se la declare segura.
+- **CORREGIDO (23/10/2026):** Express no distingue mayúsculas y la lista sí: `/API/Usuarios` se salteaba el bloqueo.
+  Ahora se compara en minúsculas. Test en `demo.test.js`.
 
 ### 9. Número de pedido — `generarNumeroPedido` · CORREGIDO (13/10/2026)
 Usaba la hora del servidor: en Render (UTC) los pedidos de después de las 21 h salían con la fecha de mañana.
@@ -117,6 +133,8 @@ El descuento de stock del cobro pasa por `descontarStockItemTx` (dentro de la tr
 - **Lo rompe:** una acción sensible nueva sin `requiereAutorizacion`/`autorizar`, mostrar `efectivo_esperado` o
   `diferencia` al cajero con arqueo ciego (`resumenParaUsuario` en `caja.js`), o guardar el PIN sin hash.
 - **Bloqueo por intentos:** en memoria (se reinicia con el servidor). Con PIN de 4 dígitos, 5 intentos cada 5 minutos.
+  El intento se cuenta **antes** de comparar (si no, muchos pedidos en paralelo pasaban todos antes del primer fallo),
+  y elegir PIN ("ya lo usa otra persona") cuenta igual. Test en `control-caja.test.js`.
 - **Lo protege:** `control-caja.test.js` y e2e (PIN encima del formulario, caja ciega).
 
 ### 10. Copias de seguridad — `src/servicios/backups.js` · riesgo BAJO

@@ -142,3 +142,17 @@ test('monotributo (IVA 0 %): sin débito y los gastos se toman por el total', as
   assert.equal(r.costo_mercaderia, 2420);
   await s.q('UPDATE configuracion SET tasa_iva = 21 WHERE id = 1');
 });
+
+test('la propina es del personal: no suma a ventas ni al IVA débito y va a su cuenta', async () => {
+  const [prod] = await s.q('SELECT id FROM productos WHERE precio_venta = 1210 LIMIT 1');
+  const [, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', items: [{ producto_id: prod.id, cantidad: 1 }] }, s.tokenVendedor);
+  const [st] = await s.llamar('POST', `/api/pedidos/${p.id}/cobro`, { propina: 300, pagos: [{ metodo: 'efectivo', monto: 1510 }] }, s.tokenVendedor);
+  assert.equal(st, 200);
+  const [, iva] = await s.llamar('GET', `/api/contabilidad/iva?mes=${hoy.slice(0, 7)}`, undefined, s.tokenAdmin);
+  assert.equal(iva.ventas.iva, 2100 + 210, 'IVA solo sobre el consumo de $1.210');
+  const [, d] = await s.llamar('GET', `/api/contabilidad/libro-diario?desde=${hoy}&hasta=${hoy}`, undefined, s.tokenAdmin);
+  assert.equal(d.total_debe, d.total_haber);
+  const saldo = Object.fromEntries(d.balance.map(c => [c.cuenta, c.saldo]));
+  assert.equal(saldo['Propinas a pagar al personal'], -300);
+  assert.equal(saldo['Ventas'], -11000);
+});

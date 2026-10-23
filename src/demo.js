@@ -32,7 +32,9 @@ const BLOQUEADAS = [
 ];
 
 function bloqueoDemo(req, res, next) {
-  if (ES_DEMO && BLOQUEADAS.some(([ruta, metodos]) => ruta.test(req.path) && metodos.includes(req.method))) {
+  // Express no distingue mayúsculas en las rutas: /API/Usuarios llega a /api/usuarios
+  const ruta = req.path.toLowerCase();
+  if (ES_DEMO && BLOQUEADAS.some(([patron, metodos]) => patron.test(ruta) && metodos.includes(req.method))) {
     return res.status(403).json({ error: 'En la demo pública esta acción está deshabilitada', demo: true });
   }
   next();

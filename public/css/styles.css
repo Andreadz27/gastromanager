@@ -1192,6 +1192,7 @@ tr:hover td {
 
 .modal-footer {
   display: flex;
+  flex-wrap: wrap; /* en el celular los botones bajan de línea en vez de salirse de la pantalla */
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;

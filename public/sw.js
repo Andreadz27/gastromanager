@@ -1,9 +1,10 @@
 // =============================================
 // GASTROMANAGER - Service Worker
-// Caché de assets estáticos para PWA offline
+// Primero la red y, sin conexión, la última copia guardada.
+// (Antes era cache-first: después de una actualización los celulares seguían con el JS viejo.)
 // =============================================
 
-const CACHE_NAME = 'gastromanager-v13';
+const CACHE_NAME = 'gastromanager-v14';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -33,11 +34,11 @@ const STATIC_ASSETS = [
   '/manifest.json'
 ];
 
-// Instalar: cachear todos los assets estáticos
+// Instalar: guardar los assets para usar sin conexión (uno que falte no frena la instalación)
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then((cache) => Promise.all(STATIC_ASSETS.map((a) => cache.add(a).catch(() => {}))))
   );
 });
 
@@ -52,12 +53,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: network-first para API, cache-first para estáticos
+// Fetch: la API y Socket.IO van directo; el resto, primero la red
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Siempre ir a la red para: API, Socket.IO, autenticación
   if (
+    url.origin !== self.location.origin ||
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/socket.io/') ||
     event.request.method !== 'GET'
@@ -65,24 +66,17 @@ self.addEventListener('fetch', (event) => {
     return; // dejar que el browser lo maneje normalmente
   }
 
-  // Cache-first para assets estáticos conocidos
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      // No en caché: buscar en red y guardar
-      return fetch(event.request).then((response) => {
-        if (!response || response.status !== 200 || response.type === 'opaque') {
-          return response;
-        }
+    fetch(event.request).then((response) => {
+      if (response && response.status === 200 && response.type === 'basic') {
         const toCache = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, toCache));
-        return response;
-      }).catch(() => {
-        // Offline y sin caché: devolver página principal para rutas de navegación
-        if (event.request.destination === 'document') {
-          return caches.match('/index.html');
-        }
-      });
-    })
+      }
+      return response;
+    }).catch(() =>
+      // Sin conexión: la última copia; para la navegación, la página principal
+      caches.match(event.request).then((cached) =>
+        cached || (event.request.mode === 'navigate' ? caches.match('/index.html') : Response.error()))
+    )
   );
 });

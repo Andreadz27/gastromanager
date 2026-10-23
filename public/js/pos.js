@@ -434,9 +434,10 @@ checkout() {
 
     API.getMesas().then(mesas => {
       const select = document.getElementById('checkoutMesa');
-      const libres = mesas.filter(m => m.estado === 'libre');
+      // Libres y reservadas (llegó el cliente de la reserva); la elegida desde Mesas aparece siempre
+      const elegibles = mesas.filter(m => m.estado !== 'ocupada' || m.id == this.mesaPreseleccionada);
       select.innerHTML = '<option value="">Sin mesa</option>' +
-        libres.map(m => `<option value="${m.id}">${esc(m.nombre)}</option>`).join('');
+        elegibles.map(m => `<option value="${m.id}">${esc(m.nombre)}${m.estado === 'reservada' ? ' (reservada)' : ''}</option>`).join('');
       if (this.mesaPreseleccionada) {
         select.value = this.mesaPreseleccionada;
         this.mesaPreseleccionada = null;
@@ -471,7 +472,11 @@ checkout() {
     }
   },
 
-  async confirmCheckout() {
+  confirmCheckout() {
+    return App.sinDobleEnvio('pos.checkout', () => this._confirmCheckout());
+  },
+
+  async _confirmCheckout() {
     const tipo = document.getElementById('checkoutTipo').value;
     const mesaId = document.getElementById('checkoutMesa') ? document.getElementById('checkoutMesa').value : null;
     const cliente = document.getElementById('checkoutCliente') ? document.getElementById('checkoutCliente').value : '';

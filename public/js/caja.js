@@ -271,7 +271,12 @@ const Caja = {
     `, { title: ingreso ? 'Ingreso de efectivo' : 'Egreso de efectivo' });
   },
 
-  async guardarMovimiento(e, tipo) {
+  guardarMovimiento(e, tipo) {
+    e.preventDefault();
+    return App.sinDobleEnvio('caja.movimiento', () => this._guardarMovimiento(e, tipo));
+  },
+
+  async _guardarMovimiento(e, tipo) {
     e.preventDefault();
     try {
       await API.registrarMovimientoCaja({
