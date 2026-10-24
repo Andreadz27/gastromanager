@@ -36,7 +36,10 @@ function log(msg) {
     fs.appendFileSync(LOG, linea + '\n');
   } catch (e) {}
 }
-const correr = (cmd, a, extra = {}) => execFileSync(cmd, a, { cwd: RAIZ, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], shell: ES_WIN, ...extra }).trim();
+// En Windows va por la consola (pm2 y npm son .cmd): un argumento con espacios se parte en dos si no va entre comillas
+// ("Sistema de gestión gastronomico" dejó al local sin servidor el 2026-10-24)
+const comillas = a => ES_WIN && /\s/.test(a) ? `"${a}"` : a;
+const correr = (cmd, a, extra = {}) => execFileSync(cmd, a.map(comillas), { cwd: RAIZ, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], shell: ES_WIN, ...extra }).trim();
 const git = (...a) => correr('git', a);
 const esperar = ms => new Promise(r => setTimeout(r, ms));
 
