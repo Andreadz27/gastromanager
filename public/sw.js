@@ -4,7 +4,7 @@
 // (Antes era cache-first: después de una actualización los celulares seguían con el JS viejo.)
 // =============================================
 
-const CACHE_NAME = 'morfi-v19';
+const CACHE_NAME = 'morfi-v20';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -33,6 +33,7 @@ const STATIC_ASSETS = [
   '/js/personal.js',
   '/js/fidelizacion.js',
   '/js/plan.js',
+  '/js/ganancias.js',
   '/favicon.svg',
   '/manifest.json',
   // Íconos servidos por el propio sistema

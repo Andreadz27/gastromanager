@@ -16,6 +16,8 @@ const RUTAS = [
   [/^\/api\/pedidos\/\d+\/(puntos|cupon)$/, 'fidelizacion', ['POST']],
   [/^\/api\/clientes\/\d+\/puntos$/, 'fidelizacion', ['POST']],
   [/^\/api\/reportes\/rentabilidad$/, 'costos'],
+  // "Cuánto gané hoy" está en todos los planes
+  [/^\/api\/ganancias\/(?!hoy$)/, 'costos'],
   [/^\/api\/productos\/\d+\/receta$/, 'costos'],
   [/^\/api\/whatsapp\/(comprobante|prueba)/, 'whatsapp'],
   [/^\/api\/asistente\//, 'asistente'],

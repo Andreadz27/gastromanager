@@ -23,7 +23,9 @@ repite los precios a mano: si cambian, cambiarlos en los dos lugares.
 | WhatsApp Business (comprobantes, avisos, reservas) | | ✔ | ✔ |
 | Personal: fichadas, turnos, propinas | | ✔ | ✔ |
 | Fidelización: puntos, cupones, gift cards | | ✔ | ✔ |
-| Recetas, costos y rentabilidad | | ✔ | ✔ |
+| "¿Cuánto gané hoy?" en el inicio | ✔ | ✔ | ✔ |
+| Ganancias por día/semana/mes/año, plato, canal, horario y mozo; fugas; punto de equilibrio | | ✔ | ✔ |
+| Recetas y costo de cada plato | | ✔ | ✔ |
 | Contabilidad: gastos, IVA, resultados, libro diario | | ✔ | ✔ |
 | Panel Morfi Nube en el celular | | ✔ | ✔ |
 | Varias sucursales y precios centrales | | | ✔ |

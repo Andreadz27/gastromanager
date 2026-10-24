@@ -2254,3 +2254,37 @@ tr:hover td {
 .plan-mejora { text-align: center; padding: 6px 4px 4px; }
 .plan-mejora-icono { font-size: 34px; color: var(--accent); margin-bottom: 8px; }
 .plan-mejora-acciones { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+/* ===== Ganancias (public/js/ganancias.js) ===== */
+.cont-leyenda .gan, .cont-barra .gan { background: #16a34a; }
+.cont-leyenda .perd, .cont-barra .perd { background: #dc2626; }
+.cont-leyenda span.gan, .cont-leyenda span.perd { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 4px 0 10px; }
+.gan-cascada { display: flex; flex-direction: column; gap: 8px; }
+.gan-cascada-fila { display: grid; grid-template-columns: minmax(140px, 1.4fr) 1fr auto; align-items: center; gap: 10px; font-size: 14px; }
+.gan-cascada-fila.sub, .gan-cascada-fila.total { font-weight: 700; border-top: 1px solid var(--border); padding-top: 8px; }
+.gan-cascada-fila.total { font-size: 16px; }
+.gan-cascada-barra { background: var(--bg); border-radius: 4px; height: 10px; overflow: hidden; }
+.gan-cascada-barra span { display: block; height: 100%; border-radius: 4px; }
+.gan-cascada-barra .pos { background: #16a34a; }
+.gan-cascada-barra .neg { background: #f97316; }
+.gan-cascada-monto { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gan-clases { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.gan-clase { background: var(--white); border: 1px solid var(--border); border-left: 5px solid; border-radius: var(--radius-sm); padding: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+.gan-clase.activa { box-shadow: 0 0 0 2px var(--accent); }
+.gan-clase-titulo { font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.gan-clase small { color: var(--text-light); line-height: 1.4; }
+.gan-clase-estrella { border-left-color: #16a34a; color: #14532d; }
+.gan-clase-caballo { border-left-color: #0ea5e9; color: #0c4a6e; }
+.gan-clase-rompecabezas { border-left-color: #f59e0b; color: #78350f; }
+.gan-clase-perro { border-left-color: #dc2626; color: #7f1d1d; }
+.gan-badge { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.gan-horas .cont-barra { flex-basis: 22px; }
+.gan-progreso { background: var(--bg); border-radius: 999px; height: 18px; overflow: hidden; margin: 6px 0 12px; }
+.gan-progreso span { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .4s; }
+.gan-progreso span.ok { background: var(--success); }
+.gan-fijo { display: grid; grid-template-columns: 1fr 150px auto; gap: 8px; margin-bottom: 8px; }
+.gan-hoy { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.gan-hoy-principal h3 { font-size: 28px; margin: 2px 0; }
+.gan-hoy-detalle { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 14px; }
+@media (max-width: 600px) { .gan-cascada-fila { grid-template-columns: 1fr auto; } .gan-cascada-barra { display: none; } .gan-fijo { grid-template-columns: 1fr 110px auto; } }
+#view-ganancias td.text-right, #view-ganancias th.text-right { white-space: nowrap; }

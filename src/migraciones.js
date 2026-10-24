@@ -187,6 +187,10 @@ async function migrarEsquema() {
   await agregarColumna('configuracion', 'puntos_cada', 'REAL DEFAULT 1000');
   await agregarColumna('configuracion', 'puntos_valor', 'REAL DEFAULT 10');
   await agregarColumna('configuracion', 'puntos_minimo', 'INTEGER DEFAULT 50');
+  // Ganancias (src/servicios/ganancias.js): % de comisión por medio de pago y gastos fijos del mes, en JSON.
+  // Vacío = valores típicos (COMISIONES_TIPICAS)
+  await agregarColumna('configuracion', 'comisiones_pago', "TEXT DEFAULT ''");
+  await agregarColumna('configuracion', 'gastos_fijos', "TEXT DEFAULT ''");
   // clientes.puntos es el saldo; cada cambio queda en puntos_movimientos (gana, canje, devolucion, ajuste)
   await run(`CREATE TABLE IF NOT EXISTS puntos_movimientos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
