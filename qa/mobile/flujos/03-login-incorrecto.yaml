@@ -22,6 +22,8 @@ env:
 - inputText: "incorrecta"
 # Enter envía el formulario (hideKeyboard, sin teclado abierto, funciona como Atrás y cierra Chrome)
 - pressKey: Enter
+# El error aparece debajo del botón: con el teclado abierto queda tapado. Acá el teclado sí está abierto
+- hideKeyboard
 - extendedWaitUntil:
     visible: "Credenciales incorrectas"
     timeout: 10000
