@@ -1,0 +1,14 @@
+# Abre Chrome limpio y saltea las pantallas de bienvenida (cambian según la versión: todas son opcionales)
+appId: com.android.chrome
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "(Accept & continue|Aceptar y continuar)"
+    optional: true
+- tapOn:
+    text: "(Use without an account|Usar sin una cuenta)"
+    optional: true
+- tapOn:
+    text: "(No thanks|No, gracias)"
+    optional: true

@@ -1,0 +1,29 @@
+# CP-MOB-02 · El mozo ingresa desde su celular y arranca en Mesas, sin acceso a la caja
+appId: com.android.chrome
+name: CP-MOB-02 · El mozo ingresa desde el celular
+tags:
+  - humo
+  - celular
+env:
+  BASE_URL: http://10.0.2.2:3000
+  # Los mismos usuarios de prueba que Playwright y Postman (qa/datos.js)
+  MOZO_EMAIL: mozo@qa.test
+  MOZO_PASSWORD: mozo1234
+---
+- runFlow: comunes/abrir-chrome.yaml
+- openLink: ${BASE_URL}/
+- extendedWaitUntil:
+    visible: "Tu negocio, a punto."
+    timeout: 20000
+- tapOn: "tu@email.com"
+- inputText: ${MOZO_EMAIL}
+- tapOn: "••••••••"
+- inputText: ${MOZO_PASSWORD}
+- hideKeyboard
+- tapOn: ".*Iniciar Sesión"
+- extendedWaitUntil:
+    visible: "Mozo QA"
+    timeout: 15000
+- assertVisible: ".*Mesa 1.*"
+- assertNotVisible: "Caja"
+- takeScreenshot: cp-mob-02-mesas-del-mozo

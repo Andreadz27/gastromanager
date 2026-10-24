@@ -25,7 +25,12 @@ module.exports = [
   },
   {
     // Código que corre dentro del navegador desde los tests e2e y los scripts de demo (page.evaluate)
-    files: ['test/e2e/**/*.js', 'scripts/demo/**/*.js'],
+    files: ['test/e2e/**/*.js', 'scripts/demo/**/*.js', 'qa/e2e/**/*.js'],
     languageOptions: { globals: { ...globals.browser, App: 'readonly', Pedidos: 'readonly' } }
+  },
+  {
+    // Las fixtures de Playwright Test sin dependencias se declaran con ({}, use)
+    files: ['qa/e2e/fixtures.js'],
+    rules: { 'no-empty-pattern': 'off' }
   }
 ];

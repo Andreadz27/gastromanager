@@ -1,0 +1,25 @@
+# CP-MOB-03 · Con la contraseña mal, el celular muestra el error y no entra
+appId: com.android.chrome
+name: CP-MOB-03 · Contraseña incorrecta en el celular
+tags:
+  - celular
+env:
+  BASE_URL: http://10.0.2.2:3000
+  MOZO_EMAIL: mozo@qa.test
+---
+- runFlow: comunes/abrir-chrome.yaml
+- openLink: ${BASE_URL}/
+- extendedWaitUntil:
+    visible: "Tu negocio, a punto."
+    timeout: 20000
+- tapOn: "tu@email.com"
+- inputText: ${MOZO_EMAIL}
+- tapOn: "••••••••"
+- inputText: "incorrecta"
+- hideKeyboard
+- tapOn: ".*Iniciar Sesión"
+- extendedWaitUntil:
+    visible: "Credenciales incorrectas"
+    timeout: 10000
+- assertNotVisible: "Mozo QA"
+- takeScreenshot: cp-mob-03-error
