@@ -7,10 +7,10 @@ Esta orden se firma junto con los **Términos y condiciones del servicio**, vige
 
 | | |
 |---|---|
-| Nombre o razón social | Andrea Díaz |
-| CUIT | 27-95977489-2 |
-| Domicilio | Puan 387, Ciudad Autónoma de Buenos Aires |
-| Contacto | WhatsApp 11 2390-0155 · andreadiazdoria9627@gmail.com |
+| Nombre o razón social | <!--dato:titular-->Andrea Díaz<!--/dato--> |
+| CUIT | <!--dato:cuit-->27-95977489-2<!--/dato--> |
+| Domicilio | <!--dato:domicilio-->Puan 387, Ciudad Autónoma de Buenos Aires<!--/dato--> |
+| Contacto | WhatsApp <!--dato:whatsapp-->11 2390-0155<!--/dato--> · <!--dato:email-->andreadiazdoria9627@gmail.com<!--/dato--> |
 
 ## Local
 

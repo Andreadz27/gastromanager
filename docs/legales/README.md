@@ -15,9 +15,23 @@ los días de prueba o de gracia o los precios.
 
 ## Antes de publicarlas
 
-1. **Datos del titular**: ya completos (Andrea Díaz, CUIT 27-95977489-2, Puan 387, CABA, contacto
-   andreadiazdoria9627@gmail.com, precios finales, jurisdicción CABA). Si se agrega un dato pendiente, se marca con
-   `<span class="completar">…</span>`, que se ve en amarillo. Para buscarlos: `grep -n 'class="completar"' landing/*.html`.
+1. **Datos del titular**: ya están completos. Están en un solo archivo, `docs/legales/datos.json`. Para cambiarlos:
+   1. Editar `docs/legales/datos.json`. Por ejemplo: otro titular, el CUIT de una sociedad, un email de Morfi, otro
+      horario de soporte o la fecha de vigencia de una versión nueva.
+   2. Correr `npm run legales`. Pasa los datos a la política de privacidad, a los términos y a la orden de alta,
+      incluidos los enlaces de email y WhatsApp.
+   3. Commit. El test `test/legales.test.js` falla si los documentos no coinciden con `datos.json` o si algún dato
+      está vacío, así que no se puede publicar un documento con datos viejos.
+
+   En el HTML, cada dato va en `<span data-dato="clave">`. En la orden de alta va entre `<!--dato:clave-->` y
+   `<!--/dato-->`. Para sumar un dato nuevo: agregar la clave en `datos.json` y marcarla así en el texto.
+
+   **Precios e impuestos.** Los términos dicen "precios finales, con todos los impuestos incluidos". Según la
+   Ley 27.743 (Régimen de Transparencia Fiscal al Consumidor), lo que se exige es mostrar el precio final que se paga,
+   y eso ya se cumple. Siendo monotributista, no se discrimina IVA. Si en algún momento pasás a ser responsable
+   inscripta y vendés a consumidores finales, hay que sumar la leyenda "PRECIO SIN IMPUESTOS NACIONALES" con el
+   importe neto (Resolución 5/2025 de la Secretaría de Industria y Comercio). Si pasás a cobrar "más IVA" a
+   empresas, cambiar `precios` en `datos.json`. Confirmarlo con un contador.
 2. **Decisiones tomadas** (24/10/2026). Si cambia alguna, actualizarla también en las páginas:
    - Fecha de vigencia: 24 de octubre de 2026. Cambiarla si la publicación es otro día.
    - Medios de pago: transferencia bancaria o Mercado Pago.
