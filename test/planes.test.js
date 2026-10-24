@@ -118,3 +118,9 @@ test('una instalación que ya vendía antes de los planes sigue con todo', async
   assert.equal(e.plan, 'pro');
   assert.equal((await gastos())[0], 200);
 });
+
+test('"Quiero este plan" usa el WhatsApp de ventas de Morfi si el local no configuró otro', async () => {
+  const d = await estado();
+  assert.equal(d.ventas.whatsapp, process.env.MORFI_VENTAS_WHATSAPP || '5491123900155');
+  assert.match(d.ventas.whatsapp, /^549\d{10}$/, 'formato de wa.me: 549 + código de área + número');
+});
