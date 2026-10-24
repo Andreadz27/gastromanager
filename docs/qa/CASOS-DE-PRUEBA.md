@@ -54,8 +54,8 @@ y el JSON se puede leer.
 | CP-API-01 | 01 · Salud y carta pública | Servidor y base OK; la carta pública tiene categorías y precios válidos y **no expone el costo** | P1 |
 | CP-API-02 | 02 · Autenticación | Login de cada rol devuelve token y no la contraseña; mismo mensaje para email inexistente y contraseña mala; cuerpo no JSON → 400 (no 500); `/me` con los permisos del rol | P1 |
 | CP-API-03 | 03 · Seguridad y permisos | Sin sesión o con token falso → 401; cajero sin usuarios ni plan, mozo sin caja → 403 | P1 |
-| CP-API-04 | 04 · Catálogo | Productos y categorías; alta sin nombre o con precio negativo → 400 | P2 |
-| CP-API-05 | 05 · Venta y cobro | Caja (no se abre dos veces); pedido con total del servidor (ignora el precio que manda el navegador); sin ítems, cantidad 0 o producto inexistente → 400; llega a cocina; medio de pago inválido y tarjeta por más del saldo → 400; cobro en dos partes (efectivo + Mercado Pago); cobrar dos veces → 409; caja cuadra y cierra con diferencia 0 | P1 |
+| CP-API-04 | 04 · Catálogo | Productos y categorías; alta sin nombre o con precio negativo → 400; mesa sin nombre o con capacidad negativa → 400 | P2 |
+| CP-API-05 | 05 · Venta y cobro | Caja (no se abre dos veces); pedido con total del servidor (ignora el precio que manda el navegador); sin ítems, cantidad 0, producto inexistente, tipo inválido o mesa inexistente → 400; llega a cocina; medio de pago inválido y tarjeta por más del saldo → 400; cobro en dos partes (efectivo + Mercado Pago); cobrar dos veces → 409; caja cuadra y cierra con diferencia 0 | P1 |
 | CP-API-06 | 06 · Plan y ganancias | Base nueva = prueba de 30 días con todo; ofrece solo los planes a la venta; ganancias de hoy con comisión de Mercado Pago; el cajero no ve el detalle | P2 |
 
 ## Celular real (CP-MOB) · `qa/mobile/flujos/` (Maestro, Android con Chrome)
@@ -65,6 +65,15 @@ y el JSON se puede leer.
 | CP-MOB-01 | Carta del QR | Abrir la carta en Chrome; tocar "Postres" | Se ve la ensalada a $4.500; con Postres ya no | P1 | humo, celular |
 | CP-MOB-02 | El mozo ingresa | Ingresar con el mozo desde el celular | Ve su nombre y las mesas; no ve Caja | P1 | humo, celular |
 | CP-MOB-03 | Contraseña mal | Ingresar con contraseña incorrecta | "Credenciales incorrectas"; no entra | P2 | celular |
+
+## Defectos cerrados (regresión) · `qa/e2e/specs/05-defectos.spec.js`
+
+| ID | Caso | Resultado esperado | Prio. | Etiquetas |
+|---|---|---|---|---|
+| DEF-001 | Pedido con un tipo que no existe | 400 "Tipo de pedido inválido" | P3 | defecto, regresión |
+| DEF-002 | Pedido a una mesa que no existe | 400 "La mesa no existe" | P3 | defecto, regresión |
+| DEF-003 | Pedido para llevar con mesa (API y POS: elegir mesa y cambiar a "Para llevar") | Se guarda sin mesa; la mesa sigue libre para el mozo | P2 | defecto, regresión |
+| DEF-004 | Mesa sin nombre o con capacidad negativa (alta y edición) | 400 | P3 | defecto, regresión |
 
 ## Manuales (en el local, antes de instalar una versión que toque estas partes)
 

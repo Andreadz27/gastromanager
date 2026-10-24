@@ -18,10 +18,10 @@ cuesta al local si falla:
 
 | Capa | Herramienta | Dónde | Casos | Corre |
 |---|---|---|---|---|
-| API, servicios, migraciones, seguridad | `node:test` | `test/*.test.js` | 235 | `npm test` · CI en cada push (Linux y Windows) |
+| API, servicios, migraciones, seguridad | `node:test` | `test/*.test.js` | 238 | `npm test` · CI en cada push (Linux y Windows) |
 | Navegador, flujos del equipo de desarrollo | Playwright (`playwright-core`) | `test/e2e/` | 22 | `npm run test:e2e` · CI en cada push |
-| **Casos de prueba de QA, E2E** | **Playwright Test** | `qa/e2e/` | 22 (18 casos + 4 defectos) | `npm run qa:e2e` · workflow **QA** en cada PR |
-| **API, contrato y validaciones** | **Postman + Newman** | `qa/api/` | 40 pedidos, 130 verificaciones | `npm run qa:api` · workflow **QA** |
+| **Casos de prueba de QA, E2E** | **Playwright Test** | `qa/e2e/` | 23 (18 casos + 5 de defectos cerrados) | `npm run qa:e2e` · workflow **QA** en cada PR |
+| **API, contrato y validaciones** | **Postman + Newman** | `qa/api/` | 44 pedidos, 142 verificaciones | `npm run qa:api` · workflow **QA** |
 | **Celular real o emulado** | **Maestro** | `qa/mobile/` | 3 flujos | workflow **QA móvil** (a mano, lunes y al cambiar flujos) |
 | **Reporte** | **Mochawesome** | `qa/reportes/` | junta E2E y API | `npm run qa:reporte` · artefacto `reporte-qa` |
 | Mutaciones (¿los tests detectan roturas?) | script propio | `scripts/prueba-de-fuego.js` | 24 mutaciones | A mano antes de una versión grande |
@@ -38,7 +38,7 @@ API desde afuera (Postman, como la usaría una integración) y el celular de ver
 | `@regresion` | Todo lo que ya funcionaba y no puede volver a romperse | `npm run qa:e2e -- --grep @regresion` |
 | `@seguridad` | Permisos, sesión, datos que no se deben ver | `npm run qa:e2e -- --grep @seguridad` |
 | `@celular` | Pantallas que se usan en el celular (proyecto "celular": Pixel 7 emulado) | `npm run qa:e2e -- --project celular` |
-| `@defecto` | Defectos conocidos abiertos (`DEFECTOS-CONOCIDOS.md`) | `npm run qa:e2e -- --grep @defecto` |
+| `@defecto` | Defectos registrados en `DEFECTOS-CONOCIDOS.md` (abiertos con `test.fail()`, cerrados como regresión) | `npm run qa:e2e -- --grep @defecto` |
 
 ## Datos y ambiente
 

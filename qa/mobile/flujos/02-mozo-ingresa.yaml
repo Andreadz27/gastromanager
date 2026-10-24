@@ -15,9 +15,12 @@ env:
 - extendedWaitUntil:
     visible: "Tu negocio, a punto."
     timeout: 20000
-- tapOn: "tu@email.com"
+# Chrome expone el id del HTML como resource-id
+- tapOn:
+    id: "loginEmail"
 - inputText: ${MOZO_EMAIL}
-- tapOn: "••••••••"
+- tapOn:
+    id: "loginPassword"
 - inputText: ${MOZO_PASSWORD}
 - hideKeyboard
 - tapOn: ".*Iniciar Sesión"

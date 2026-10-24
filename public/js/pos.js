@@ -500,7 +500,8 @@ checkout() {
     try {
       const pedido = await API.createPedido({
         tipo,
-        mesa_id: mesaId || null,
+        // El selector de mesa se oculta al cambiar a otro tipo, pero conserva el valor (DEF-003)
+        mesa_id: tipo === 'salon' ? mesaId || null : null,
         cliente: cliente,
         items,
         notas,

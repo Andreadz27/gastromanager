@@ -981,6 +981,112 @@
 							}
 						}
 					]
+				},
+				{
+					"name": "Mesa sin nombre (DEF-004)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mesas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mesas"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_admin}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"\",\n  \"capacidad\": 4\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: la mesa necesita un nombre', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.match(/nombre/); });"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Mesa con capacidad negativa (DEF-004)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mesas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mesas"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_admin}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"QA negativa\",\n  \"capacidad\": -4\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: capacidad entre 1 y 100', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.match(/capacidad/); });"
+								]
+							}
+						}
+					]
 				}
 			]
 		},
@@ -1307,6 +1413,112 @@
 								"type": "text/javascript",
 								"exec": [
 									"pm.test('400: producto no disponible', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Pedido con un tipo que no existe (DEF-001)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo\": \"nave-espacial\",\n  \"items\": [\n    {\n      \"producto_id\": \"{{producto_id}}\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: tipo de pedido inválido', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.eql('Tipo de pedido inválido'); });"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Pedido a una mesa que no existe (DEF-002)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo\": \"salon\",\n  \"mesa_id\": 99999,\n  \"items\": [\n    {\n      \"producto_id\": \"{{producto_id}}\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: la mesa no existe', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.eql('La mesa no existe'); });"
 								]
 							}
 						}

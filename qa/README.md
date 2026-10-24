@@ -11,7 +11,7 @@ Estrategia completa: [`docs/qa/ESTRATEGIA-DE-PRUEBAS.md`](../docs/qa/ESTRATEGIA-
 | Celular (Android con Chrome) | Maestro | `mobile/` | ver [`mobile/README.md`](mobile/README.md) |
 | Integración continua | GitHub Actions | `.github/workflows/qa.yml`, `qa-movil.yml` | en cada PR |
 | Reporte | Mochawesome (+ reporte HTML de Playwright) | `reportes/` | `npm run qa:reporte` |
-| Defectos conocidos, automatizados | Playwright `test.fail()` | `e2e/specs/05-defectos.spec.js` | `npm run qa:e2e -- --grep @defecto` |
+| Defectos conocidos, automatizados | Playwright (`test.fail()` mientras están abiertos) | `e2e/specs/05-defectos.spec.js` | `npm run qa:e2e -- --grep @defecto` |
 
 Primera vez en una PC: `npx playwright install ffmpeg` (para el video de los casos que fallan; el navegador es el Edge o Chrome instalado).
 

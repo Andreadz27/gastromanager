@@ -1,6 +1,6 @@
 'use strict';
 const {
-  run, get, all, actualizarParcial, errorInterno, autenticar, emitEvento, requiere, urlPublica, nuevoTokenMesa,
+  run, get, all, actualizarParcial, errorHttp, errorInterno, autenticar, emitEvento, requiere, urlPublica, nuevoTokenMesa,
   solicitudesPendientes, confirmarSolicitud, rechazarSolicitud, atenderSolicitud
 } = require('../contexto');
 const QRCode = require('qrcode');
@@ -21,12 +21,24 @@ app.get('/api/mesas', autenticar, requiere('pedidos.ver'), async (req, res) => {
   }
 });
 
+// DEF-004: se creaban mesas sin nombre o con capacidad negativa. parcial: en una edición, lo que no viene no se valida.
+function validarMesa(body, parcial = false) {
+  if (!parcial || body.nombre !== undefined) {
+    if (!String(body.nombre || '').trim()) throw errorHttp(400, 'La mesa necesita un nombre');
+  }
+  if (body.capacidad !== undefined && body.capacidad !== null && body.capacidad !== '') {
+    const c = Number(body.capacidad);
+    if (!Number.isInteger(c) || c < 1 || c > 100) throw errorHttp(400, 'La capacidad tiene que ser un número entre 1 y 100');
+  }
+}
+
 app.post('/api/mesas', autenticar, requiere('catalogo'), async (req, res) => {
   try {
     const { nombre, capacidad, sector, orden } = req.body;
+    validarMesa(req.body);
     const result = await run(
       'INSERT INTO mesas (nombre, capacidad, sector, orden, qr_token) VALUES (?, ?, ?, ?, ?)',
-      [nombre, capacidad || 4, sector || 'Principal', orden || 0, nuevoTokenMesa()]
+      [String(nombre).trim(), capacidad || 4, sector || 'Principal', orden || 0, nuevoTokenMesa()]
     );
     res.status(201).json({ id: result.id, message: 'Mesa creada' });
   } catch (err) {
@@ -36,6 +48,7 @@ app.post('/api/mesas', autenticar, requiere('catalogo'), async (req, res) => {
 
 app.put('/api/mesas/:id', autenticar, requiere('catalogo'), async (req, res) => {
   try {
+    validarMesa(req.body || {}, true);
     await actualizarParcial('mesas', req.params.id, req.body || {}, ['nombre', 'capacidad', 'sector', 'orden', 'estado']);
     res.json({ message: 'Mesa actualizada' });
   } catch (err) {

@@ -153,3 +153,36 @@ test('pedido online: topes, precio de la base y teléfono guardado para avisar p
   const [e] = await s.q('SELECT tipo, telefono FROM entregas WHERE pedido_id = ?', [p.id]);
   assert.deepEqual({ ...e }, { tipo: 'takeaway', telefono: '11 5555-1234' });
 });
+
+// DEF-001 a DEF-004 (docs/qa/DEFECTOS-CONOCIDOS.md), encontrados por la suite de QA
+test('pedidos: tipo inválido y mesa inexistente se rechazan con un mensaje claro (DEF-001, DEF-002)', async () => {
+  const items = [{ producto_id: 1, cantidad: 1 }];
+  assert.deepEqual(await s.llamar('POST', '/api/pedidos', { tipo: 'nave', items }, s.tokenVendedor), [400, { error: 'Tipo de pedido inválido' }]);
+  assert.deepEqual(await s.llamar('POST', '/api/pedidos', { tipo: 'salon', mesa_id: 99999, items }, s.tokenVendedor), [400, { error: 'La mesa no existe' }]);
+  // Los cuatro tipos del POS siguen funcionando
+  for (const tipo of ['mostrador', 'takeaway', 'delivery']) {
+    assert.equal((await s.llamar('POST', '/api/pedidos', { tipo, items }, s.tokenVendedor))[0], 201, tipo);
+  }
+});
+
+test('pedidos: uno para llevar con mesa no la ocupa (DEF-003)', async () => {
+  const [mesa] = await s.q("INSERT INTO mesas (nombre, capacidad, sector, orden, qr_token) VALUES ('Mesa DEF-003', 4, 'Principal', 90, 'def003def003def003def003') RETURNING id");
+  const items = [{ producto_id: 1, cantidad: 1 }];
+  const [st, p] = await s.llamar('POST', '/api/pedidos', { tipo: 'takeaway', mesa_id: mesa.id, items }, s.tokenVendedor);
+  assert.equal(st, 201);
+  assert.equal((await s.q('SELECT mesa_id FROM pedidos WHERE id = ?', [p.id]))[0].mesa_id, null);
+  assert.equal((await s.q('SELECT estado FROM mesas WHERE id = ?', [mesa.id]))[0].estado, 'libre');
+  assert.equal((await s.llamar('POST', '/api/pedidos', { tipo: 'salon', mesa_id: mesa.id, items }, s.tokenVendedor))[0], 201, 'el mozo la puede abrir');
+});
+
+test('mesas: sin nombre o con capacidad fuera de 1 a 100 no se crean ni se editan así (DEF-004)', async () => {
+  for (const body of [{ nombre: '', capacidad: 4 }, { nombre: '   ' }, { nombre: 'X', capacidad: -4 }, { nombre: 'X', capacidad: 2.5 }, { nombre: 'X', capacidad: 500 }]) {
+    assert.equal((await s.llamar('POST', '/api/mesas', body, s.tokenAdmin))[0], 400, JSON.stringify(body));
+  }
+  const [st, m] = await s.llamar('POST', '/api/mesas', { nombre: ' Terraza 1 ', capacidad: 6 }, s.tokenAdmin);
+  assert.equal(st, 201);
+  assert.equal((await s.q('SELECT nombre FROM mesas WHERE id = ?', [m.id]))[0].nombre, 'Terraza 1');
+  assert.equal((await s.llamar('PUT', `/api/mesas/${m.id}`, { capacidad: 0 }, s.tokenAdmin))[0], 400);
+  assert.equal((await s.llamar('PUT', `/api/mesas/${m.id}`, { nombre: '' }, s.tokenAdmin))[0], 400);
+  assert.equal((await s.llamar('PUT', `/api/mesas/${m.id}`, { sector: 'Patio' }, s.tokenAdmin))[0], 200, 'editar otro campo sigue andando');
+});
