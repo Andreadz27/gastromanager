@@ -1,0 +1,36 @@
+# Morfi Nube en Render (plan Starter + 1 GB de disco: unos USD 7,25 por mes).
+# Está separado del render.yaml de la raíz (la demo gratis) para que nada se cobre sin crearlo a mano:
+# en Render, New → Blueprint → este repositorio → "Blueprint path": nube/render.yaml. Pasos en docs/INSTALACION.md, 4b.
+services:
+  - type: web
+    name: morfi-nube
+    runtime: node
+    plan: starter
+    # La región más cercana a Argentina que ofrece Render
+    region: virginia
+    # Solo se despliega si los chequeos de GitHub (CI) pasaron
+    autoDeployTrigger: checksPass
+    # sqlite3 se compila en el servidor: el binario precompilado pide una glibc más nueva que la de Render
+    buildCommand: npm ci --omit=dev --build-from-source=sqlite3
+    startCommand: npm run nube
+    healthCheckPath: /api/salud
+    # La base de la nube (cuentas, locales, ventas, cartas) tiene que sobrevivir a cada despliegue
+    disk:
+      name: datos
+      mountPath: /var/data/morfi-nube
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NUBE_DATOS
+        value: /var/data/morfi-nube
+      # Firma las sesiones del panel; Render la genera al azar y no cambia entre despliegues
+      - key: NUBE_SECRETO
+        generateValue: true
+      # Cantidad de proxies de Render delante del servicio. "true" permitiría falsear la IP y saltear el límite de
+      # intentos de login. Si /api/salud no muestra tu IP pública, subir a 2 o 3 (docs/INSTALACION.md, 4b)
+      - key: TRUST_PROXY
+        value: "1"
+      # La clave privada de licencias va como Secret File (Environment → Secret Files) con ese nombre: nunca en el repo
+      - key: NUBE_CLAVE_LICENCIAS
+        value: /etc/secrets/licencias-privada.pem
