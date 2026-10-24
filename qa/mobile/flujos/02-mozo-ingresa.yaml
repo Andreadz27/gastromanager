@@ -8,7 +8,7 @@ env:
   BASE_URL: http://10.0.2.2:3000
   # Los mismos usuarios de prueba que Playwright y Postman (qa/datos.js)
   MOZO_EMAIL: mozo@qa.test
-  MOZO_PASSWORD: mozo1234
+  MOZO_PASSWORD: Morfi-QA-mozo-7391
 ---
 - runFlow: comunes/abrir-chrome.yaml
 - openLink: ${BASE_URL}/
@@ -19,20 +19,16 @@ env:
 - tapOn:
     id: "loginEmail"
 - inputText: ${MOZO_EMAIL}
-- tapOn:
-    id: "loginPassword"
+# Enter con la contraseña vacía: el navegador no envía y pasa el foco a la contraseña (tocarla falla si el teclado
+# movió la página)
+- pressKey: Enter
 - inputText: ${MOZO_PASSWORD}
 # Enter envía el formulario (hideKeyboard, sin teclado abierto, funciona como Atrás y cierra Chrome)
 - pressKey: Enter
-# Chrome puede avisar que la contraseña de prueba apareció en una filtración: se espera la pantalla o el aviso
-- extendedWaitUntil:
-    visible: "(.*Mesa 1.*|Change your password|Cambiá tu contraseña)"
-    timeout: 15000
-- tapOn:
-    text: "OK"
-    optional: true
 # En el celular el nombre del usuario queda en el menú lateral: se reconoce por las mesas y la barra de abajo
-- assertVisible: ".*Mesa 1.*"
+- extendedWaitUntil:
+    visible: ".*Mesa 1.*"
+    timeout: 15000
 - assertVisible: "Mesas"
 - assertNotVisible: "Caja"
 - takeScreenshot: cp-mob-02-mesas-del-mozo

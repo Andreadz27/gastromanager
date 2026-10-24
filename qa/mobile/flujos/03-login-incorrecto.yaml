@@ -16,8 +16,9 @@ env:
 - tapOn:
     id: "loginEmail"
 - inputText: ${MOZO_EMAIL}
-- tapOn:
-    id: "loginPassword"
+# Enter con la contraseña vacía: el navegador no envía y pasa el foco a la contraseña (tocarla falla si el teclado
+# movió la página)
+- pressKey: Enter
 - inputText: "incorrecta"
 # Enter envía el formulario (hideKeyboard, sin teclado abierto, funciona como Atrás y cierra Chrome)
 - pressKey: Enter
