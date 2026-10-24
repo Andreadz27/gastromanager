@@ -22,11 +22,17 @@ env:
 - tapOn:
     id: "loginPassword"
 - inputText: ${MOZO_PASSWORD}
-- hideKeyboard
-- tapOn: ".*Iniciar Sesión"
+# Enter envía el formulario (hideKeyboard, sin teclado abierto, funciona como Atrás y cierra Chrome)
+- pressKey: Enter
+# Chrome puede avisar que la contraseña de prueba apareció en una filtración: se espera la pantalla o el aviso
 - extendedWaitUntil:
-    visible: "Mozo QA"
+    visible: "(.*Mesa 1.*|Change your password|Cambiá tu contraseña)"
     timeout: 15000
+- tapOn:
+    text: "OK"
+    optional: true
+# En el celular el nombre del usuario queda en el menú lateral: se reconoce por las mesas y la barra de abajo
 - assertVisible: ".*Mesa 1.*"
+- assertVisible: "Mesas"
 - assertNotVisible: "Caja"
 - takeScreenshot: cp-mob-02-mesas-del-mozo

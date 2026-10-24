@@ -19,10 +19,10 @@ env:
 - tapOn:
     id: "loginPassword"
 - inputText: "incorrecta"
-- hideKeyboard
-- tapOn: ".*Iniciar Sesión"
+# Enter envía el formulario (hideKeyboard, sin teclado abierto, funciona como Atrás y cierra Chrome)
+- pressKey: Enter
 - extendedWaitUntil:
     visible: "Credenciales incorrectas"
     timeout: 10000
-- assertNotVisible: "Mozo QA"
+- assertNotVisible: ".*Mesa 1.*"
 - takeScreenshot: cp-mob-03-error
