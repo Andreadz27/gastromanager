@@ -36,7 +36,10 @@ const ruta = fn => async (req, res, next) => {
 };
 
 const app = express();
-app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : 'loopback');
+// TRUST_PROXY: cantidad de proxies delante ("1" en Render), IPs/subredes, o "true" (cualquiera: con eso se puede
+// falsear la IP y saltear el límite de intentos de login; evitarlo). Igual que en src/app.js.
+const confianzaProxy = v => v === 'true' ? true : /^\d+$/.test(v) ? Number(v) : v;
+app.set('trust proxy', confianzaProxy(process.env.TRUST_PROXY || 'loopback'));
 const politica = extra => helmet({ contentSecurityPolicy: { useDefaults: false, directives: {
   defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'data:'],
   fontSrc: ["'self'", 'data:'], connectSrc: ["'self'"], objectSrc: ["'none'"], baseUri: ["'self'"], frameAncestors: ["'none'"],
@@ -49,7 +52,8 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/', rateLimit({ windowMs: 60000, max: 600, standardHeaders: true, legacyHeaders: false }));
 
-app.get('/api/salud', ruta(async (req, res) => { res.json({ ok: true }); }));
+// ip: la que la nube ve de quien pregunta (para ajustar TRUST_PROXY: tiene que ser la IP pública propia)
+app.get('/api/salud', ruta(async (req, res) => { res.json({ ok: true, ip: req.ip }); }));
 
 // ============ LO QUE MANDAN LOS LOCALES ============
 

@@ -144,11 +144,25 @@ sin noticias hace más de 15 minutos, sin copia de seguridad, facturas que ARCA 
 - Se mandan números de pedido, productos e importes. **No** se mandan nombres, teléfonos ni CUIT de los clientes.
 - El local no depende de la nube: si se cae o no hay internet, se sigue cobrando y lo pendiente se manda al volver.
 
-**Montar la nube (una vez):** cualquier servidor con Node 22 (un VPS de Hetzner o DigitalOcean, o Render/Railway con
+**Montar la nube en Render (la opción elegida, una vez):** no hay servidor que mantener, tiene https incluido y se
+actualiza sola cuando el CI pasa. Cuesta unos USD 7,25 por mes: plan Starter más 1 GB de disco.
+1. En Render: **New → Blueprint**, elegir el repositorio `Andreadz27/morfi` y, en **Blueprint path**, poner
+   `nube/render.yaml`. Crea el servicio `morfi-nube` con el disco y las variables.
+2. En el servicio: **Environment → Secret Files → Add**. Nombre: `licencias-privada.pem`. Contenido: el de
+   `Documents\Morfi-claves\licencias-privada.pem`. Guardar y redesplegar.
+3. Abrir `https://morfi-nube.onrender.com/api/salud` (o la dirección que le haya dado Render). Tiene que responder
+   `"ok":true`, y en `"ip"` tu IP pública: comparala con la que muestra cualquier página de "cuál es mi IP". Si
+   aparece otra, es la de un proxy de Render. En ese caso subir `TRUST_PROXY` a 2 en **Environment**, guardar y volver
+   a mirar; si sigue sin coincidir, probar 3. Nunca poner `true`: permite falsear la IP y saltear el límite de
+   intentos de login.
+4. Desde **Shell** del servicio, crear el usuario de soporte y los locales (ver "Altas" más abajo).
+5. Copia de la base de la nube: en **Disks**, Render guarda instantáneas diarias del disco durante 7 días.
+
+**Montar la nube en otro servidor:** cualquier servidor con Node 22 (un VPS de Hetzner o DigitalOcean, o Render/Railway con
 disco persistente). Copiar el repositorio, `npm ci --omit=dev` y arrancar con `npm run nube` (PM2 o el servicio del
 proveedor). Variables: `PORT`, `NUBE_DATOS` (carpeta persistente de la base), `NUBE_SECRETO` (48 caracteres al azar)
 `NUBE_CLAVE_LICENCIAS` (la clave privada de licencias: ver docs/PLANES.md)
-y `TRUST_PROXY=true` si va detrás de un proxy con https. Siempre con https (Cloudflare o el del proveedor).
+y `TRUST_PROXY=1` (cantidad de proxies) si va detrás de un proxy con https; nunca `true`. Siempre con https (Cloudflare o el del proveedor).
 Hacer copia de la carpeta `NUBE_DATOS`: si se pierde, los locales vuelven a mandar lo que tengan sin enviar, no el historial.
 
 **Altas (en el servidor de la nube):**
