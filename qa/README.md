@@ -13,6 +13,8 @@ Estrategia completa: [`docs/qa/ESTRATEGIA-DE-PRUEBAS.md`](../docs/qa/ESTRATEGIA-
 | Reporte | Mochawesome (+ reporte HTML de Playwright) | `reportes/` | `npm run qa:reporte` |
 | Defectos conocidos, automatizados | Playwright `test.fail()` | `e2e/specs/05-defectos.spec.js` | `npm run qa:e2e -- --grep @defecto` |
 
+Primera vez en una PC: `npx playwright install ffmpeg` (para el video de los casos que fallan; el navegador es el Edge o Chrome instalado).
+
 Todo junto: **`npm run qa`** → abre `qa/reportes/salida/mochawesome/index.html`.
 
 ## Cómo está armado

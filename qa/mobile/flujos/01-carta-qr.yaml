@@ -14,7 +14,7 @@ env:
     visible: "Ensalada César"
     timeout: 20000
 - assertVisible: "Entradas"
-- assertVisible: ".*4\.500.*"
+- assertVisible: ".*4.500.*"
 - takeScreenshot: cp-mob-01-carta
 - tapOn: ".*Postres"
 - extendedWaitUntil:

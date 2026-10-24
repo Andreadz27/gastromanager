@@ -25,6 +25,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Se usa el Chrome instalado; solo falta ffmpeg para el video de los casos que fallan
+      - run: npx playwright install ffmpeg
       - name: E2E con Playwright (escritorio y celular)
         id: e2e
         run: npm run qa:e2e
