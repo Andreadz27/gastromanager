@@ -285,6 +285,8 @@ footer { background: var(--dark); padding: 4rem 0 0; }
 .footer-col ul li a { font-size: .88rem; color: rgba(255,255,255,.45); transition: color .2s; }
 .footer-col ul li a:hover { color: var(--primary); }
 .footer-bottom { border-top: 1px solid rgba(255,255,255,.08); padding: 1.25rem 1.5rem; text-align: center; font-size: .8rem; color: rgba(255,255,255,.3); }
+.footer-bottom a { color: rgba(255,255,255,.55); text-decoration: underline; }
+.footer-bottom a:hover { color: #fff; }
 
 /* SOON TAG */
 .soon-tag { display: inline-block; background: #fef3c7; color: #b45309; font-size: .62rem; font-weight: 800; padding: .1rem .45rem; border-radius: 20px; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; margin-left: .35rem; }
