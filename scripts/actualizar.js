@@ -96,6 +96,15 @@ function devolverNombreBase() {
   log('La versión anterior usa data/gastromanager.db: se le devolvió ese nombre a la base.');
 }
 
+// La copia se hace en otro proceso: si este cargara sqlite3, Windows no deja borrar node_sqlite3.node y npm ci
+// falla con EPERM (pasó en la PC del local al actualizar el 2026-10-24).
+function crearCopiaAparte() {
+  const codigo = "require('./src/servicios/backups').crearBackup()" +
+    '.then(c => console.log(JSON.stringify(c || null)), e => { console.error(e.message); process.exit(1); })';
+  const salida = execFileSync(process.execPath, ['-e', codigo], { cwd: RAIZ, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  return JSON.parse(salida.trim().split('\n').pop());
+}
+
 async function main() {
   if (git('status', '--porcelain', '--untracked-files=no')) {
     throw new Error('Hay archivos del sistema modificados a mano en esta instalación. No se actualiza para no pisarlos.');
@@ -109,8 +118,7 @@ async function main() {
   if (opcion('solo-revisar')) return 'disponible';
 
   // 1. Copia de seguridad antes de cambiar nada
-  const { crearBackup } = require('../src/servicios/backups');
-  const copia = await crearBackup();
+  const copia = crearCopiaAparte();
   log(`Copia de seguridad previa: ${copia ? copia.nombre : '(sin base todavía)'}`);
 
   // 2. Código nuevo (solo avance rápido)
