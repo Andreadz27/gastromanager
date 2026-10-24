@@ -15,12 +15,9 @@ los días de prueba o de gracia o los precios.
 
 ## Antes de publicarlas
 
-1. **Completar los datos marcados en amarillo** (clase `completar`). Para encontrarlos todos:
-   `grep -n 'class="completar"' landing/*.html`.
-   - Nombre o razón social, CUIT y domicilio del titular de Morfi.
-   - Email de contacto.
-   - Condición frente al IVA: precios con IVA incluido, más IVA, o monotributista.
-   - Ciudad o departamento judicial para la jurisdicción.
+1. **Datos del titular**: ya completos (Andrea Díaz, CUIT 27-95977489-2, Puan 387, CABA, contacto
+   andreadiazdoria9627@gmail.com, precios finales, jurisdicción CABA). Si se agrega un dato pendiente, se marca con
+   `<span class="completar">…</span>`, que se ve en amarillo. Para buscarlos: `grep -n 'class="completar"' landing/*.html`.
 2. **Decisiones tomadas** (24/10/2026). Si cambia alguna, actualizarla también en las páginas:
    - Fecha de vigencia: 24 de octubre de 2026. Cambiarla si la publicación es otro día.
    - Medios de pago: transferencia bancaria o Mercado Pago.

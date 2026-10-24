@@ -1,16 +1,16 @@
 # Orden de alta — Morfi
 
 Esta orden se firma junto con los **Términos y condiciones del servicio**, vigentes en la fecha de firma
-(<https://[DOMINIO DE MORFI]/terminos.html>). Se imprime en dos copias: una para el local y otra para Morfi.
+(página "Términos y condiciones" de la web de Morfi; el local recibe una copia impresa). Se imprime en dos copias: una para el local y otra para Morfi.
 
 ## Prestador
 
 | | |
 |---|---|
-| Nombre o razón social | [NOMBRE O RAZÓN SOCIAL DE MORFI] |
-| CUIT | [CUIT] |
-| Domicilio | [DOMICILIO] |
-| Contacto | WhatsApp 11 2390-0155 · [EMAIL DE CONTACTO] |
+| Nombre o razón social | Andrea Díaz |
+| CUIT | 27-95977489-2 |
+| Domicilio | Puan 387, Ciudad Autónoma de Buenos Aires |
+| Contacto | WhatsApp 11 2390-0155 · andreadiazdoria9627@gmail.com |
 
 ## Local
 
