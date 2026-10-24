@@ -121,6 +121,9 @@
         <a href="#" class="nav-item" data-view="reportes" data-modulo="reportes">
           <i class="fas fa-file-alt"></i> Reportes
         </a>
+        <a href="#" class="nav-item" data-view="ganancias">
+          <i class="fas fa-sack-dollar"></i> Ganancias
+        </a>
         <a href="#" class="nav-item" data-view="fidelizacion">
           <i class="fas fa-gift"></i> Fidelización
         </a>
@@ -132,6 +135,9 @@
         </a>
         <a href="#" class="nav-item admin-only" data-view="usuarios">
           <i class="fas fa-user-cog"></i> Usuarios
+        </a>
+        <a href="#" class="nav-item admin-only" data-view="plan">
+          <i class="fas fa-crown"></i> Tu plan <span class="nav-plan" id="planNombre"></span>
         </a>
         <a href="#" class="nav-item admin-only" data-view="config">
           <i class="fas fa-cog"></i> Configuración
@@ -163,6 +169,8 @@
     <main class="main-content">
       <!-- Sin internet: qué sigue andando y qué queda en espera (modo sin conexión) -->
       <div id="avisoConexion" class="aviso-conexion" style="display:none" role="status" aria-live="polite"></div>
+      <!-- Vencimiento del plan o fin de la prueba gratis (src/licencia.js) -->
+      <div id="avisoPlan" class="aviso-plan" style="display:none" role="status"></div>
       <div id="view-dashboard" class="view active"></div>
       <div id="view-pos" class="view"></div>
       <div id="view-mesas" class="view"></div>
@@ -182,6 +190,8 @@
       <div id="view-qr"            class="view"></div>
       <div id="view-personal"      class="view"></div>
       <div id="view-fidelizacion"  class="view"></div>
+      <div id="view-plan"          class="view"></div>
+      <div id="view-ganancias"     class="view"></div>
     </main>
 
     <!-- Bottom navigation (solo en ≤767px) -->
@@ -248,6 +258,8 @@
   <script src="js/qr.js"></script>
   <script src="js/personal.js"></script>
   <script src="js/fidelizacion.js"></script>
+  <script src="js/plan.js"></script>
+  <script src="js/ganancias.js"></script>
   <script src="js/app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

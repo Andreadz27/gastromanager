@@ -669,3 +669,54 @@ test('fidelización en el cobro: el cajero elige el cliente, canjea puntos, apli
   sinErrores(page);
   await page.context().close();
 });
+
+test('plan Esencial: Contabilidad con candado explica qué plan la tiene; "Tu plan" muestra los planes', async () => {
+  const [{ valor: inicio }] = await s.q("SELECT valor FROM meta WHERE clave = 'licencia_inicio'");
+  await s.q("UPDATE meta SET valor = '2020-01-01' WHERE clave = 'licencia_inicio'");
+  await s.q('UPDATE configuracion SET setup_completado = 1'); // sin el asistente de primer ingreso
+  try {
+    const page = await nuevaPagina();
+    await ingresarOk(page, 'admin@morfi.local', 'admin123');
+    await page.waitForSelector('a.nav-item[data-view="contabilidad"].nav-bloqueado .nav-candado');
+    await page.waitForSelector('#avisoPlan:has-text("Terminó la prueba gratis")');
+    assert.equal(await page.isVisible('#btnFichar'), false, 'sin el módulo Personal no hay botón de fichar');
+    await page.click('a.nav-item[data-view="contabilidad"]');
+    await page.waitForSelector('.plan-mejora:has-text("plan Pro")');
+    assert.notEqual(await vistaActiva(page), 'contabilidad');
+    await page.click('.plan-mejora button:has-text("Ver planes")');
+    await page.waitForSelector('#view-plan.active .plan-tarjeta.actual:has-text("Esencial")');
+    assert.equal(await page.locator('#view-plan .plan-tarjeta').count(), 3);
+    assert.match(await page.textContent('#view-plan .plan-tarjeta.destacado'), /49\.900/);
+    sinErrores(page);
+    await page.context().close();
+  } finally {
+    await s.q("UPDATE meta SET valor = ? WHERE clave = 'licencia_inicio'", [inicio]);
+  }
+});
+
+test('ganancias: tarjeta de hoy en el inicio, pestañas sin errores y comisiones editables', async () => {
+  await s.q('UPDATE configuracion SET setup_completado = 1');
+  const page = await nuevaPagina();
+  await ingresarOk(page, 'admin@morfi.local', 'admin123');
+  await page.waitForSelector('.gan-hoy:has-text("¿Cuánto gané hoy?")');
+  await ir(page, 'ganancias');
+  await page.waitForSelector('.gan-cascada');
+  for (const [tab, marca] of [['platos', '#view-ganancias .gan-clases, #view-ganancias .empty-state'], ['canales', '#view-ganancias :text("Por medio de pago")'], ['fugas', '#view-ganancias :text("De mayor a menor")'],
+    ['equilibrio', '#ganMes'], ['config', '#com_tarjeta']]) {
+    await page.click(`.cont-tabs button[onclick="Ganancias.setTab('${tab}')"]`);
+    await page.waitForSelector(marca);
+  }
+  await page.fill('#com_tarjeta', '4.5');
+  await page.click('button:has-text("Guardar comisiones")');
+  await toast(page, 'success', 'Comisiones guardadas');
+  const [{ comisiones_pago: c }] = await s.q('SELECT comisiones_pago FROM configuracion WHERE id = 1');
+  assert.equal(JSON.parse(c).tarjeta, 4.5);
+  await page.fill('.gan-fijo-concepto', 'Alquiler');
+  await page.fill('.gan-fijo-monto', '300000');
+  await page.click('button:has-text("Guardar gastos fijos")');
+  await toast(page, 'success', 'Gastos fijos guardados');
+  await page.click(`.cont-tabs button[onclick="Ganancias.setTab('equilibrio')"]`);
+  await page.waitForSelector('#view-ganancias :text("Gastos fijos del mes")');
+  sinErrores(page);
+  await page.context().close();
+});

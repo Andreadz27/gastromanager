@@ -10,6 +10,7 @@ const { LOCAL } = require('../tiempo');
 const { listarBackups } = require('./backups');
 const { estadoNube } = require('./copia-nube');
 const { crearPedidoOnline } = require('./pedido-online');
+const { guardarLicencia } = require('../licencia');
 const VERSION = require('../../package.json').version;
 
 const TANDA = 200;
@@ -155,6 +156,13 @@ async function aplicarCambiosDePrecio() {
   return aplicados;
 }
 
+// ============ LICENCIA (plan del local) ============
+// La nube manda la licencia firmada (plan, extras y vencimiento). Sin internet sigue valiendo la última que llegó.
+async function traerLicencia() {
+  const r = await enviar('/api/sync/licencia', null, 'GET');
+  return r && r.licencia ? guardarLicencia(r.licencia) : null;
+}
+
 // Se avisa una vez por tipo de error (sin internet se repite cada vuelta y llenaría el log)
 const ultimoError = {};
 // Si una vuelta tarda más que el intervalo (internet lento), la siguiente no arranca encima
@@ -175,11 +183,14 @@ function iniciarSyncNube() {
   const msPedidos = Number(process.env.NUBE_PEDIDOS_SEGUNDOS) * 1000 || 10000;
   const vuelta = seguro('sincronizar', async () => { await enviarCarta(); await sincronizar(); });
   const pedidos = seguro('traer pedidos online', async () => { await traerPedidos(); await aplicarCambiosDePrecio(); });
+  const licencia = seguro('actualizar la licencia', traerLicencia);
   vuelta();
   pedidos();
+  licencia();
   setInterval(vuelta, ms).unref();
+  setInterval(licencia, ms).unref();
   setInterval(pedidos, msPedidos).unref();
   console.log(`[nube] Sincronizando con ${process.env.NUBE_URL} cada ${Math.round(ms / 1000)} s; pedidos online y precios cada ${Math.round(msPedidos / 1000)} s`);
 }
 
-module.exports = { iniciarSyncNube, sincronizar, traerPedidos, aplicarCambiosDePrecio, enviarCarta, estadoLocal, configurada, urlCartaNube };
+module.exports = { iniciarSyncNube, sincronizar, traerPedidos, traerLicencia, aplicarCambiosDePrecio, enviarCarta, estadoLocal, configurada, urlCartaNube };

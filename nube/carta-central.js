@@ -4,6 +4,7 @@
 // al buscar pedidos (cada 10 s); si un local está sin internet, lo aplica cuando vuelve.
 // Los productos se reconocen por nombre entre sucursales (cada local tiene sus propios ids).
 const { run, get, all, transaccion } = require('./db');
+const { tieneModulo, localesConModulo } = require('./licencias');
 
 const clave = nombre => String(nombre || '').trim().toLowerCase().replace(/\s+/g, ' ');
 const PRECIO_MAX = 100000000;
@@ -16,9 +17,13 @@ module.exports = function registrarCartaCentral(app, { ruta, errorHttp, autentic
     next();
   });
 
+  // Solo las sucursales con el plan Cadenas (o en prueba)
   async function cartasDeLaCuenta(cuentaId) {
-    const filas = await all(`SELECT l.id, l.nombre, c.datos FROM locales l JOIN cartas c ON c.local_id = l.id
-      WHERE l.cuenta_id = ? ORDER BY l.nombre`, [cuentaId]);
+    const filas = (await all(`SELECT l.id, l.nombre, l.plan, l.extras, l.vence, c.datos FROM locales l JOIN cartas c ON c.local_id = l.id
+      WHERE l.cuenta_id = ? ORDER BY l.nombre`, [cuentaId])).filter(f => tieneModulo(f, 'multisucursal'));
+    if (!filas.length && !(await localesConModulo(cuentaId, 'multisucursal')).length) {
+      throw errorHttp(402, 'Los precios centrales para varias sucursales están en el plan Cadenas. Escribinos para pasarte de plan.');
+    }
     return filas.map(f => ({ id: f.id, nombre: f.nombre, productos: JSON.parse(f.datos).productos }));
   }
 

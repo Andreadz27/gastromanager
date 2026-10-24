@@ -10,6 +10,7 @@ const { generarNumeroPedido, resolverItems, recalcularTotales } = require('./ped
 const { comandaAutomatica } = require('./impresion');
 const { pagoMesaDisponible } = require('./pago-mesa');
 const { configWhatsApp, whatsappListo } = require('./whatsapp');
+const { tiene } = require('../licencia');
 
 const MODOS_QR_MESA = ['confirmar', 'directo', 'solo_carta'];
 // pago: aviso al mozo de que la mesa pagó con Mercado Pago desde el celular (lo crea pago-mesa.js)
@@ -94,10 +95,12 @@ async function estadoMesa(mesa) {
     subtotal: pedido.subtotal, descuento: pedido.descuento, propina: pedido.propina, total: pedido.total,
     pagado, saldo: Math.max(0, Math.round((pedido.total - pagado) * 100) / 100)
   } : null;
+  // Sin el módulo en el plan (Esencial) el QR de la mesa muestra la carta y llama al mozo
+  const conPlan = await tiene('mesa_qr');
   return {
-    mesa: { nombre: mesa.nombre }, modo: await modoQrMesa(), solicitudes: solicitudes.map(resumenSolicitud), cuenta,
+    mesa: { nombre: mesa.nombre }, modo: conPlan ? await modoQrMesa() : 'solo_carta', solicitudes: solicitudes.map(resumenSolicitud), cuenta,
     // Qué puede hacer el cliente al pagar desde el celular
-    pago: { mercadopago: await pagoMesaDisponible(), whatsapp: whatsappListo(await configWhatsApp()) }
+    pago: { mercadopago: conPlan && await pagoMesaDisponible(), whatsapp: whatsappListo(await configWhatsApp()) && await tiene('whatsapp') }
   };
 }
 

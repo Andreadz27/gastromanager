@@ -189,6 +189,7 @@ const App = {
 
   // Botón "Fichar" de la barra lateral: muestra si el usuario está adentro y desde qué hora
   async revisarFichaje() {
+    if (!Plan.tiene('personal')) return;
     try { this.marcarFichaje(await API.getMiFichaje()); } catch (e) { /* sin servidor: el botón queda como estaba */ }
   },
 
@@ -404,6 +405,7 @@ const App = {
     this.contarSolicitudesMesa();
     this.revisarConexion();
     this.revisarFichaje();
+    Plan.cargar();
 
     // Cargar módulos activos y verificar setup
     this.cargarModulos();
@@ -449,7 +451,8 @@ const App = {
     dashboard: 'reportes', pos: 'pedidos.tomar', mesas: 'pedidos.ver', pedidos: 'pedidos.ver',
     delivery: 'delivery', cocina: 'cocina', productos: 'catalogo', stock: 'stock.ver',
     proveedores: 'stock.ver', clientes: 'clientes', caja: 'caja.operar', reportes: 'reportes', contabilidad: 'contabilidad',
-    integraciones: 'admin', usuarios: 'admin', config: 'admin', qr: 'catalogo', fidelizacion: 'pedidos.cobrar'
+    integraciones: 'admin', usuarios: 'admin', config: 'admin', plan: 'admin', qr: 'catalogo', fidelizacion: 'pedidos.cobrar',
+    ganancias: 'reportes.costos'
   },
 
   puede(permiso) {
@@ -535,6 +538,8 @@ const App = {
   navigateTo(view) {
     // Una sección no permitida (enlace directo, botón de otra vista) lleva a la inicial del rol
     if (!this.puedeVer(view)) view = this.vistaInicial();
+    // Sección que el plan no incluye: se cuenta qué plan la tiene en lugar de abrirla vacía
+    if (Plan.bloqueada(view)) { this.closeSidebar(); Plan.mostrarMejora(Plan.VISTA_MODULO[view]); return; }
     this.currentView = view;
 
     // Cerrar sidebar en mobile al navegar
@@ -581,7 +586,9 @@ const App = {
       'integraciones': () => Integraciones.render(),
       'qr': () => QRView.render(),
       'personal': () => Personal.render(),
-      'fidelizacion': () => Fidelizacion.render()
+      'fidelizacion': () => Fidelizacion.render(),
+      'plan': () => Plan.render(),
+      'ganancias': () => Ganancias.render()
     };
 
     if (renderers[view]) {

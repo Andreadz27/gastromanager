@@ -341,3 +341,20 @@ footer { background: var(--dark); padding: 4rem 0 0; }
 .logo-img { display: block; border-radius: 23%; flex-shrink: 0; }
 .logo-texto { font-weight: 800; letter-spacing: -0.5px; }
 .rubros { background: #fff7ed; }
+
+/* PRECIOS */
+.pricing-section { padding: 5.5rem 0; background: #fff; }
+.pricing-grid { margin-top: 2.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.4rem; align-items: stretch; }
+.price-card { position: relative; display: flex; flex-direction: column; gap: .35rem; background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 2rem 1.6rem; box-shadow: var(--shadow); }
+.price-card.destacado { border: 2px solid var(--primary); box-shadow: var(--shadow-lg); }
+.price-badge { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--primary); color: #fff; font-size: .75rem; font-weight: 700; padding: .25rem .9rem; border-radius: 20px; white-space: nowrap; }
+.price-card h3 { font-size: 1.35rem; font-weight: 800; color: var(--dark); }
+.price-for { color: var(--gray); font-size: .92rem; }
+.price-amount { font-size: 2.3rem; font-weight: 800; color: var(--dark); margin-top: .6rem; }
+.price-amount small { font-size: .95rem; font-weight: 500; color: var(--gray); }
+.price-year { color: var(--gray); font-size: .85rem; }
+.price-list { margin: 1rem 0 1.4rem; display: flex; flex-direction: column; gap: .5rem; font-size: .93rem; color: var(--dark2); flex: 1; }
+.price-card .btn { text-align: center; justify-content: center; }
+.pricing-extra { margin: 2rem auto 0; max-width: 820px; text-align: center; color: var(--gray); font-size: .95rem; display: flex; flex-direction: column; gap: .5rem; }
+.pricing-extra strong { color: var(--dark); }
+@media (max-width: 900px) { .pricing-grid { grid-template-columns: 1fr; max-width: 460px; margin-left: auto; margin-right: auto; } }

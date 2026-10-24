@@ -8,6 +8,7 @@ const path = require('path');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { run, get, all } = require('./db');
+const { tieneModulo } = require('./licencias');
 const { validarPedidoOnline } = require('../src/validar-pedido-online');
 
 const PUBLICO = path.join(__dirname, '..', 'public');
@@ -75,9 +76,10 @@ module.exports = function registrarTienda(app, { ruta, errorHttp, autenticarLoca
   app.use('/vendor/fontawesome/webfonts', express.static(path.join(FONT_AWESOME, 'webfonts'), { maxAge: '30d' }));
 
   const conLocal = fn => ruta(async (req, res) => {
-    const l = await get('SELECT l.id, l.cliente, l.ultimo_pedido_poll, c.datos AS carta FROM locales l JOIN cartas c ON c.local_id = l.id WHERE l.cliente = ?',
-      [String(req.params.cliente)]);
-    if (!l) throw errorHttp(404, 'Este local no tiene carta online');
+    const l = await get(`SELECT l.id, l.cliente, l.ultimo_pedido_poll, l.plan, l.extras, l.vence, c.datos AS carta
+      FROM locales l JOIN cartas c ON c.local_id = l.id WHERE l.cliente = ?`, [String(req.params.cliente)]);
+    // La carta online con pedidos es de los planes Pro y Cadenas
+    if (!l || !tieneModulo(l, 'online')) throw errorHttp(404, 'Este local no tiene carta online');
     await fn(req, res, l, JSON.parse(l.carta));
   });
   const recibe = l => segundosDesde(l.ultimo_pedido_poll) <= SEG_LOCAL_ACTIVO;

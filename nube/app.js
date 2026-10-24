@@ -112,6 +112,10 @@ app.post('/api/sync/estado', autenticarLocal, ruta(async (req, res) => {
 const tienda = require('./tienda');
 tienda(app, { ruta, errorHttp, autenticarLocal, r2 });
 
+// Plan de cada local y su licencia firmada
+const licencias = require('./licencias');
+licencias.registrarLicencias(app, { ruta, errorHttp, autenticarLocal });
+
 // ============ PANEL ============
 
 const loginLimiter = rateLimit({ windowMs: 15 * 60000, max: 10, skipSuccessfulRequests: true,
@@ -139,13 +143,16 @@ const autenticarUsuario = ruta(async (req, res, next) => {
 const cartaCentral = require('./carta-central');
 cartaCentral(app, { ruta, errorHttp, autenticarLocal, autenticarUsuario, r2 });
 
-// Locales que ve el usuario: los de su cuenta (soporte: todos, o los de ?cuenta=)
+// Locales que ve el usuario: los de su cuenta cuyo plan incluye el panel (soporte: todos, o los de ?cuenta=)
 async function localesVisibles(u, cuentaId) {
   if (u.rol === 'soporte') {
     return cuentaId ? all('SELECT * FROM locales WHERE cuenta_id = ? ORDER BY nombre', [cuentaId])
       : all('SELECT * FROM locales ORDER BY nombre');
   }
-  return all('SELECT * FROM locales WHERE cuenta_id = ? ORDER BY nombre', [u.cuenta_id]);
+  const todos = await all('SELECT * FROM locales WHERE cuenta_id = ? ORDER BY nombre', [u.cuenta_id]);
+  const conPanel = todos.filter(l => licencias.tieneModulo(l, 'panel_nube'));
+  if (todos.length && !conPanel.length) throw errorHttp(402, 'El panel Morfi Nube está incluido en los planes Pro y Cadenas. Escribinos para pasarte de plan.');
+  return conPanel;
 }
 
 function periodo(q) {
@@ -209,7 +216,8 @@ async function estadoLocales(locales) {
     const trabados = await tienda.pedidosTrabados(l.id);
     const precios = await cartaCentral.cambiosTrabados(l.id);
     return { id: l.id, nombre: l.nombre, cliente: l.cliente, cuenta: cuenta && cuenta.nombre, ultima_sync: l.ultima_sync,
-      minutos_sin_sync: minutos, estado, carta_online: carta ? `/l/${encodeURIComponent(l.cliente)}` : null,
+      minutos_sin_sync: minutos, estado, carta_online: carta && licencias.tieneModulo(l, 'online') ? `/l/${encodeURIComponent(l.cliente)}` : null,
+      plan: { plan: l.plan, extras: licencias.extrasDe(l), vence: l.vence, modulos: licencias.modulosLocal(l) },
       alertas: alertas(l, estado, minutos, trabados, precios) };
   }));
 }
@@ -229,13 +237,24 @@ app.get('/api/soporte/locales', autenticarUsuario, ruta(async (req, res) => {
 
 // ============ ALTAS (las usa nube/alta.js) ============
 
-async function altaLocal({ cuenta, nombre, cliente }) {
+// Un local nuevo arranca en prueba gratis (todo incluido) por 30 días, salvo que se indique el plan
+async function altaLocal({ cuenta, nombre, cliente, plan = 'prueba', vence, extras }) {
   if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(String(cliente || ''))) throw errorHttp(400, 'El cliente va en minúsculas y sin espacios (ej. la-buena-mesa)');
+  const p = licencias.validarPlan({ plan, vence: vence || (plan === 'prueba' ? licencias.venceDePrueba() : null), extras });
   let c = await get('SELECT id FROM cuentas WHERE nombre = ?', [cuenta]);
   if (!c) c = { id: (await run('INSERT INTO cuentas (nombre) VALUES (?)', [cuenta])).id };
   const token = 'mnl_' + crypto.randomBytes(24).toString('hex');
-  const { id } = await run('INSERT INTO locales (cuenta_id, nombre, cliente, token_hash) VALUES (?, ?, ?, ?)', [c.id, nombre, cliente, hashToken(token)]);
-  return { id, cuenta_id: c.id, token };
+  const { id } = await run('INSERT INTO locales (cuenta_id, nombre, cliente, token_hash, plan, vence, extras) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [c.id, nombre, cliente, hashToken(token), p.plan, p.vence, p.extras]);
+  return { id, cuenta_id: c.id, token, ...p };
+}
+
+// Plan contratado de un local (soporte, al cobrar): vence = pagado hasta (vacío = sin vencimiento)
+async function asignarPlan({ cliente, plan, vence, extras }) {
+  const p = licencias.validarPlan({ plan, vence, extras });
+  const { changes } = await run('UPDATE locales SET plan = ?, vence = ?, extras = ? WHERE cliente = ?', [p.plan, p.vence, p.extras, String(cliente || '')]);
+  if (!changes) throw errorHttp(404, `No existe el local "${cliente}"`);
+  return p;
 }
 
 async function altaUsuario({ cuenta, nombre, email, password, rol = 'duenio' }) {
@@ -248,4 +267,4 @@ async function altaUsuario({ cuenta, nombre, email, password, rol = 'duenio' }) 
   return { id };
 }
 
-module.exports = { app, altaLocal, altaUsuario, hashToken };
+module.exports = { app, altaLocal, altaUsuario, asignarPlan, hashToken };

@@ -14,6 +14,7 @@ module.exports = {
   ...require('./util'),
   ...require('./auth'),
   ...require('./permisos'),
+  ...require('./licencia'),
   ...require('./limites'),
   ...require('./realtime'),
   ...require('./servicios/pedidos'),
@@ -33,5 +34,6 @@ module.exports = {
   ...require('./servicios/whatsapp'),
   ...require('./servicios/asistente'),
   ...require('./servicios/recetas'),
+  ...require('./servicios/ganancias'),
   ...require('./servicios/autorizacion'),
 };

@@ -50,6 +50,13 @@ const listo = (async () => {
   // Etapa 2: carta pública de cada local y pedidos online que el local viene a buscar
   const cols = (await all('PRAGMA table_info(locales)')).map(c => c.name);
   if (!cols.includes('ultimo_pedido_poll')) await run('ALTER TABLE locales ADD COLUMN ultimo_pedido_poll TEXT');
+  // Planes (nube/licencias.js): los locales que ya estaban arrancan con 30 días de prueba desde hoy
+  if (!cols.includes('plan')) {
+    await run("ALTER TABLE locales ADD COLUMN plan TEXT NOT NULL DEFAULT 'prueba'");
+    await run("ALTER TABLE locales ADD COLUMN extras TEXT NOT NULL DEFAULT '[]'");
+    await run('ALTER TABLE locales ADD COLUMN vence TEXT');
+    await run("UPDATE locales SET vence = date('now', '+30 days')");
+  }
   await run(`CREATE TABLE IF NOT EXISTS cartas (
     local_id INTEGER PRIMARY KEY, datos TEXT NOT NULL, actualizado_en TEXT DEFAULT CURRENT_TIMESTAMP)`);
   // datos (nombre, teléfono, dirección del cliente) se borra apenas el local recibe el pedido

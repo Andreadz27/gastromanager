@@ -11,6 +11,7 @@ const { emitEvento } = require('../realtime');
 const { errorHttp } = require('../util');
 const { fechaLocal } = require('../tiempo');
 const { recalcularTotales, centavos } = require('./pedidos');
+const { tiene } = require('../licencia');
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -56,7 +57,8 @@ async function asignarCliente(pedidoId, clienteId) {
 // Al cerrarse un pedido (dentro de la misma transacción): suma los puntos del consumo sin propina
 async function acreditarPuntosTx(pedidoId) {
   const cfg = await configPuntos();
-  if (!cfg.activo) return 0;
+  // Sin el módulo en el plan no se suman puntos (los que ya tienen los clientes no se tocan)
+  if (!cfg.activo || !(await tiene('fidelizacion'))) return 0;
   const p = await get('SELECT cliente_id, total, propina, numero_pedido FROM pedidos WHERE id = ?', [pedidoId]);
   if (!p || !p.cliente_id) return 0;
   const puntos = Math.floor(centavos((Number(p.total) || 0) - (Number(p.propina) || 0)) / cfg.cada);

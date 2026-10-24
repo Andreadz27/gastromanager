@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const fs = require('fs');
 const { run, get, all, transaccion } = require('./db');
+const { fechaLocal } = require('./tiempo');
 
 // ============ Migraciones de esquema (se ejecutan al iniciar) ============
 async function agregarColumna(tabla, columna, definicion) {
@@ -186,6 +187,10 @@ async function migrarEsquema() {
   await agregarColumna('configuracion', 'puntos_cada', 'REAL DEFAULT 1000');
   await agregarColumna('configuracion', 'puntos_valor', 'REAL DEFAULT 10');
   await agregarColumna('configuracion', 'puntos_minimo', 'INTEGER DEFAULT 50');
+  // Ganancias (src/servicios/ganancias.js): % de comisión por medio de pago y gastos fijos del mes, en JSON.
+  // Vacío = valores típicos (COMISIONES_TIPICAS)
+  await agregarColumna('configuracion', 'comisiones_pago', "TEXT DEFAULT ''");
+  await agregarColumna('configuracion', 'gastos_fijos', "TEXT DEFAULT ''");
   // clientes.puntos es el saldo; cada cambio queda en puntos_movimientos (gana, canje, devolucion, ajuste)
   await run(`CREATE TABLE IF NOT EXISTS puntos_movimientos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -359,6 +364,10 @@ async function migrarConRespaldo({ respaldar } = {}) {
     await run('CREATE TABLE IF NOT EXISTS meta (clave TEXT PRIMARY KEY, valor TEXT NOT NULL)');
     await run("INSERT INTO meta (clave, valor) VALUES ('huella_migraciones', ?) ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor",
       [HUELLA_MIGRACIONES]);
+    // Comienzo de la prueba gratis (src/licencia.js). Una instalación que ya tenía ventas cuando llegaron los planes
+    // no arranca una prueba: sigue con todo hasta que se le asigne un plan.
+    const { n } = await get('SELECT COUNT(*) AS n FROM pedidos');
+    await run("INSERT OR IGNORE INTO meta (clave, valor) VALUES ('licencia_inicio', ?)", [n > 0 ? 'heredada' : fechaLocal()]);
   });
   return { respaldo };
 }

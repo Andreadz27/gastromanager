@@ -14,11 +14,13 @@ const Dashboard = {
     this._bindSocket();
     try {
       // Cargar en paralelo: métricas del dashboard + inteligencia de negocio
-      const [data, insights] = await Promise.all([
+      const [data, insights, ganancia] = await Promise.all([
         API.getDashboard().catch(e => null),
-        API.getInsights().catch(e => null)
+        API.getInsights().catch(e => null),
+        API.getGananciaHoy().catch(e => null)
       ]);
       this.data = data;
+      this.ganancia = ganancia;
       this.insights = insights;
       this.paint(view);
     } catch (err) {
@@ -36,6 +38,35 @@ const Dashboard = {
     App.socket.on('pedido:pagado', () => {
       if (App.currentView === 'dashboard') this.render();
     });
+  },
+
+  // ¿Cuánto gané hoy? Ganancia bruta (ventas − costo − comisiones) menos la parte del día de los gastos fijos
+  renderGananciaHoy() {
+    const g = this.ganancia;
+    if (!g) return '';
+    const v = g.comparacion.variacion_ganancia;
+    const comparado = v === null ? '' : `<span class="${v >= 0 ? 'text-success' : 'text-danger'}"><i class="fas fa-arrow-${v >= 0 ? 'up' : 'down'}"></i>
+      ${Math.abs(v)} % vs. el mismo día de la semana pasada a esta hora</span>`;
+    const detalle = App.puedeVer('ganancias')
+      ? `<button class="btn btn-outline btn-sm" onclick="App.navigateTo('ganancias')">Ver ganancias <i class="fas fa-arrow-right"></i></button>` : '';
+    const monto = g.hay_gastos_fijos ? g.ganancia_estimada : g.ganancia_bruta;
+    return `
+      <div class="card mb-20 gan-hoy">
+        <div class="gan-hoy-principal">
+          <span class="text-muted">¿Cuánto gané hoy?</span>
+          <h3 class="${monto >= 0 ? 'text-success' : 'text-danger'}">${fmtMoneda(monto)}</h3>
+          <small class="text-muted">${g.hay_gastos_fijos ? 'Estimada: descontando costo, comisiones y la parte del día de los gastos fijos'
+            : 'Ganancia bruta: ventas menos costo y comisiones (cargá tus gastos fijos para estimar la ganancia real)'}</small>
+        </div>
+        <div class="gan-hoy-detalle">
+          <span>Ventas <strong>${fmtMoneda(g.ventas)}</strong></span>
+          <span>Costo <strong>${fmtMoneda(g.costo)}</strong></span>
+          <span>Comisiones <strong>${fmtMoneda(g.comisiones)}</strong></span>
+          ${g.hay_gastos_fijos ? `<span>Fijos del día <strong>${fmtMoneda(g.gastos_fijos_dia)}</strong></span>` : ''}
+          ${comparado}
+          ${detalle}
+        </div>
+      </div>`;
   },
 
   renderAlertas() {
@@ -195,6 +226,8 @@ const Dashboard = {
           </div>
         </div>
       </div>
+
+      ${this.renderGananciaHoy()}
 
       <div class="grid grid-2 mb-20">
         <div class="card">
