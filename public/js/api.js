@@ -76,6 +76,7 @@ const API = {
 
   // ===== Configuración =====
   getConfig() { return this.request('GET', '/config'); },
+  getGananciaHoy() { return this.request('GET', '/ganancias/hoy'); },
   getLicencia() { return this.request('GET', '/licencia'); },
   guardarLicencia(licencia) { return this.request('PUT', '/licencia', { licencia }); },
   updateConfig(data) { return this.request('PUT', '/config', data); },

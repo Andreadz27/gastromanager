@@ -50,7 +50,7 @@ test('el frontend no tiene páginas de diagnóstico ni credenciales escritas', (
 test('demo pública: toda acción de administrador está bloqueada o declarada segura', () => {
   const { BLOQUEADAS } = require('../src/demo');
   const SEGURAS_EN_DEMO = ['PUT /api/config', 'PUT /api/delivery/plataformas', 'POST /api/delivery/plataformas',
-    'DELETE /api/delivery/plataformas/:id'];
+    'DELETE /api/delivery/plataformas/:id', 'PUT /api/ganancias/config'];
   const sinDecidir = [];
   for (const archivo of fs.readdirSync(path.join(RAIZ, 'src', 'rutas'))) {
     const codigo = fs.readFileSync(path.join(RAIZ, 'src', 'rutas', archivo), 'utf8');

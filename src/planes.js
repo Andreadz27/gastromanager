@@ -15,7 +15,7 @@ const MODULOS = {
   whatsapp: 'WhatsApp Business: comprobantes, avisos y recordatorios de reservas',
   personal: 'Personal: fichadas, turnos y reparto de propinas',
   fidelizacion: 'Fidelización: puntos, cupones y gift cards',
-  costos: 'Recetas, costo de cada plato y rentabilidad',
+  costos: 'Ganancias detalladas (por día, mes, plato y canal), recetas y costos',
   contabilidad: 'Contabilidad: gastos, cuentas a pagar, IVA, resultados y libro diario',
   panel_nube: 'Panel Morfi Nube: tus ventas desde el celular',
   multisucursal: 'Varias sucursales y precios centrales',

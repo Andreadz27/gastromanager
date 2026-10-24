@@ -8,7 +8,7 @@ const Plan = {
   datos: null,
 
   // Secciones del menú que dependen del plan
-  VISTA_MODULO: { contabilidad: 'contabilidad', fidelizacion: 'fidelizacion', personal: 'personal' },
+  VISTA_MODULO: { contabilidad: 'contabilidad', fidelizacion: 'fidelizacion', personal: 'personal', ganancias: 'costos' },
 
   async cargar() {
     try { this.datos = await API.getLicencia(); } catch (e) { return; } // sin servidor: queda como estaba

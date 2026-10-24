@@ -451,7 +451,8 @@ const App = {
     dashboard: 'reportes', pos: 'pedidos.tomar', mesas: 'pedidos.ver', pedidos: 'pedidos.ver',
     delivery: 'delivery', cocina: 'cocina', productos: 'catalogo', stock: 'stock.ver',
     proveedores: 'stock.ver', clientes: 'clientes', caja: 'caja.operar', reportes: 'reportes', contabilidad: 'contabilidad',
-    integraciones: 'admin', usuarios: 'admin', config: 'admin', plan: 'admin', qr: 'catalogo', fidelizacion: 'pedidos.cobrar'
+    integraciones: 'admin', usuarios: 'admin', config: 'admin', plan: 'admin', qr: 'catalogo', fidelizacion: 'pedidos.cobrar',
+    ganancias: 'reportes.costos'
   },
 
   puede(permiso) {
@@ -586,7 +587,8 @@ const App = {
       'qr': () => QRView.render(),
       'personal': () => Personal.render(),
       'fidelizacion': () => Fidelizacion.render(),
-      'plan': () => Plan.render()
+      'plan': () => Plan.render(),
+      'ganancias': () => Ganancias.render()
     };
 
     if (renderers[view]) {
