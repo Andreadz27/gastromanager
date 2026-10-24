@@ -29,3 +29,6 @@ _retirado/
 demo/datos/
 demo/salida/
 nube/datos/
+
+# Reportes y evidencias de la suite de QA (npm run qa)
+qa/reportes/salida/

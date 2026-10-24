@@ -1,0 +1,34 @@
+# CP-MOB-02 · El mozo ingresa desde su celular y arranca en Mesas, sin acceso a la caja
+appId: com.android.chrome
+name: CP-MOB-02 · El mozo ingresa desde el celular
+tags:
+  - humo
+  - celular
+env:
+  BASE_URL: http://10.0.2.2:3000
+  # Los mismos usuarios de prueba que Playwright y Postman (qa/datos.js)
+  MOZO_EMAIL: mozo@qa.test
+  MOZO_PASSWORD: Morfi-QA-mozo-7391
+---
+- runFlow: comunes/abrir-chrome.yaml
+- openLink: ${BASE_URL}/
+- extendedWaitUntil:
+    visible: "Tu negocio, a punto."
+    timeout: 20000
+# Chrome expone el id del HTML como resource-id
+- tapOn:
+    id: "loginEmail"
+- inputText: ${MOZO_EMAIL}
+# Enter con la contraseña vacía: el navegador no envía y pasa el foco a la contraseña (tocarla falla si el teclado
+# movió la página)
+- pressKey: Enter
+- inputText: ${MOZO_PASSWORD}
+# Enter envía el formulario (hideKeyboard, sin teclado abierto, funciona como Atrás y cierra Chrome)
+- pressKey: Enter
+# En el celular el nombre del usuario queda en el menú lateral: se reconoce por las mesas y la barra de abajo
+- extendedWaitUntil:
+    visible: ".*Mesa 1.*"
+    timeout: 15000
+- assertVisible: "Mesas"
+- assertNotVisible: "Caja"
+- takeScreenshot: cp-mob-02-mesas-del-mozo

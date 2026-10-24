@@ -10,6 +10,11 @@
     "test": "node --test --test-timeout=60000 \"test/*.test.js\"",
     "test:e2e": "node --test --test-timeout=300000 --test-concurrency=1 \"test/e2e/*.test.js\"",
     "test:todo": "npm test && npm run test:e2e",
+    "qa": "npm run qa:e2e && npm run qa:api && npm run qa:reporte",
+    "qa:e2e": "playwright test -c qa/playwright.config.js",
+    "qa:humo": "playwright test -c qa/playwright.config.js --grep @humo",
+    "qa:api": "node qa/api/correr.js",
+    "qa:reporte": "node qa/reportes/mochawesome.js",
     "demo": "node scripts/demo/iniciar-demo.js",
     "demo:video": "node scripts/demo/grabar-video.js",
     "demo:presentacion": "node scripts/demo/armar-presentacion.js",
@@ -50,8 +55,11 @@
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "eslint": "^9.39.5",
     "globals": "^15.15.0",
+    "mochawesome-report-generator": "6.3.2",
+    "newman": "6.2.3",
     "playwright-core": "^1.63.0"
   }
 }

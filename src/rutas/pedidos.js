@@ -9,9 +9,17 @@ module.exports = function registrarRutas(app) {
 
 // ============ PEDIDOS ============
 
+// Los del selector del POS. DEF-001: antes se guardaba cualquier texto y el pedido quedaba fuera de los reportes por tipo.
+const TIPOS_PEDIDO = ['salon', 'mostrador', 'takeaway', 'delivery'];
+
 app.post('/api/pedidos', autenticar, requiere('pedidos.tomar'), async (req, res) => {
   try {
-    const { tipo, mesa_id, cliente, notas, descuento, propina, plataforma, codigo_externo, direccion, telefono, costo_envio } = req.body;
+    const { cliente, notas, descuento, propina, plataforma, codigo_externo, direccion, telefono, costo_envio } = req.body;
+    const tipo = req.body.tipo || 'salon';
+    if (!TIPOS_PEDIDO.includes(tipo)) return res.status(400).json({ error: 'Tipo de pedido inválido' });
+    // DEF-003: solo el salón usa mesa. Si el POS cambió de "Salón" a "Para llevar" con una mesa elegida, la mandaba igual
+    // y la mesa quedaba con un pedido abierto que no era de ella: el mozo no podía abrirla.
+    const mesa_id = tipo === 'salon' ? req.body.mesa_id || null : null;
     const descuentoVal = importe(descuento);
     const propinaVal = importe(propina);
     // El descuento también se controla al crear el pedido (si no, un mozo podría enviarlo acá).
@@ -26,6 +34,8 @@ app.post('/api/pedidos', autenticar, requiere('pedidos.tomar'), async (req, res)
       const items = await resolverItems(req.body.items);
       // Dos mozos abriendo la misma mesa desde dos celulares: el segundo agrega al pedido abierto
       if (mesa_id) {
+        // DEF-002: sin esto, la base rechazaba la clave foránea con un mensaje genérico
+        if (!await get('SELECT 1 AS x FROM mesas WHERE id = ?', [mesa_id])) throw errorHttp(400, 'La mesa no existe');
         const abierto = await get("SELECT numero_pedido FROM pedidos WHERE mesa_id = ? AND estado = 'abierto' LIMIT 1", [mesa_id]);
         if (abierto) throw errorHttp(409, `La mesa ya tiene el pedido ${abierto.numero_pedido} abierto: agregá los ítems ahí`);
       }
@@ -33,7 +43,7 @@ app.post('/api/pedidos', autenticar, requiere('pedidos.tomar'), async (req, res)
       const result = await run(
         `INSERT INTO pedidos (numero_pedido, tipo, mesa_id, cliente, usuario_id, notas, descuento, propina)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [numero, tipo || 'salon', mesa_id || null, cliente || '', req.usuario.id, notas || '', descuentoVal, propinaVal]
+        [numero, tipo, mesa_id, cliente || '', req.usuario.id, notas || '', descuentoVal, propinaVal]
       );
       const pedidoId = result.id;
 

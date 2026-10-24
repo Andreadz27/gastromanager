@@ -1,0 +1,58 @@
+# Suite de QA (qa/): casos de prueba en Playwright, API en Postman/Newman y reporte Mochawesome.
+# Corre en cada pull request y en main; el reporte queda como artefacto de la corrida ("reporte-qa").
+# Estrategia y casos: docs/qa/ESTRATEGIA-DE-PRUEBAS.md
+name: QA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    name: QA (Playwright + Postman)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Se usa el Chrome instalado; solo falta ffmpeg para el video de los casos que fallan
+      - run: npx playwright install ffmpeg
+      - name: E2E con Playwright (escritorio y celular)
+        id: e2e
+        run: npm run qa:e2e
+        continue-on-error: true
+      - name: API con Postman (Newman)
+        id: api
+        run: npm run qa:api
+        continue-on-error: true
+      - name: Reporte Mochawesome
+        if: always()
+        run: |
+          npm run qa:reporte | tee resumen.txt
+          {
+            echo '### Reporte de QA'
+            tail -n 1 resumen.txt
+            echo
+            echo 'Reporte completo: artefacto **reporte-qa** (mochawesome/index.html y playwright/index.html).'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-qa
+          path: qa/reportes/salida/
+          retention-days: 30
+      - name: Resultado
+        if: steps.e2e.outcome == 'failure' || steps.api.outcome == 'failure'
+        run: |
+          echo "E2E: ${{ steps.e2e.outcome }} · API: ${{ steps.api.outcome }}"
+          exit 1

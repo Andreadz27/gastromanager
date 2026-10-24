@@ -1,0 +1,60 @@
+# Flujos móviles con Maestro en un emulador de Android con Chrome (qa/mobile/).
+# Tarda ~15 minutos (arranca un Android entero): corre a mano (Actions → QA móvil → Run workflow),
+# los lunes, y cuando cambian los flujos.
+name: QA móvil
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * 1' # lunes 6 h de Argentina
+  push:
+    paths:
+      - 'qa/mobile/**'
+      - '.github/workflows/qa-movil.yml'
+
+jobs:
+  maestro:
+    name: Maestro (Android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Morfi de prueba en el puerto 3000
+        run: |
+          PORT=3000 nohup node qa/servidor.js > "$RUNNER_TEMP/servidor.log" 2>&1 &
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:3000/api/salud > /dev/null && break; sleep 1; done
+          curl -fsS http://127.0.0.1:3000/api/salud || (cat "$RUNNER_TEMP/servidor.log"; exit 1)
+      - name: Instalar Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Habilitar KVM (emulador acelerado)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Flujos en el emulador
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            mkdir -p qa/reportes/salida/maestro
+            maestro test qa/mobile --format junit --output qa/reportes/salida/maestro/resultado.xml --test-output-dir qa/reportes/salida/maestro
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-maestro
+          path: qa/reportes/salida/maestro/
+          retention-days: 30

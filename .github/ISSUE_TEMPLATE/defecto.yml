@@ -1,0 +1,66 @@
+name: Defecto
+description: Algo del sistema no funciona como debería
+title: "[Defecto] "
+labels: [defecto]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportarlo. Con pasos claros se arregla más rápido.
+        Severidad y ciclo del defecto: docs/qa/ESTRATEGIA-DE-PRUEBAS.md y docs/qa/DEFECTOS-CONOCIDOS.md.
+  - type: dropdown
+    id: severidad
+    attributes:
+      label: Severidad
+      options:
+        - Crítica (frena la venta o se pierden datos)
+        - Alta (un circuito no funciona y no hay alternativa)
+        - Media (funciona mal, pero hay alternativa)
+        - Baja (molestia o dato poco prolijo)
+    validations:
+      required: true
+  - type: input
+    id: modulo
+    attributes:
+      label: Sección del sistema
+      placeholder: "Ej.: Caja, POS, Mesas, carta del QR, API /api/pedidos"
+    validations:
+      required: true
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para que pase
+      placeholder: |
+        1. Ingresar como cajero
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Qué debería pasar
+    validations:
+      required: true
+  - type: textarea
+    id: obtenido
+    attributes:
+      label: Qué pasa
+      description: Mensaje de error, captura de pantalla o video si hay.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versión o commit
+      placeholder: "Ej.: 1a11290 (Configuración → Acerca de, o git log -1)"
+  - type: dropdown
+    id: donde
+    attributes:
+      label: Dónde
+      options:
+        - PC del local
+        - Celular (mozo)
+        - Celular (cliente, carta del QR)
+        - Demo pública
+        - Morfi Nube
+        - Pruebas automáticas (CI)

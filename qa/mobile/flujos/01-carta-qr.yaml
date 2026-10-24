@@ -1,0 +1,23 @@
+# CP-MOB-01 · El cliente escanea el QR y ve la carta en su celular, filtra por categoría y vuelve a ver todo
+appId: com.android.chrome
+name: CP-MOB-01 · Carta del QR en el celular
+tags:
+  - humo
+  - celular
+env:
+  # 10.0.2.2 es la PC desde el emulador de Android; con un celular real, la IP de la PC en el WiFi del local
+  BASE_URL: http://10.0.2.2:3000
+---
+- runFlow: comunes/abrir-chrome.yaml
+- openLink: ${BASE_URL}/menu.html
+- extendedWaitUntil:
+    visible: "Ensalada César"
+    timeout: 20000
+- assertVisible: "Entradas"
+- assertVisible: ".*4.500.*"
+- takeScreenshot: cp-mob-01-carta
+- tapOn: ".*Postres"
+- extendedWaitUntil:
+    notVisible: "Ensalada César"
+    timeout: 5000
+- takeScreenshot: cp-mob-01-postres

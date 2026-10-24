@@ -1,0 +1,2319 @@
+{
+	"info": {
+		"name": "Morfi · API",
+		"description": "Pruebas de la API de Morfi (casos CP-API de docs/qa/CASOS-DE-PRUEBA.md).\n\nCorrer todo con `npm run qa:api` (levanta un servidor sobre una base nueva y corre esta colección con Newman).\nDesde Postman: importar esta colección y `morfi-local.postman_environment.json`, levantar `npm start` y usar **Run collection** en orden: cada carpeta usa lo que dejó la anterior (tokens, pedido, caja).",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"event": [
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Para todas: la respuesta llega en menos de 2 segundos y, si es JSON, se puede leer",
+					"pm.test('responde en menos de 2 s', () => pm.expect(pm.response.responseTime).to.be.below(2000));",
+					"if ((pm.response.headers.get('Content-Type') || '').includes('json')) pm.test('JSON válido', () => pm.response.json());"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "token_admin",
+			"value": ""
+		},
+		{
+			"key": "token_cajero",
+			"value": ""
+		},
+		{
+			"key": "token_mozo",
+			"value": ""
+		},
+		{
+			"key": "producto_id",
+			"value": "1"
+		},
+		{
+			"key": "producto_precio",
+			"value": ""
+		},
+		{
+			"key": "pedido_id",
+			"value": ""
+		},
+		{
+			"key": "pedido_total",
+			"value": ""
+		}
+	],
+	"item": [
+		{
+			"name": "01 · Salud y carta pública",
+			"description": "Lo que se ve sin iniciar sesión.",
+			"item": [
+				{
+					"name": "Salud del servidor",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/salud",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"salud"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 y ok', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().ok).to.eql(true); });",
+									"pm.test('la base responde', () => pm.expect(pm.response.json().base).to.eql('ok'));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Carta pública",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/publico/menu",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"menu"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const carta = pm.response.json();",
+									"pm.test('200 con categorías y productos', () => {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(carta.categorias).to.be.an('array').that.is.not.empty;",
+									"    pm.expect(carta.productos).to.be.an('array').that.is.not.empty;",
+									"});",
+									"pm.test('cada producto tiene nombre y precio válido', () => carta.productos.forEach(p => {",
+									"    pm.expect(p.nombre).to.be.a('string').and.not.empty;",
+									"    pm.expect(p.precio_venta).to.be.a('number').and.to.be.at.least(0);",
+									"}));",
+									"pm.test('CP-API-SEG · no expone el costo ni datos internos', () => carta.productos.forEach(p => {",
+									"    pm.expect(p).to.not.have.any.keys('costo', 'tn_product_id', 'ingredientes_receta');",
+									"}));",
+									"const ensalada = carta.productos.find(p => p.id === Number(pm.collectionVariables.get('producto_id')));",
+									"if (ensalada) pm.collectionVariables.set('producto_precio', ensalada.precio_venta);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Datos del local",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/publico/info",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"info"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 con el nombre del local', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().nombre).to.be.a('string'); });"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "02 · Autenticación",
+			"description": "Ingreso de cada rol: guarda los tokens para las carpetas siguientes.",
+			"item": [
+				{
+					"name": "Login admin",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email_admin}}\",\n  \"password\": \"{{password_admin}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 y devuelve token', () => {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().token).to.be.a('string');",
+									"});",
+									"pm.test('no devuelve la contraseña', () => pm.expect(pm.response.json().usuario).to.not.have.property('password'));",
+									"pm.collectionVariables.set('token_admin', pm.response.json().token);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Login cajero",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email_cajero}}\",\n  \"password\": \"{{password_cajero}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 y devuelve token', () => {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().token).to.be.a('string');",
+									"});",
+									"pm.test('no devuelve la contraseña', () => pm.expect(pm.response.json().usuario).to.not.have.property('password'));",
+									"pm.collectionVariables.set('token_cajero', pm.response.json().token);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Login mozo",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email_mozo}}\",\n  \"password\": \"{{password_mozo}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 y devuelve token', () => {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().token).to.be.a('string');",
+									"});",
+									"pm.test('no devuelve la contraseña', () => pm.expect(pm.response.json().usuario).to.not.have.property('password'));",
+									"pm.collectionVariables.set('token_mozo', pm.response.json().token);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Login con contraseña incorrecta",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email_cajero}}\",\n  \"password\": \"incorrecta\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400 con mensaje genérico (no dice si el email existe)', () => {",
+									"    pm.response.to.have.status(400);",
+									"    pm.expect(pm.response.json().error).to.eql('Credenciales incorrectas');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Login de un email que no existe",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"nadie@qa.test\",\n  \"password\": \"x\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('mismo 400 y mismo mensaje que con la contraseña mala', () => {",
+									"    pm.response.to.have.status(400);",
+									"    pm.expect(pm.response.json().error).to.eql('Credenciales incorrectas');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Login con un cuerpo que no es JSON",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "esto no es json",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400, no un error 500', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Mis datos y permisos",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"me"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const yo = pm.response.json();",
+									"pm.test('200 con el rol y sus permisos', () => {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(yo.email).to.eql(pm.environment.get('email_cajero') || pm.variables.get('email_cajero'));",
+									"    pm.expect(yo.permisos).to.include('pedidos.cobrar');",
+									"    pm.expect(yo.permisos).to.not.include('admin');",
+									"});"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "03 · Seguridad y permisos",
+			"description": "Sin sesión no hay datos; cada rol solo hace lo suyo.",
+			"item": [
+				{
+					"name": "Pedidos sin sesión",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Pedidos con un token inventado",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos"
+							]
+						},
+						"description": ""
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJpZCI6MX0.firma-falsa' });"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "El cajero no administra usuarios",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/usuarios",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"usuarios"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('403', () => pm.response.to.have.status(403));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "El mozo no abre la caja",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/caja/abrir",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"caja",
+								"abrir"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_mozo}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"monto_inicial\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('403', () => pm.response.to.have.status(403));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "El cajero no cambia el plan",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/licencia",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"licencia"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"licencia\": \"x\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('403', () => pm.response.to.have.status(403));"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "04 · Catálogo",
+			"description": "Productos y categorías; validaciones de alta.",
+			"item": [
+				{
+					"name": "Productos",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/productos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"productos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_admin}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 con productos activos y precio no negativo', () => {",
+									"    pm.response.to.have.status(200);",
+									"    const lista = pm.response.json();",
+									"    pm.expect(lista).to.be.an('array').that.is.not.empty;",
+									"    lista.forEach(p => pm.expect(p.precio_venta).to.be.at.least(0));",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Categorías",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/categorias",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"categorias"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_admin}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 con categorías', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.be.an('array').that.is.not.empty; });"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Producto sin nombre",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/productos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"productos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_admin}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"\",\n  \"precio_venta\": 100,\n  \"categoria_id\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: el nombre es obligatorio', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.match(/nombre/i); });"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Producto con precio negativo",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/productos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"productos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_admin}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"QA negativo\",\n  \"precio_venta\": -100,\n  \"categoria_id\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Mesa sin nombre (DEF-004)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mesas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mesas"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_admin}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"\",\n  \"capacidad\": 4\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: la mesa necesita un nombre', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.match(/nombre/); });"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Mesa con capacidad negativa (DEF-004)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mesas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mesas"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_admin}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"QA negativa\",\n  \"capacidad\": -4\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: capacidad entre 1 y 100', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.match(/capacidad/); });"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "05 · Venta y cobro",
+			"description": "Turno completo: abrir caja, pedido, validaciones, cobro en dos pagos y cierre sin diferencia.",
+			"item": [
+				{
+					"name": "Abrir la caja",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/caja/abrir",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"caja",
+								"abrir"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"monto_inicial\": 5000\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('201', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Abrir la caja dos veces",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/caja/abrir",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"caja",
+								"abrir"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"monto_inicial\": 5000\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: ya hay una caja abierta', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.match(/abierta/); });"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Crear pedido para llevar",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo\": \"takeaway\",\n  \"cliente\": \"Cliente Postman\",\n  \"items\": [\n    {\n      \"producto_id\": \"{{producto_id}}\",\n      \"cantidad\": 2\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const p = pm.response.json();",
+									"pm.test('201 con número de pedido', () => { pm.response.to.have.status(201); pm.expect(p.numero_pedido).to.match(/^P-\\d{8}-\\d{5}$/); });",
+									"pm.test('el total lo calcula el servidor con el precio de la carta', () => pm.expect(p.total).to.eql(2 * Number(pm.collectionVariables.get('producto_precio'))));",
+									"pm.collectionVariables.set('pedido_id', p.id);",
+									"pm.collectionVariables.set('pedido_total', p.total);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Pedido sin ítems",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo\": \"takeaway\",\n  \"items\": []\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.match(/ítems/); });"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Pedido con cantidad cero",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo\": \"takeaway\",\n  \"items\": [\n    {\n      \"producto_id\": \"{{producto_id}}\",\n      \"cantidad\": 0\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: cantidad inválida', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Pedido de un producto que no existe",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo\": \"takeaway\",\n  \"items\": [\n    {\n      \"producto_id\": 999999,\n      \"cantidad\": 1\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: producto no disponible', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Pedido con un tipo que no existe (DEF-001)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo\": \"nave-espacial\",\n  \"items\": [\n    {\n      \"producto_id\": \"{{producto_id}}\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: tipo de pedido inválido', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.eql('Tipo de pedido inválido'); });"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Pedido a una mesa que no existe (DEF-002)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo\": \"salon\",\n  \"mesa_id\": 99999,\n  \"items\": [\n    {\n      \"producto_id\": \"{{producto_id}}\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: la mesa no existe', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.eql('La mesa no existe'); });"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "El precio que manda el navegador no se usa",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo\": \"takeaway\",\n  \"cliente\": \"QA precio trucho\",\n  \"items\": [\n    {\n      \"producto_id\": \"{{producto_id}}\",\n      \"cantidad\": 1,\n      \"precio_unitario\": 1,\n      \"subtotal\": 1\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('CP-API-SEG · cobra el precio de la carta', () => pm.expect(pm.response.json().total).to.eql(Number(pm.collectionVariables.get('producto_precio'))));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Ver el pedido",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos/{{pedido_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos",
+								"{{pedido_id}}"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('abierto, para llevar, con sus ítems', () => {",
+									"    const p = pm.response.json();",
+									"    pm.expect(p.estado).to.eql('abierto');",
+									"    pm.expect(p.tipo).to.eql('takeaway');",
+									"    pm.expect(p.items).to.be.an('array').with.lengthOf(1);",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "La cocina lo recibe",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/cocina",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"cocina"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('está en la lista de cocina', () => pm.expect(pm.response.json().map(p => p.id)).to.include(Number(pm.collectionVariables.get('pedido_id'))));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Cobro con un medio que no existe",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos/{{pedido_id}}/cobro",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos",
+								"{{pedido_id}}",
+								"cobro"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"pagos\": [\n    {\n      \"metodo\": \"bitcoin\",\n      \"monto\": 100\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: método inválido', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Cobro mayor al saldo con tarjeta",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos/{{pedido_id}}/cobro",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos",
+								"{{pedido_id}}",
+								"cobro"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{ \"pagos\": [{ \"metodo\": \"tarjeta\", \"monto\": {{pedido_total}}0 }] }",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: con tarjeta no hay vuelto', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Cobro parcial en efectivo",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos/{{pedido_id}}/cobro",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos",
+								"{{pedido_id}}",
+								"cobro"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"monto\": 1000\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const r = pm.response.json();",
+									"pm.test('queda abierto con saldo', () => {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(r.cerrado).to.eql(false);",
+									"    pm.expect(r.saldo).to.eql(Number(pm.collectionVariables.get('pedido_total')) - 1000);",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Cobro del resto con Mercado Pago",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos/{{pedido_id}}/cobro",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos",
+								"{{pedido_id}}",
+								"cobro"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{ \"pagos\": [{ \"metodo\": \"mercadopago\", \"monto\": {{saldo}} }] }",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('saldo', Number(pm.collectionVariables.get('pedido_total')) - 1000);"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('cierra el pedido sin saldo', () => {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json()).to.include({ cerrado: true, saldo: 0 });",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Cobrar dos veces",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/pedidos/{{pedido_id}}/cobro",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"pedidos",
+								"{{pedido_id}}",
+								"cobro"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"monto\": 100\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('409: ya fue cobrado', () => pm.response.to.have.status(409));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Estado de la caja",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/caja/estado",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"caja",
+								"estado"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const c = pm.response.json();",
+									"pm.test('efectivo esperado = inicial + cobros en efectivo', () => pm.expect(c.resumen.efectivo_esperado).to.eql(5000 + 1000));",
+									"pm.collectionVariables.set('efectivo_esperado', c.resumen.efectivo_esperado);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Cerrar sin contar el efectivo",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/caja/cerrar",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"caja",
+								"cerrar"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400: pide el efectivo contado', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Cerrar la caja",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/caja/cerrar",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"caja",
+								"cerrar"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{ \"monto_final_real\": {{efectivo_esperado}} }",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "La caja quedó cerrada sin diferencia",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/caja/historial",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"caja",
+								"historial"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_admin}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('última caja cerrada con diferencia 0', () => pm.expect(pm.response.json()[0]).to.include({ estado: 'cerrada', diferencia: 0 }));"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "06 · Plan y ganancias",
+			"description": "Licencia y \"¿Cuánto gané hoy?\".",
+			"item": [
+				{
+					"name": "Plan del local",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/licencia",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"licencia"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_admin}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const l = pm.response.json();",
+									"pm.test('instalación nueva: 30 días de prueba con todo', () => {",
+									"    pm.expect(l.plan).to.eql('prueba');",
+									"    pm.expect(l.modulos).to.include.members(['costos', 'mesa_qr', 'whatsapp']);",
+									"});",
+									"pm.test('ofrece los planes a la venta, no el interno', () => {",
+									"    pm.expect(l.planes).to.have.all.keys('esencial', 'pro', 'cadenas');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "¿Cuánto gané hoy?",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/ganancias/hoy",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"ganancias",
+								"hoy"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_admin}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const g = pm.response.json();",
+									"pm.test('incluye las ventas cobradas hoy', () => pm.expect(g.ventas).to.be.at.least(Number(pm.collectionVariables.get('pedido_total'))));",
+									"pm.test('ganancia bruta = ventas sin IVA - costo - comisiones', () => pm.expect(g.ganancia_bruta).to.be.below(g.ventas));",
+									"pm.test('comisión típica de Mercado Pago (4 %) sobre lo cobrado así', () => pm.expect(g.comisiones).to.be.at.least((Number(pm.collectionVariables.get('pedido_total')) - 1000) * 0.04 - 0.01));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "El cajero no ve el detalle de ganancias",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/ganancias/resumen",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"ganancias",
+								"resumen"
+							]
+						},
+						"description": "",
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token_cajero}}",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('403', () => pm.response.to.have.status(403));"
+								]
+							}
+						}
+					]
+				}
+			]
+		}
+	]
+}

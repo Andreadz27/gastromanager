@@ -12,6 +12,9 @@ Actualizarlo cuando se toque una de estas partes o aparezca un bug nuevo.
 | Tests de API, flujos, roles, seguridad, migraciones | `test/*.test.js` → `npm test` | CI (Linux y Windows) |
 | Tests en navegador real | `test/e2e/` → `npm run test:e2e` | CI (Chrome en Linux, Edge en Windows) |
 | El servidor arranca sobre una base nueva | paso "build" del CI | CI |
+| Casos de prueba de QA: E2E (Playwright), API (Postman/Newman), reporte Mochawesome | `qa/` → `npm run qa` (ver `docs/qa/`) | Workflow QA en cada PR y en main |
+| Flujos en un celular Android con Chrome | `qa/mobile/` (Maestro) | Workflow QA móvil: a mano, lunes y al cambiar los flujos |
+| Defectos conocidos, automatizados | `docs/qa/DEFECTOS-CONOCIDOS.md` + `qa/e2e/specs/05-defectos.spec.js` | Workflow QA (avisa cuando uno se arregla) |
 | Prueba de fuego (los tests detectan roturas) | `scripts/prueba-de-fuego.js` → `npm run prueba:fuego` | A mano, antes de una versión grande |
 | Copia antes de migrar + migración en una transacción | `src/migraciones.js` (`migrarConRespaldo`) | Cada vez que arranca el servidor |
 | Deploy de la demo solo con CI en verde | `render.yaml` (`autoDeployTrigger: checksPass`) | Render |

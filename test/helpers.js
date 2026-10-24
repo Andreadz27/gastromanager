@@ -25,7 +25,8 @@ async function iniciarServidor(envExtra = {}, opciones = {}) {
   const env = { ...process.env, GM_DATA_DIR: dataDir, SECRET_KEY, NODE_ENV: 'test', GM_ENV_FILE: path.join(dataDir, 'sin.env') };
   if (!opciones.dataDir) execFileSync(process.execPath, [path.join(RAIZ, 'init-db.js')], { env, stdio: 'ignore' });
 
-  const port = await puertoLibre();
+  // envExtra.PORT: puerto fijo (qa/servidor.js, para Maestro); si no, uno libre cualquiera
+  const port = Number(envExtra.PORT) || await puertoLibre();
   const proc = spawn(process.execPath, [path.join(RAIZ, 'server.js')], { env: { ...env, ...envExtra, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = '';
   proc.stdout.on('data', d => { log += d; });
