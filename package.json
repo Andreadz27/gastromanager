@@ -25,7 +25,8 @@
     "prueba:fuego": "node scripts/prueba-de-fuego.js",
     "actualizar": "node scripts/actualizar.js",
     "restaurar": "node scripts/restaurar.js",
-    "nube": "node nube/servidor.js"
+    "nube": "node nube/servidor.js",
+    "legales": "node scripts/datos-legales.js"
   },
   "engines": {
     "node": ">=22"

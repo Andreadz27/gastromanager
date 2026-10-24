@@ -1,0 +1,42 @@
+/* Páginas legales (privacidad.html, terminos.html): texto largo para leer, sin las secciones de la landing */
+.legal-header { border-bottom: 1px solid var(--border); padding: 1rem 0; }
+.legal-header .container { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.legal-header .navbar-logo { display: flex; align-items: center; gap: .5rem; }
+.legal-header nav { display: flex; gap: 1.25rem; font-size: .92rem; font-weight: 600; color: var(--gray); }
+.legal-header nav a:hover, .legal-header nav a[aria-current] { color: var(--primary); }
+
+.legal { max-width: 780px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+.legal h1 { font-size: clamp(1.7rem, 3.5vw, 2.3rem); font-weight: 800; line-height: 1.2; color: var(--dark); }
+.legal .vigencia { color: var(--gray); font-size: .92rem; margin: .5rem 0 1.75rem; }
+.legal .resumen { background: var(--light); border: 1px solid var(--border); border-left: 4px solid var(--primary);
+  border-radius: var(--radius); padding: 1.1rem 1.3rem; margin-bottom: 2rem; }
+.legal .resumen h2 { margin-top: 0; font-size: 1.05rem; }
+.legal .indice { columns: 2; column-gap: 2rem; font-size: .92rem; margin-bottom: 2rem; padding-left: 1.2rem; list-style: decimal; }
+.legal .indice a { color: var(--primary); }
+.legal h2 { font-size: 1.25rem; font-weight: 700; color: var(--dark); margin: 2.25rem 0 .6rem; scroll-margin-top: 1rem; }
+.legal h3 { font-size: 1rem; font-weight: 700; color: var(--dark2); margin: 1.25rem 0 .4rem; }
+.legal p, .legal li { color: #334155; }
+.legal p + p { margin-top: .75rem; }
+.legal ul, .legal ol.lista { list-style: disc; padding-left: 1.3rem; margin: .6rem 0; }
+.legal ol.lista { list-style: lower-alpha; }
+.legal li + li { margin-top: .35rem; }
+.legal a { color: var(--primary); text-decoration: underline; }
+.legal table { width: 100%; border-collapse: collapse; margin: .9rem 0; font-size: .92rem; }
+.legal th, .legal td { border: 1px solid var(--border); padding: .55rem .7rem; text-align: left; vertical-align: top; }
+.legal th { background: var(--light); font-weight: 700; color: var(--dark); }
+.legal .tabla { overflow-x: auto; }
+.legal .aviso-ley { font-size: .88rem; color: var(--gray); border-top: 1px solid var(--border); margin-top: 2.5rem; padding-top: 1rem; }
+/* Datos que el titular de Morfi tiene que completar antes de publicar (ver docs/legales/README.md) */
+.completar { background: #fef08a; color: #713f12; padding: 0 .25rem; border-radius: 3px; font-weight: 600; }
+
+.legal-footer { border-top: 1px solid var(--border); padding: 1.5rem 0; font-size: .88rem; color: var(--gray); text-align: center; }
+.legal-footer a { color: var(--primary); }
+
+@media (max-width: 640px) {
+  .legal .indice { columns: 1; }
+  .legal-header nav { gap: .9rem; }
+}
+@media print {
+  .legal-header nav, .legal-footer, .legal .indice { display: none; }
+  .legal { padding: 0; }
+}
