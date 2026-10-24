@@ -19,22 +19,23 @@ los días de prueba o de gracia o los precios.
    `grep -n 'class="completar"' landing/*.html`.
    - Nombre o razón social, CUIT y domicilio del titular de Morfi.
    - Email de contacto.
-   - Fecha de publicación.
    - Condición frente al IVA: precios con IVA incluido, más IVA, o monotributista.
-   - Medios de pago.
-   - Días y horario de soporte.
-   - Proveedor de hosting de Morfi Nube (cuando se elija).
    - Ciudad o departamento judicial para la jurisdicción.
-   - Número de inscripción en el Registro Nacional de Bases de Datos (ver el punto 3).
-2. **Confirmar las decisiones** que quedaron con un valor propuesto entre corchetes:
-   - Días para borrar los datos de Morfi Nube después de la baja: **[30]**.
-   - Meses que se guardan las consultas de quien no contrata: **[12]**.
-   - Tope de responsabilidad: lo pagado en los últimos **[3]** meses.
-   - Reintegro en la baja: el mes en curso no se reintegra; en pagos semestrales o anuales se reintegran los meses
+2. **Decisiones tomadas** (24/10/2026). Si cambia alguna, actualizarla también en las páginas:
+   - Fecha de vigencia: 24 de octubre de 2026. Cambiarla si la publicación es otro día.
+   - Medios de pago: transferencia bancaria o Mercado Pago.
+   - Soporte: de lunes a sábado de 10 a 20 h. Si el local no puede vender ni cobrar, se atiende primero.
+   - Hosting de Morfi Nube: "se informa a pedido". Cuando se elija, nombrarlo en `privacidad.html`, punto 6.
+   - Los datos de Morfi Nube se borran 30 días después de la baja.
+   - Las consultas de quien no contrata se guardan 12 meses.
+   - Tope de responsabilidad: lo pagado en los últimos 3 meses.
+   - Reintegro en la baja: el mes en curso no se reintegra. En pagos semestrales o anuales se reintegran los meses
      enteros no usados, a precio mensual.
 3. **Inscribir la base de datos de clientes de Morfi** en el Registro Nacional de Bases de Datos de la Agencia de
    Acceso a la Información Pública (AAIP). Es un trámite gratuito en Trámites a Distancia (TAD), con clave fiscal.
-   Se inscribe la base de "clientes y prospectos": dueños de locales, contactos y cuentas de Morfi Nube.
+   Se inscribe la base de "clientes y prospectos": dueños de locales, contactos y cuentas de Morfi Nube. Con el
+   número de inscripción, agregar en `privacidad.html`, punto 1: "Base de datos inscripta en el Registro Nacional
+   de Bases de Datos con el número …".
 4. **Que lo revise un abogado.** Los textos siguen la Ley 25.326, el Código Civil y Comercial (contratos de adhesión,
    arts. 984 a 989) y lo que hace el sistema hoy. No reemplazan el asesoramiento profesional, sobre todo en la
    limitación de responsabilidad y la jurisdicción.
