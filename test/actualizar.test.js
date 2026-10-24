@@ -40,8 +40,13 @@ test('actualiza a la versión nueva con copia previa; sin cambios no hace nada; 
     assert.match(r.stdout, /Versión nueva disponible/);
     assert.notEqual(git(inst, 'rev-parse', 'HEAD'), nueva, '--solo-revisar no cambia nada');
 
-    r = actualizar();
+    // El actualizador no puede cargar sqlite3: en Windows npm ci no podría borrar node_sqlite3.node (EPERM)
+    const espia = path.join(tmp, 'espia.js'), cargados = path.join(tmp, 'cargados.txt');
+    fs.writeFileSync(espia, `process.on('exit', () => { if (process.argv[1] && process.argv[1].endsWith('actualizar.js'))
+      require('fs').writeFileSync(${JSON.stringify(cargados)}, Object.keys(require.cache).join('\\n')); });`);
+    r = spawnSync(process.execPath, ['--require', espia, path.join(inst, 'scripts', 'actualizar.js'), '--sin-npm', '--sin-reiniciar'], { cwd: inst, env, encoding: 'utf8' });
     assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.doesNotMatch(fs.readFileSync(cargados, 'utf8'), /[\\/]sqlite3[\\/]/, 'sqlite3 se carga solo en el proceso de la copia');
     assert.equal(git(inst, 'rev-parse', 'HEAD'), nueva);
     assert.ok(fs.existsSync(path.join(inst, 'NOVEDAD.txt')));
     assert.match(r.stdout, /Copia de seguridad previa: morfi_/);
