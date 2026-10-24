@@ -108,6 +108,7 @@ que recibió.
 **Local sin Morfi Nube:** soporte genera la licencia en la nube y el administrador del local la pega en
 *Tu plan → Licencia*.
 
-**Contacto de ventas:** el botón "Quiero este plan" usa `MORFI_VENTAS_WHATSAPP` (solo números, con 549) o
-`MORFI_VENTAS_EMAIL` del `.env` de cada local. Sin ninguno de los dos, la pantalla dice "Pedíselo a quien te
-instaló Morfi".
+**Contacto de ventas:** WhatsApp **11 2390-0155** (`5491123900155`, por defecto en `src/planes.js`). Lo usan el botón
+"Quiero este plan" de *Tu plan* y los botones de la landing (precios y contacto), con el mensaje ya escrito.
+Para que un local muestre otro contacto (por ejemplo, un revendedor): `MORFI_VENTAS_WHATSAPP` (solo números, con 549)
+o `MORFI_VENTAS_EMAIL` en su `.env`. Si se cambia el número de Morfi: `src/planes.js` y `landing/index.html`.

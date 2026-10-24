@@ -51,7 +51,8 @@ const DESCUENTOS = { semestral: 0.10, anual: 2 / 12 };
 
 // A dónde escribe el cliente para contratar o cambiar de plan (botón "Quiero este plan")
 const VENTAS = {
-  whatsapp: process.env.MORFI_VENTAS_WHATSAPP || '', // con código de país, solo números: 5491112345678
+  // El de Morfi (11 2390-0155); MORFI_VENTAS_WHATSAPP lo cambia (por ejemplo, un revendedor). Con código de país, solo números
+  whatsapp: process.env.MORFI_VENTAS_WHATSAPP || '5491123900155',
   email: process.env.MORFI_VENTAS_EMAIL || ''
 };
 
