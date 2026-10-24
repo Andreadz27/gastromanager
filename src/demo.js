@@ -22,6 +22,8 @@ const BLOQUEADAS = [
   [/^\/api\/auth\/password$/, ['PUT']],
   [/^\/api\/impresoras(\/|$)/, ['POST', 'PUT', 'DELETE']],
   [/^\/api\/impresion\/config$/, ['PUT']],
+  // La demo tiene todo: no hay licencia que cargar
+  [/^\/api\/licencia$/, ['PUT']],
   [/^\/api\/integraciones\//, ['POST', 'PUT', 'DELETE']],
   [/^\/api\/delivery\/plataformas\/[^/]+\/integracion/, ['POST', 'PUT']],
   [/^\/api\/backups$/, ['POST']],

@@ -147,6 +147,7 @@ sin noticias hace más de 15 minutos, sin copia de seguridad, facturas que ARCA 
 **Montar la nube (una vez):** cualquier servidor con Node 22 (un VPS de Hetzner o DigitalOcean, o Render/Railway con
 disco persistente). Copiar el repositorio, `npm ci --omit=dev` y arrancar con `npm run nube` (PM2 o el servicio del
 proveedor). Variables: `PORT`, `NUBE_DATOS` (carpeta persistente de la base), `NUBE_SECRETO` (48 caracteres al azar)
+`NUBE_CLAVE_LICENCIAS` (la clave privada de licencias: ver docs/PLANES.md)
 y `TRUST_PROXY=true` si va detrás de un proxy con https. Siempre con https (Cloudflare o el del proveedor).
 Hacer copia de la carpeta `NUBE_DATOS`: si se pierde, los locales vuelven a mandar lo que tengan sin enviar, no el historial.
 

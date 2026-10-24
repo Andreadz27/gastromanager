@@ -669,3 +669,27 @@ test('fidelización en el cobro: el cajero elige el cliente, canjea puntos, apli
   sinErrores(page);
   await page.context().close();
 });
+
+test('plan Esencial: Contabilidad con candado explica qué plan la tiene; "Tu plan" muestra los planes', async () => {
+  const [{ valor: inicio }] = await s.q("SELECT valor FROM meta WHERE clave = 'licencia_inicio'");
+  await s.q("UPDATE meta SET valor = '2020-01-01' WHERE clave = 'licencia_inicio'");
+  await s.q('UPDATE configuracion SET setup_completado = 1'); // sin el asistente de primer ingreso
+  try {
+    const page = await nuevaPagina();
+    await ingresarOk(page, 'admin@morfi.local', 'admin123');
+    await page.waitForSelector('a.nav-item[data-view="contabilidad"].nav-bloqueado .nav-candado');
+    await page.waitForSelector('#avisoPlan:has-text("Terminó la prueba gratis")');
+    assert.equal(await page.isVisible('#btnFichar'), false, 'sin el módulo Personal no hay botón de fichar');
+    await page.click('a.nav-item[data-view="contabilidad"]');
+    await page.waitForSelector('.plan-mejora:has-text("plan Pro")');
+    assert.notEqual(await vistaActiva(page), 'contabilidad');
+    await page.click('.plan-mejora button:has-text("Ver planes")');
+    await page.waitForSelector('#view-plan.active .plan-tarjeta.actual:has-text("Esencial")');
+    assert.equal(await page.locator('#view-plan .plan-tarjeta').count(), 3);
+    assert.match(await page.textContent('#view-plan .plan-tarjeta.destacado'), /49\.900/);
+    sinErrores(page);
+    await page.context().close();
+  } finally {
+    await s.q("UPDATE meta SET valor = ? WHERE clave = 'licencia_inicio'", [inicio]);
+  }
+});

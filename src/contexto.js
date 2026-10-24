@@ -14,6 +14,7 @@ module.exports = {
   ...require('./util'),
   ...require('./auth'),
   ...require('./permisos'),
+  ...require('./licencia'),
   ...require('./limites'),
   ...require('./realtime'),
   ...require('./servicios/pedidos'),

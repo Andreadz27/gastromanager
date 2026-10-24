@@ -10,6 +10,7 @@ const { run, get, all } = require('../db');
 const { emitEvento } = require('../realtime');
 const { offsetZonaMin } = require('../tiempo');
 const { getIntCfg } = require('./integraciones');
+const { tiene, errorPlan, estadoLicencia } = require('../licencia');
 // Se carga al usarlo: el asistente usa pedidos, que a su vez avisan por WhatsApp
 const asistente = () => require('./asistente');
 
@@ -68,6 +69,8 @@ async function waRequest(cfg, body) {
 // con unico = true no se manda dos veces el mismo aviso automático.
 const enCurso = new Set();
 async function enviarPlantilla({ telefono, plantilla, parametros = [], motivo, referencia = null, unico = false, cfg }) {
+  // Los avisos por WhatsApp son del plan Pro (el asistente contesta con enviarTexto: es un extra aparte)
+  if (!(await tiene('whatsapp'))) throw errorPlan('whatsapp', await estadoLicencia());
   cfg = cfg || await configWhatsApp();
   if (!listo(cfg)) throw Object.assign(new Error('WhatsApp no está configurado o activo (Integraciones → WhatsApp).'), { status: 400 });
   const destino = normalizarTelefono(telefono);
@@ -176,7 +179,7 @@ async function avisarEstadoPedidoSinCapturar(pedidoId, estado) {
 async function enviarRecordatoriosReservas() {
   const cfg = await configWhatsApp();
   const horas = Number(cfg.recordatorio_horas) || 0;
-  if (!listo(cfg) || horas <= 0) return 0;
+  if (!listo(cfg) || horas <= 0 || !(await tiene('whatsapp'))) return 0;
   const local = ms => new Date(ms + offsetZonaMin() * 60000).toISOString().slice(0, 16).replace('T', ' ');
   const ahora = local(Date.now());
   const hasta = local(Date.now() + horas * 3600e3);
@@ -242,7 +245,7 @@ async function procesarWebhook(body) {
         emitEvento('whatsapp:entrante', { telefono: m.from, nombre: contactos[m.from] || '', texto: String(texto).slice(0, 200) });
         // Asistente IA (si está activo): contesta en segundo plano; no a mensajes viejos (Meta reintenta tras un corte)
         const reciente = !m.timestamp || Date.now() / 1000 - Number(m.timestamp) < 30 * 60;
-        if (reciente && m.from) {
+        if (reciente && m.from && await tiene('asistente')) {
           const tipo = m.type === 'text' || m.type === 'button' || !m.type ? 'text' : m.type;
           asistente().atender({ telefono: String(m.from), nombre: contactos[m.from] || '', texto, tipo },
             { enviar: t => enviarTexto({ telefono: String(m.from), texto: t }) });

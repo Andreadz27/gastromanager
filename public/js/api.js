@@ -76,6 +76,8 @@ const API = {
 
   // ===== Configuración =====
   getConfig() { return this.request('GET', '/config'); },
+  getLicencia() { return this.request('GET', '/licencia'); },
+  guardarLicencia(licencia) { return this.request('PUT', '/licencia', { licencia }); },
   updateConfig(data) { return this.request('PUT', '/config', data); },
   getPerfilesNegocio() { return this.request('GET', '/config/perfiles'); },
 
